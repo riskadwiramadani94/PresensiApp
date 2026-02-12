@@ -14,11 +14,13 @@ import {
   TouchableOpacity,
   View,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  StatusBar as RNStatusBar
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { API_CONFIG, getApiUrl } from "../../constants/config";
-import { SkeletonLoader } from "../../components";
+import { SkeletonLoader, AppHeader } from "../../components";
 import * as ImagePicker from 'expo-image-picker';
 
 interface AdminProfile {
@@ -32,6 +34,7 @@ interface AdminProfile {
 
 export default function ProfilAdminScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoutModal, setLogoutModal] = useState(false);
@@ -224,6 +227,18 @@ export default function ProfilAdminScreen() {
 
   return (
     <View style={styles.container}>
+      <RNStatusBar 
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      
+      {/* HEADER */}
+      <AppHeader 
+        title="Profil"
+        showBack={false}
+      />
+      
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         {/* SECTION: PROFILE INFO */}
@@ -426,7 +441,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   profileInfo: {

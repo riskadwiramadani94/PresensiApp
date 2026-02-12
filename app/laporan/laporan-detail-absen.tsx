@@ -297,7 +297,7 @@ export default function LaporanDetailAbsenScreen() {
               <Ionicons name="search-outline" size={20} color="#666" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Cari nama pegawai atau NIP..."
+                placeholder="Cari pegawai..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholderTextColor="#999"

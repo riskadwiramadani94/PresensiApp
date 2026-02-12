@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View } from 'react-native';
 
-export default function TabLayout() {
+export default function PegawaiTabLayout() {
   return (
     <Tabs 
       screenOptions={{ 
@@ -25,7 +25,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen 
-        name="beranda" 
+        name="dashboard-pegawai" 
         options={{ 
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (

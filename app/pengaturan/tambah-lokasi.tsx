@@ -6,11 +6,13 @@ import { useRouter } from 'expo-router';
 import { PengaturanAPI } from '../../constants/config';
 import * as Location from 'expo-location';
 import { AppHeader } from '../../components';
+import MapPicker from '../../components/MapPicker';
 
 export default function TambahLokasiScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [showMapModal, setShowMapModal] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [locationFromMap, setLocationFromMap] = useState<{latitude: number, longitude: number, address: string} | null>(null);
   const [markerPosition, setMarkerPosition] = useState<{latitude: number, longitude: number} | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -301,7 +303,7 @@ export default function TambahLokasiScreen() {
         longitude: markerPosition.longitude,
         alamat: address
       });
-      setShowMapModal(false);
+      setShowMapPicker(false);
       setMarkerPosition(null);
     } catch (error) {
       Alert.alert('Info', 'Gagal mendapatkan alamat');
@@ -309,13 +311,28 @@ export default function TambahLokasiScreen() {
   };
 
   const handleSave = async () => {
-    if (!formData.namaLokasi.trim() || !formData.alamat.trim()) {
-      Alert.alert('Info', 'Nama lokasi dan alamat wajib diisi');
+    if (!formData.namaLokasi.trim()) {
+      Alert.alert('Info', 'Nama lokasi wajib diisi');
+      return;
+    }
+
+    if (!formData.alamat.trim()) {
+      Alert.alert('Info', 'Alamat wajib diisi');
       return;
     }
 
     if (!formData.latitude || !formData.longitude) {
-      Alert.alert('Info', 'Koordinat latitude dan longitude wajib diisi');
+      Alert.alert(
+        'Koordinat Belum Dipilih',
+        'Silakan pilih lokasi di peta untuk mendapatkan koordinat yang akurat.',
+        [
+          { text: 'Batal', style: 'cancel' },
+          { 
+            text: 'Pilih di Peta', 
+            onPress: () => setShowMapPicker(true) 
+          }
+        ]
+      );
       return;
     }
 
@@ -339,8 +356,8 @@ export default function TambahLokasiScreen() {
       const response = await PengaturanAPI.saveLokasiKantor({
         nama_lokasi: formData.namaLokasi.trim(),
         alamat: formData.alamat.trim(),
-        latitude: formData.latitude,
-        longitude: formData.longitude,
+        lintang: formData.latitude,
+        bujur: formData.longitude,
         radius: parseInt(formData.radius),
         jenis_lokasi: formData.jenis
       });
@@ -441,47 +458,41 @@ export default function TambahLokasiScreen() {
             <Ionicons name="location-outline" size={20} color="#666" />
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Alamat lengkap..."
+              placeholder="Ketik alamat atau pilih dari peta"
               value={formData.alamat}
               onChangeText={(text) => setFormData({ ...formData, alamat: text })}
               multiline
-              numberOfLines={2}
+              numberOfLines={3}
             />
           </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Latitude *</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="navigate-outline" size={20} color="#666" />
-            <TextInput
-              style={styles.input}
-              placeholder="Contoh: -6.2088"
-              value={formData.latitude?.toString() || ''}
-              onChangeText={(text) => {
-                const num = parseFloat(text);
-                setFormData({ ...formData, latitude: isNaN(num) ? null : num });
-              }}
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Longitude *</Text>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="navigate-outline" size={20} color="#666" />
-            <TextInput
-              style={styles.input}
-              placeholder="Contoh: 106.8456"
-              value={formData.longitude?.toString() || ''}
-              onChangeText={(text) => {
-                const num = parseFloat(text);
-                setFormData({ ...formData, longitude: isNaN(num) ? null : num });
-              }}
-              keyboardType="numeric"
-            />
-          </View>
+          
+          <TouchableOpacity 
+            style={styles.mapButton}
+            onPress={() => setShowMapPicker(true)}
+          >
+            <Ionicons name="map-outline" size={20} color="#004643" />
+            <Text style={styles.mapButtonText}>
+              {locationFromMap ? 'Ubah Lokasi di Peta' : 'Pilih Lokasi di Peta'}
+            </Text>
+          </TouchableOpacity>
+          
+          {locationFromMap && (
+            <View style={styles.coordInfo}>
+              <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+              <Text style={styles.coordText}>
+                Koordinat: {locationFromMap.latitude.toFixed(6)}, {locationFromMap.longitude.toFixed(6)}
+              </Text>
+            </View>
+          )}
+          
+          {!locationFromMap && (
+            <View style={styles.warningInfo}>
+              <Ionicons name="alert-circle" size={16} color="#FF9800" />
+              <Text style={styles.warningText}>
+                Koordinat belum dipilih. Klik tombol di atas untuk pilih lokasi.
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.formGroup}>
@@ -525,6 +536,25 @@ export default function TambahLokasiScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      <MapPicker
+        visible={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        onConfirm={(data) => {
+          setLocationFromMap(data);
+          setFormData({
+            ...formData,
+            alamat: data.address,
+            latitude: data.latitude,
+            longitude: data.longitude
+          });
+          setShowMapPicker(false);
+        }}
+        initialLocation={locationFromMap ? {
+          latitude: locationFromMap.latitude,
+          longitude: locationFromMap.longitude
+        } : undefined}
+      />
     </View>
   );
 }
@@ -641,12 +671,6 @@ const styles = StyleSheet.create({
     color: '#004643',
     marginLeft: 8,
     flex: 1
-  },
-  coordText: {
-    fontSize: 11,
-    color: '#666',
-    marginTop: 5,
-    fontFamily: 'monospace'
   },
   unitText: {
     fontSize: 14,
@@ -876,5 +900,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 4
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F8F7',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#004643',
+    borderStyle: 'dashed'
+  },
+  mapButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#004643',
+    marginLeft: 8
+  },
+  coordInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8
+  },
+  coordText: {
+    fontSize: 11,
+    color: '#2E7D32',
+    marginLeft: 6,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'
+  },
+  warningInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8
+  },
+  warningText: {
+    fontSize: 11,
+    color: '#E65100',
+    marginLeft: 6
   }
 });

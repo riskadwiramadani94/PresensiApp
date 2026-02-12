@@ -1,7 +1,7 @@
 // Konfigurasi API untuk HadirinApp - Node.js Backend
 
 const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
-const BASE_URL = __DEV__ ? 'http://10.251.109.53:3000' : 'http://10.251.109.53:3000';
+const BASE_URL = __DEV__ ? 'http://10.251.109.21:3000' : 'http://10.251.109.21:3000';
 
 const debugLog = (message: string, data?: any) => {
   if (isDevelopment) {
@@ -474,10 +474,11 @@ export const PengaturanAPI = {
   
   deleteLokasi: async (id: number) => {
     try {
-      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.LOKASI_KANTOR)}/${id}`, {
+      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.LOKASI_KANTOR)}/${id}`, {
         method: 'DELETE',
       });
-      return response.json();
+      const result = await response.json();
+      return result;
     } catch (error) {
       return { success: false, message: 'Tidak dapat terhubung ke server' };
     }

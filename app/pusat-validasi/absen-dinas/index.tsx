@@ -81,6 +81,13 @@ export default function AbsenDinasValidasiScreen() {
         });
         
         setDinasData(dinasAktif);
+        
+        // Auto-select today's date and load pegawai data
+        if (dinasAktif.length > 0) {
+          const todayString = getTodayDateString();
+          setSelectedDate(todayString);
+          setPegawaiData(dinasAktif[0].pegawai || []);
+        }
       }
     } catch (error) {
       console.error('Error fetching dinas:', error);
@@ -240,6 +247,18 @@ export default function AbsenDinasValidasiScreen() {
             horizontal 
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.calendarScrollContent}
+            ref={(ref) => {
+              if (ref && selectedDate) {
+                const todayString = getTodayDateString();
+                const dates = generateDates(item.tanggal_mulai, item.tanggal_selesai);
+                const todayIndex = dates.findIndex(d => d.fullDate === todayString);
+                if (todayIndex > 0) {
+                  setTimeout(() => {
+                    ref.scrollTo({ x: todayIndex * 80, animated: true });
+                  }, 100);
+                }
+              }
+            }}
           >
             {generateDates(item.tanggal_mulai, item.tanggal_selesai).map((dateItem) => {
               const todayString = getTodayDateString();

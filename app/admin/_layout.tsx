@@ -2,21 +2,25 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function NavbarLayout() {
+export default function AdminTabLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: '#004643',
-        tabBarInactiveTintColor: '#888',
+        tabBarInactiveTintColor: '#999',
         tabBarStyle: {
-          height: 65,
+          height: 70,
           paddingBottom: 10,
-          paddingTop: 5,
+          paddingTop: 10,
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: '#F0F0F0'
         },
-        headerShown: false,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500'
+        }
       }}
     >
       <Tabs.Screen

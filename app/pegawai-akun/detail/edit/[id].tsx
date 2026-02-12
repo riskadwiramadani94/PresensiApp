@@ -123,18 +123,18 @@ export default function EditPegawai() {
         fallbackRoute="/pegawai-akun/data-pegawai-admin"
       />
 
-      <View style={styles.contentWrapper}>
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
-          contentContainerStyle={styles.scrollContent}
-        >
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Informasi Pribadi */}
-        <View style={styles.formCard}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="person-outline" size={20} color="#004643" />
-            <Text style={styles.cardTitle}>Informasi Pribadi</Text>
-          </View>
-          <View style={styles.cardContent}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="person-outline" size={20} color="#004643" />
+          <Text style={styles.sectionTitle}>Informasi Pribadi</Text>
+        </View>
+        <View style={styles.divider} />
+        
+        <View style={styles.formContent}>
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nama Lengkap *</Text>
               <TextInput
@@ -210,15 +210,15 @@ export default function EditPegawai() {
               />
             </View>
           </View>
-        </View>
 
         {/* Informasi Kepegawaian */}
-        <View style={styles.formCard}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="briefcase-outline" size={20} color="#004643" />
-            <Text style={styles.cardTitle}>Informasi Kepegawaian</Text>
-          </View>
-          <View style={styles.cardContent}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="briefcase-outline" size={20} color="#004643" />
+          <Text style={styles.sectionTitle}>Informasi Kepegawaian</Text>
+        </View>
+        <View style={styles.divider} />
+        
+        <View style={styles.formContent}>
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Jabatan</Text>
               <TextInput
@@ -249,15 +249,15 @@ export default function EditPegawai() {
               />
             </View>
           </View>
-        </View>
 
         {/* Informasi Akun Login */}
-        <View style={styles.formCard}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="key-outline" size={20} color="#004643" />
-            <Text style={styles.cardTitle}>Informasi Akun Login</Text>
-          </View>
-          <View style={styles.cardContent}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="key-outline" size={20} color="#004643" />
+          <Text style={styles.sectionTitle}>Informasi Akun Login</Text>
+        </View>
+        <View style={styles.divider} />
+        
+        <View style={styles.formContent}>
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email *</Text>
               <TextInput
@@ -296,11 +296,8 @@ export default function EditPegawai() {
               <Text style={styles.helperText}>*Kosongkan jika tidak ingin mengubah password</Text>
             </View>
           </View>
-        </View>
-
 
       </ScrollView>
-      </View>
       
       {/* Button Footer - Fixed di bawah seperti header */}
       <View style={styles.buttonFooter}>
@@ -326,51 +323,43 @@ export default function EditPegawai() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFB',
-  },
-  contentWrapper: {
-    flex: 1,
     backgroundColor: '#fff',
   },
   scrollContent: {
-    paddingTop: 20,
     paddingBottom: 20,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFB',
+    backgroundColor: '#fff',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: '#666',
   },
-  formCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
-    marginHorizontal: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  cardHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
-  cardTitle: {
+  sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#004643',
-    marginLeft: 8,
+    marginLeft: 8
   },
-  cardContent: {
-    padding: 15,
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  formContent: {
+    paddingHorizontal: 20,
   },
   inputGroup: {
     marginBottom: 16,
@@ -382,17 +371,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   textInput: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    backgroundColor: '#fff',
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
   },
   textArea: {
-    height: 80,
     textAlignVertical: 'top',
+    minHeight: 80
   },
   genderContainer: {
     flexDirection: 'row',
@@ -402,24 +392,22 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
     borderRadius: 8,
+    backgroundColor: '#F8F9FA',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
   },
   genderBtnActive: {
-    backgroundColor: '#004643',
-    borderColor: '#004643',
+    backgroundColor: '#004643'
   },
   genderText: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#666'
   },
   genderTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: '#fff'
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -427,13 +415,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#F8F9FA',
   },
   passwordInput: {
     flex: 1,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
   },
   eyeButton: {
     padding: 12,

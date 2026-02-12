@@ -86,7 +86,7 @@ export default function AppHeader({
 
 const styles = StyleSheet.create({
   headerSection: {
-    paddingTop: Platform.OS === "ios" ? 0 : 40,
+    paddingTop: Platform.OS === "ios" ? 5 : 35,
     paddingBottom: 10,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: Platform.OS === "ios" ? 20 : 18,
     fontWeight: "bold",
     alignItems: "center",
   },
@@ -125,7 +125,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   addButton: {
-    padding: 8,
+    position: "absolute",
+    right: 0,
+    padding: 0,
   },
   addButtonText: {
     display: "none",

@@ -66,11 +66,20 @@ export default function LokasiKantorScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              // Simulasi delete - ganti dengan API call yang benar
-              Alert.alert('Sukses', 'Lokasi berhasil dihapus');
-              fetchLokasiData();
+              const response = await PengaturanAPI.deleteLokasi(id);
+              if (response.success) {
+                // Update state langsung untuk menghapus dari tampilan
+                setLokasiKantor(prev => prev.filter(item => item.id !== id));
+                setLokasiDinas(prev => prev.filter(item => item.id !== id));
+                Alert.alert('Sukses', 'Lokasi berhasil dihapus');
+                // Refresh dari server untuk sinkronisasi
+                await fetchLokasiData();
+              } else {
+                Alert.alert('Informasi', response.message || 'Gagal menghapus lokasi');
+              }
             } catch (error) {
-              Alert.alert('Error', 'Terjadi kesalahan saat menghapus lokasi');
+              console.error('Error deleting lokasi:', error);
+              Alert.alert('Informasi', 'Terjadi kesalahan saat menghapus lokasi');
             } finally {
               setLoading(false);
             }

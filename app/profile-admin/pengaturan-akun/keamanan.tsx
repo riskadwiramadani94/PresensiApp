@@ -145,7 +145,7 @@ export default function PengaturanKeamananScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader title="Pengaturan Keamanan" showBack onBackPress={() => router.push('/admin/profil-admin' as any)} />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
 
         {/* FORM UBAH EMAIL & PASSWORD */}
         <View style={styles.content}>
@@ -239,22 +239,29 @@ export default function PengaturanKeamananScreen() {
                 />
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity 
-              style={styles.saveButton}
-              onPress={handleUpdateProfile}
-            >
-              <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
+
+      {/* Button Footer - Fixed di bawah */}
+      <View style={styles.buttonFooter}>
+        <TouchableOpacity 
+          style={styles.saveButton}
+          onPress={handleUpdateProfile}
+        >
+          <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+          <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F5F5" },
+  scrollView: {
+    flex: 1,
+  },
   content: {
     padding: 20,
   },
@@ -312,15 +319,32 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#004643',
-    paddingVertical: 14,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    minHeight: 50
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 6,
+    textAlign: 'center'
+  },
+  buttonFooter: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   infoCard: {
     flexDirection: 'row',

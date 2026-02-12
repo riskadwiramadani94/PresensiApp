@@ -250,7 +250,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.userName}>{profile?.nama_lengkap || 'User'}</Text>
-          <Text style={styles.userRole}>{profile?.jabatan || 'Pegawai'}</Text>
+          <Text style={styles.userRole}>👤 {profile?.jabatan || 'Pegawai'}</Text>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>NIP: {profile?.nip || 'Belum ada'}</Text>
           </View>

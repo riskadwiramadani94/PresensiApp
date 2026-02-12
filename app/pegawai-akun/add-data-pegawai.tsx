@@ -379,7 +379,7 @@ export default function AddDataPegawaiForm() {
     <View style={styles.container}>
       <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
       <AppHeader 
-        title="Tambah Data Pegawai"
+        title="Tambah Pegawai"
         showBack={true}
         fallbackRoute="/pegawai-akun/data-pegawai-admin"
       />

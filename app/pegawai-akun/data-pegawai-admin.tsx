@@ -231,16 +231,15 @@ export default function DataPegawaiAdminScreen() {
       {loading ? (
         <SkeletonLoader type="list" count={5} message="Memuat data pegawai..." />
       ) : (
-        <View style={styles.contentWrapper}>
-          {/* Fixed Search and Sort */}
-          <View style={styles.fixedControls}>
+        <View style={styles.contentContainer}>
+          <View style={styles.content}>
             {/* Search Container */}
             <View style={styles.searchContainer}>
               <View style={styles.searchInputWrapper}>
                 <Ionicons name="search-outline" size={20} color="#666" />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Cari pegawai"
+                  placeholder="Cari Pegawai..."
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholderTextColor="#999"
@@ -253,10 +252,8 @@ export default function DataPegawaiAdminScreen() {
               </View>
             </View>
 
-          </View>
-
-          {/* Scrollable List */}
-          <FlatList
+            {/* Scrollable List */}
+            <FlatList
             data={currentData}
             keyExtractor={(item) =>
               item.id_pegawai?.toString() ||
@@ -271,7 +268,6 @@ export default function DataPegawaiAdminScreen() {
                 tintColor="#004643"
               />
             }
-            style={styles.flatList}
             ListFooterComponent={() => {
               if (totalPages <= 1) return null;
               return (
@@ -372,9 +368,7 @@ export default function DataPegawaiAdminScreen() {
               </TouchableOpacity>
             )}
             contentInsetAdjustmentBehavior="never"
-            contentContainerStyle={[styles.listContent, { 
-              paddingBottom: Platform.OS === 'android' ? 0 : 20 
-            }]}
+            contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
@@ -383,10 +377,9 @@ export default function DataPegawaiAdminScreen() {
               </View>
             }
           />
+          </View>
         </View>
       )}
-
-
 
       {/* Action Modal - Bottom Sheet Style */}
       <Modal
@@ -424,7 +417,7 @@ export default function DataPegawaiAdminScreen() {
                     }}
                   >
                     <Ionicons name="create-outline" size={20} color="#FF9800" />
-                    <Text style={styles.bottomSheetItemText}>Edit Data</Text>
+                    <Text style={styles.bottomSheetItemText}>Edit</Text>
                   </TouchableOpacity>
                   
                   <View style={styles.actionDivider} />
@@ -439,7 +432,7 @@ export default function DataPegawaiAdminScreen() {
                     }}
                   >
                     <Ionicons name="trash-outline" size={20} color="#F44336" />
-                    <Text style={[styles.bottomSheetItemText, { color: '#F44336' }]}>Hapus Data</Text>
+                    <Text style={[styles.bottomSheetItemText, { color: '#F44336' }]}>Hapus</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -514,20 +507,11 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: "#fff",
   },
-
-  contentWrapper: {
+  contentContainer: {
     flex: 1,
-    backgroundColor: "#ffffffff",
   },
-  fixedControls: {
-    paddingTop: 0,
-    paddingBottom: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
-    backgroundColor: "#ffffffff",
-  },
-  flatList: {
-    flex: 1,
+  content: { 
+    flex: 1 
   },
   searchContainer: {
     paddingHorizontal: 20,
@@ -576,7 +560,7 @@ const styles = StyleSheet.create({
   sortTextActive: { color: "#fff" },
 
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  listContent: { paddingHorizontal: 5, paddingTop: 20, paddingBottom: 20 },
+  listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
   pegawaiCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -584,7 +568,6 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     marginBottom: 12,
-    marginHorizontal: 15,
     borderWidth: 1,
     borderColor: "#E0E0E0",
   },

@@ -68,7 +68,7 @@ export default function LoginScreen() {
         if (user.role === 'admin') {
           router.replace('/admin/dashboard-admin' as any);
         } else {
-          router.replace('/(tabs)/beranda');
+          router.replace('/(pegawai)/dashboard-pegawai');
         }
         return;
       }
@@ -148,7 +148,7 @@ export default function LoginScreen() {
         if (result.data.role === 'admin') {
           router.replace('/admin/dashboard-admin' as any);
         } else {
-          router.replace('/(tabs)/beranda');
+          router.replace('/(pegawai)/dashboard-pegawai');
         }
       } else {
         Alert.alert("Login Gagal", result.message || "Email atau password salah");

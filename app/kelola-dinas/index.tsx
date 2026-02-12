@@ -188,7 +188,7 @@ export default function KelolaDinasScreen() {
       
       {/* HEADER */}
       <AppHeader 
-        title="Kelola Dinas"
+        title="Data Dinas"
         showBack={true}
         showAddButton={true}
         onAddPress={() => router.push('/kelola-dinas/tambah-dinas' as any)}
@@ -203,7 +203,7 @@ export default function KelolaDinasScreen() {
               <Ionicons name="search-outline" size={20} color="#666" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Cari nama kegiatan atau nomor SPT..."
+                placeholder="Cari dinas..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholderTextColor="#999"
@@ -523,7 +523,8 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
   },
   summaryRow: {
-    alignItems: 'flex-start'
+    alignItems: 'flex-start',
+    marginBottom: 12
   },
 
   dinasCard: {

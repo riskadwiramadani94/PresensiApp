@@ -619,66 +619,6 @@ export default function PusatValidasiScreen() {
       />
 
       <View style={styles.contentWrapper}>
-        {/* Statistics Header - Compact & Professional */}
-        <View style={styles.statsSection}>
-          <View style={styles.statsHeader}>
-            <View style={styles.statsTitleRow}>
-              <Ionicons name="stats-chart" size={16} color="#004643" />
-              <Text style={styles.statsTitle}>Ringkasan Validasi</Text>
-            </View>
-            <View style={styles.statusBadge}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Real-time</Text>
-            </View>
-          </View>
-          
-          <View style={styles.statsContent}>
-            {/* Absen Dinas Row */}
-            <View style={styles.statRow}>
-              <View style={styles.statIconWrapper}>
-                <Ionicons name="briefcase" size={16} color="#004643" />
-              </View>
-              <Text style={styles.statCategory}>Dinas</Text>
-              <View style={styles.statValues}>
-                <View style={styles.statBadge}>
-                  <Text style={styles.statBadgeLabel}>Tunggu</Text>
-                  <Text style={styles.statBadgeNumber}>{statistics.absen_dinas.perlu_validasi}</Text>
-                </View>
-                <View style={styles.statBadge}>
-                  <Text style={styles.statBadgeLabel}>Setuju</Text>
-                  <Text style={styles.statBadgeNumber}>{statistics.absen_dinas.sudah_divalidasi}</Text>
-                </View>
-                <View style={styles.statBadge}>
-                  <Text style={styles.statBadgeLabel}>Tolak</Text>
-                  <Text style={styles.statBadgeNumber}>{statistics.absen_dinas.ditolak || 0}</Text>
-                </View>
-              </View>
-            </View>
-            
-            {/* Pengajuan Row */}
-            <View style={styles.statRow}>
-              <View style={styles.statIconWrapper}>
-                <Ionicons name="document-text" size={16} color="#004643" />
-              </View>
-              <Text style={styles.statCategory}>Pengajuan</Text>
-              <View style={styles.statValues}>
-                <View style={styles.statBadge}>
-                  <Text style={styles.statBadgeLabel}>Tunggu</Text>
-                  <Text style={styles.statBadgeNumber}>{statistics.pengajuan.menunggu}</Text>
-                </View>
-                <View style={styles.statBadge}>
-                  <Text style={styles.statBadgeLabel}>Setuju</Text>
-                  <Text style={styles.statBadgeNumber}>{statistics.pengajuan.disetujui}</Text>
-                </View>
-                <View style={styles.statBadge}>
-                  <Text style={styles.statBadgeLabel}>Tolak</Text>
-                  <Text style={styles.statBadgeNumber}>{statistics.pengajuan.ditolak}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
         {/* Fixed Controls - Tab Navigation */}
         <View style={styles.fixedControls}>
           {/* Search Bar */}
@@ -687,7 +627,7 @@ export default function PusatValidasiScreen() {
               <Ionicons name="search-outline" size={20} color="#666" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Cari pegawai atau NIP..."
+                placeholder="Cari pegawai..."
                 placeholderTextColor="#999"
               />
             </View>
@@ -972,112 +912,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   
-  // Statistics Section
-  statsSection: {
-    backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statsTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statsTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#4a4747ff',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E8',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4CAF50',
-    marginRight: 5,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#2E7D32',
-  },
-  statsContent: {
-    gap: 10,
-  },
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  statIconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#E8F5E8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  statCategory: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    width: 75,
-  },
-  statValues: {
-    flexDirection: 'row',
-    flex: 1,
-    gap: 8,
-    justifyContent: 'flex-end',
-  },
-  statBadge: {
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-    minWidth: 55,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  statBadgeLabel: {
-    fontSize: 9,
-    color: '#666',
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  statBadgeNumber: {
-    fontSize: 14,
-    color: '#004643',
-    fontWeight: '700',
-  },
-  
   // Search and Filter Section
   searchContainer: {
     paddingHorizontal: 20,
@@ -1156,7 +990,7 @@ const styles = StyleSheet.create({
   
   content: { 
     flex: 1,
-    backgroundColor: '#F8FAFB',
+    backgroundColor: '#fff',
   },
   listContent: { 
     padding: 20,
@@ -1670,11 +1504,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   dinasCardHeader: {
     flexDirection: 'row',
@@ -1687,13 +1516,13 @@ const styles = StyleSheet.create({
     marginRight: 10 
   },
   dinasKegiatanName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   dinasSptNumber: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#666',
   },
   dinasCardInfo: { 
@@ -1702,10 +1531,10 @@ const styles = StyleSheet.create({
   dinasInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   dinasInfoText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#666',
     marginLeft: 6,
   },
@@ -1723,11 +1552,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
   },
   statusBadgeGreen: {
     backgroundColor: '#4CAF50',
