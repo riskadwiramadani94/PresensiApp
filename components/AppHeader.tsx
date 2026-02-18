@@ -10,7 +10,7 @@ import {
 } from "react-native";
 
 interface AppHeaderProps {
-  title: string;
+  title?: string;
   showBack?: boolean;
   onBackPress?: () => void;
   showStats?: boolean;
@@ -21,6 +21,8 @@ interface AppHeaderProps {
   fallbackRoute?: string;
   primaryColor?: string;
   backgroundColor?: string;
+  variant?: 'default' | 'dashboard';
+  children?: React.ReactNode;
 }
 
 export default function AppHeader({
@@ -35,6 +37,8 @@ export default function AppHeader({
   fallbackRoute,
   primaryColor = "#fff",
   backgroundColor = "#004643",
+  variant = 'default',
+  children,
 }: AppHeaderProps) {
   const router = useRouter();
 
@@ -49,6 +53,14 @@ export default function AppHeader({
       }
     }
   };
+
+  if (variant === 'dashboard') {
+    return (
+      <View style={[styles.dashboardHeader, { backgroundColor }]}>
+        {children}
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.headerSection, { backgroundColor }]}>
@@ -90,6 +102,11 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingHorizontal: 20,
     borderBottomWidth: 0,
+  },
+  dashboardHeader: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingHorizontal: 20,
+    paddingBottom: 120,
   },
   headerContent: {
     flexDirection: "row",

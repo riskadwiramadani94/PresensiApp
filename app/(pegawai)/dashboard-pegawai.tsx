@@ -8,13 +8,14 @@ import {
   StatusBar as RNStatusBar,
   Alert,
   Platform,
-  RefreshControl
+  RefreshControl,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PegawaiAPI } from '../../constants/config';
-import { LinearGradient } from 'expo-linear-gradient';
+import AppHeader from '../../components/AppHeader';
 
 interface UserData {
   nama: string;
@@ -171,8 +172,8 @@ export default function BerandaScreen() {
         backgroundColor="transparent"
         translucent={true}
       />
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         bounces={false}
         overScrollMode="never"
@@ -180,13 +181,15 @@ export default function BerandaScreen() {
           <RefreshControl refreshing={loading} onRefresh={fetchUserData} />
         }
       >
-        {/* Background Gradient */}
-        <LinearGradient
-          colors={['#004643', '#43A047']}
-          style={styles.gradientBackground}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
+        {/* AppHeader dengan variant dashboard */}
+        <AppHeader variant="dashboard" backgroundColor="#004643">
+          {/* Background Pattern */}
+          <View style={styles.backgroundPattern}>
+            <View style={styles.bubble1} />
+            <View style={styles.bubble2} />
+            <View style={styles.bubble3} />
+          </View>
+
           {/* SECTION 1: HEADER */}
           <View style={styles.headerSection}>
             <View style={styles.adminInfo}>
@@ -195,65 +198,80 @@ export default function BerandaScreen() {
             </View>
             <View style={styles.rightSection}>
               <View style={styles.dateTimeContainer}>
-                <Text style={styles.dateTimeText}>{formatDate()}</Text>
+                <Text style={styles.dateTimeText}>
+                  {currentTime.toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </Text>
                 <Text style={styles.timeText}>
-                  {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                  {currentTime.toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })} WIB
                 </Text>
               </View>
-              <TouchableOpacity style={styles.notificationButton}>
+              <TouchableOpacity
+                style={styles.notificationButton}
+                onPress={() => {}}
+              >
                 <Ionicons name="notifications" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* SECTION 2: INFO CARD - STATUS & JAM KERJA */}
-          <View style={styles.infoCard}>
-            {/* Status Absensi */}
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, 
-                userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
-                userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
-              ]} />
-              <View style={styles.statusContent}>
-                <Text style={styles.statusTitle}>Status Absensi</Text>
-                <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
-              </View>
-            </View>
-
-            {/* Divider */}
-            <View style={styles.dividerLine} />
-
-            {/* Jam Kerja */}
-            <View style={styles.jamKerjaRow}>
-              <View style={styles.jamItem}>
-                <View style={styles.jamIconBox}>
-                  <Ionicons name="log-in-outline" size={18} color="#fff" />
+          <View style={styles.summarySection}>
+            <View style={styles.infoCard}>
+              {/* Status Absensi */}
+              <View style={styles.statusRow}>
+                <View style={[styles.statusDot, 
+                  userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
+                  userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
+                ]} />
+                <View style={styles.statusContent}>
+                  <Text style={styles.statusTitle}>Status Absensi</Text>
+                  <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
                 </View>
-                <Text style={styles.jamLabel}>Jam Masuk</Text>
-                <Text style={styles.jamValue}>{userData.jamMasuk || '08:00'}</Text>
               </View>
-              
-              <View style={styles.verticalDivider} />
-              
-              <View style={styles.jamItem}>
-                <View style={styles.jamIconBox}>
-                  <Ionicons name="log-out-outline" size={18} color="#fff" />
+
+              {/* Divider */}
+              <View style={styles.dividerLine} />
+
+              {/* Jam Kerja */}
+              <View style={styles.jamKerjaRow}>
+                <View style={styles.jamItem}>
+                  <View style={styles.jamIconBox}>
+                    <Ionicons name="log-in-outline" size={18} color="#fff" />
+                  </View>
+                  <Text style={styles.jamLabel}>Jam Masuk</Text>
+                  <Text style={styles.jamValue}>{userData.jamMasuk || '08:00'}</Text>
                 </View>
-                <Text style={styles.jamLabel}>Jam Pulang</Text>
-                <Text style={styles.jamValue}>{userData.jamKeluar || '17:00'}</Text>
+                
+                <View style={styles.verticalDivider} />
+                
+                <View style={styles.jamItem}>
+                  <View style={styles.jamIconBox}>
+                    <Ionicons name="log-out-outline" size={18} color="#fff" />
+                  </View>
+                  <Text style={styles.jamLabel}>Jam Pulang</Text>
+                  <Text style={styles.jamValue}>{userData.jamKeluar || '17:00'}</Text>
+                </View>
               </View>
             </View>
           </View>
-        </LinearGradient>
+        </AppHeader>
 
         {/* SECTION 3: MENU LAYANAN */}
         <View style={styles.menuSection}>
           <View style={styles.mainMenuRow}>
             {[
-              { id: 1, name: 'Kegiatan', icon: 'document-text', color: '#E8F5E9', iconColor: '#2E7D32' },
-              { id: 2, name: 'Pengajuan', icon: 'clipboard', color: '#E3F2FD', iconColor: '#1976D2', route: '/pengajuan' },
-              { id: 3, name: 'Lembur', icon: 'moon', color: '#F3E5F5', iconColor: '#7B1FA2' },
-              { id: 4, name: 'Bantuan', icon: 'help-circle', color: '#FFEBEE', iconColor: '#D32F2F' },
+              { id: 1, name: 'Kegiatan', image: require('../../assets/images/icons/pegawai/kegiatan.png') },
+              { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/pengajuan' },
+              { id: 3, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png') },
+              { id: 4, name: 'Bantuan', image: require('../../assets/images/icons/pegawai/bantuan.png') },
             ].map((item) => (
               <TouchableOpacity 
                 key={item.id} 
@@ -265,15 +283,12 @@ export default function BerandaScreen() {
                   }
                 }}
               >
-                <View style={[styles.menuIconCircle, { backgroundColor: item.color }]}>
-                  <Ionicons name={item.icon as any} size={22} color={item.iconColor} />
-                </View>
+                <Image source={item.image} style={styles.menuIcon} />
                 <Text style={styles.menuLabel}>{item.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-
       </ScrollView>
     </View>
   );
@@ -281,18 +296,47 @@ export default function BerandaScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  gradientBackground: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingHorizontal: 20,
-    paddingBottom: 80,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
   scrollContent: { flexGrow: 1 },
+  backgroundPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  bubble1: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    top: -100,
+    right: -100,
+  },
+  bubble2: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    bottom: -50,
+    left: -60,
+  },
+  bubble3: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    top: 100,
+    left: 30,
+  },
   headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingBottom: 10,
     marginBottom: 25,
   },
   adminInfo: { flex: 1 },
@@ -326,43 +370,12 @@ const styles = StyleSheet.create({
   },
   summarySection: {
     marginBottom: 40,
-  },
-  quickStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
     paddingHorizontal: 8,
-  },
-  quickStatBox: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  statContent: {
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  quickStatNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  quickStatLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    fontWeight: '400',
   },
   infoCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 40,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
@@ -445,7 +458,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   menuSection: { 
-    marginTop: -80, 
+    marginTop: -100, 
     backgroundColor: '#FFFFFF', 
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -463,12 +476,10 @@ const styles = StyleSheet.create({
     width: Platform.OS === 'ios' ? '22%' : '23%',
     alignItems: 'center',
   },
-  menuIconCircle: {
-    width: Platform.OS === 'ios' ? 56 : 58,
-    height: Platform.OS === 'ios' ? 56 : 58,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+  menuIcon: {
+    width: 48,
+    height: 48,
+    resizeMode: 'contain',
     marginBottom: 8,
   },
   menuLabel: { fontSize: 11, color: '#444', fontWeight: '500', textAlign: 'center' }

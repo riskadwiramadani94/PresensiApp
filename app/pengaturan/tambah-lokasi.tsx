@@ -949,4 +949,4 @@ const styles = StyleSheet.create({
     color: '#E65100',
     marginLeft: 6
   }
-});
+})
