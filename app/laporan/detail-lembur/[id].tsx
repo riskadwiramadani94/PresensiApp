@@ -116,7 +116,7 @@ export default function DetailLemburScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         <AppHeader 
           title="Detail Lembur"
           showBack={true}
@@ -132,7 +132,7 @@ export default function DetailLemburScreen() {
   if (!data) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         <AppHeader 
           title="Detail Lembur"
           showBack={true}
@@ -147,7 +147,7 @@ export default function DetailLemburScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
         title="Detail Lembur"

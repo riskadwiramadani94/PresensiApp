@@ -13,9 +13,18 @@ const pusatValidasiController = {
           ad.id_user,
           ad.tanggal_absen,
           ad.jam_masuk,
-          ad.latitude_masuk,
-          ad.longitude_masuk,
-          ad.foto_masuk,
+          ad.lintang_masuk as latitude_masuk,
+          ad.bujur_masuk as longitude_masuk,
+          CASE 
+            WHEN ad.foto_masuk IS NOT NULL AND ad.foto_masuk != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_masuk)
+            ELSE NULL
+          END as foto_masuk,
+          CASE 
+            WHEN ad.foto_pulang IS NOT NULL AND ad.foto_pulang != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_pulang)
+            ELSE NULL
+          END as foto_pulang,
           ad.status,
           ad.status_validasi,
           ad.keterangan,
@@ -113,19 +122,49 @@ const pusatValidasiController = {
         WHERE status_validasi = 'disetujui'
       `);
 
-      // Tidak Hadir (pegawai yang tidak ada record absen & sudah lewat jam masuk)
-      const [tidakHadir] = await db.execute(`
-        SELECT COUNT(*) as count 
-        FROM dinas_pegawai dp
-        INNER JOIN dinas d ON dp.id_dinas = d.id_dinas
-        LEFT JOIN absen_dinas ad ON dp.id_user = ad.id_user 
-          AND ad.id_dinas = dp.id_dinas 
-          AND ad.tanggal_absen = CURDATE()
-        WHERE ad.id IS NULL 
-        AND CURDATE() BETWEEN d.tanggal_mulai AND d.tanggal_selesai
-        AND CURTIME() > d.jam_mulai
-        AND dp.status_konfirmasi = 'konfirmasi'
-      `);
+      // Tidak Hadir (pegawai yang tidak ada record absen & sudah lewat batas absen)
+      // Mengikuti jam_kerja_hari berdasarkan hari ini
+      const dayNames = {
+        'Sunday': 'Minggu',
+        'Monday': 'Senin',
+        'Tuesday': 'Selasa',
+        'Wednesday': 'Rabu',
+        'Thursday': 'Kamis',
+        'Friday': 'Jumat',
+        'Saturday': 'Sabtu'
+      };
+      const today = new Date();
+      const dayName = dayNames[today.toLocaleDateString('en-US', { weekday: 'long' })];
+      
+      // Get batas_absen from jam_kerja_hari
+      const [jamKerjaRows] = await db.execute(
+        'SELECT batas_absen, is_kerja FROM jam_kerja_hari WHERE hari = ?',
+        [dayName]
+      );
+      
+      let tidakHadirCount = 0;
+      if (jamKerjaRows.length > 0 && jamKerjaRows[0].is_kerja === 1) {
+        const batasAbsen = jamKerjaRows[0].batas_absen;
+        const currentTime = today.toTimeString().slice(0, 8);
+        
+        // Hanya hitung tidak hadir jika sudah lewat batas absen
+        if (currentTime > batasAbsen) {
+          const [tidakHadirRows] = await db.execute(`
+            SELECT COUNT(*) as count 
+            FROM dinas_pegawai dp
+            INNER JOIN dinas d ON dp.id_dinas = d.id_dinas
+            LEFT JOIN absen_dinas ad ON dp.id_user = ad.id_user 
+              AND ad.id_dinas = dp.id_dinas 
+              AND ad.tanggal_absen = CURDATE()
+            WHERE ad.id IS NULL 
+            AND CURDATE() BETWEEN d.tanggal_mulai AND d.tanggal_selesai
+            AND dp.status_konfirmasi = 'konfirmasi'
+          `);
+          tidakHadirCount = tidakHadirRows[0].count;
+        }
+      }
+      
+      const tidakHadir = [{ count: tidakHadirCount }];
 
       // PENGAJUAN
       const [menunggu] = await db.execute(`

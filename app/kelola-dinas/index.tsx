@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, TextInput, Platform, Modal, Alert, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as NavigationBar from 'expo-navigation-bar';
 import { KelolaDinasAPI } from '../../constants/config';
 import { AppHeader, SkeletonLoader } from '../../components';
 
@@ -11,6 +12,8 @@ interface DinasAktif {
   namaKegiatan: string;
   nomorSpt: string;
   lokasi: string;
+  jam_mulai?: string;
+  jam_selesai?: string;
   jamKerja: string;
   radius: number;
   tanggal_mulai: string;
@@ -29,7 +32,59 @@ export default function KelolaDinasScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [dinasAktif, setDinasAktif] = useState<DinasAktif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDinas, setSelectedDinas] = useState<DinasAktif | null>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const translateY = useRef(new Animated.Value(300)).current;
+  const deleteModalScale = useRef(new Animated.Value(0)).current;
   const itemsPerPage = 10;
+  
+  const openModal = () => {
+    setShowActionModal(true);
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden');
+    }
+    Animated.timing(translateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeModal = () => {
+    Animated.timing(translateY, {
+      toValue: 300,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowActionModal(false);
+      if (Platform.OS === 'android') {
+        NavigationBar.setVisibilityAsync('visible');
+      }
+    });
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return gestureState.dy > 5;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeModal();
+      } else {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
   
   useEffect(() => {
     fetchDinasAktif();
@@ -131,10 +186,27 @@ export default function KelolaDinasScreen() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
+  const deleteDinas = async (id: number, nama: string) => {
+    setShowDeleteModal(false);
+    try {
+      const result = await KelolaDinasAPI.deleteDinas(id);
+      if (result.success) {
+        Alert.alert('Sukses', result.message || 'Data dinas berhasil dihapus');
+        fetchDinasAktif();
+      } else {
+        Alert.alert('Error', result.message || 'Gagal menghapus data dinas');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      Alert.alert('Error', 'Tidak dapat terhubung ke server');
+    }
+  };
+
   const renderDinasCard = ({ item }: { item: DinasAktif }) => {
     const pegawaiArray = item.pegawai || [];
     const totalPegawai = pegawaiArray.length;
     const dinasStatusInfo = getDinasStatus(item.tanggal_mulai, item.tanggal_selesai);
+    const isBelumDimulai = dinasStatusInfo.status === 'Belum Dimulai';
 
     return (
       <TouchableOpacity 
@@ -154,6 +226,18 @@ export default function KelolaDinasScreen() {
                  dinasStatusInfo.status === 'Belum Dimulai' ? 'Belum Mulai' : 'Selesai'}
               </Text>
             </View>
+            {isBelumDimulai && (
+              <TouchableOpacity
+                style={styles.moreBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setSelectedDinas(item);
+                  openModal();
+                }}
+              >
+                <Ionicons name="ellipsis-vertical" size={18} color="#666" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -164,7 +248,11 @@ export default function KelolaDinasScreen() {
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="time-outline" size={14} color="#666" />
-            <Text style={styles.infoText}>{item.jamKerja}</Text>
+            <Text style={styles.infoText}>
+              {(item.jam_mulai && item.jam_selesai)
+                ? `${item.jam_mulai} - ${item.jam_selesai} (Khusus)` 
+                : 'Jam Kantor'}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={14} color="#666" />
@@ -184,7 +272,7 @@ export default function KelolaDinasScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       {/* HEADER */}
       <AppHeader 
@@ -318,6 +406,113 @@ export default function KelolaDinasScreen() {
           }}
         />
       </View>
+
+      {/* Action Modal */}
+      <Modal
+        visible={showActionModal}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={() => closeModal()}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1}
+            onPress={() => closeModal()}
+          />
+          <Animated.View style={[styles.bottomSheetModal, {
+            transform: [{ translateY }]
+          }]}>
+            {/* Handle Bar with Pan Gesture */}
+            <View {...panResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            {/* Header */}
+            <View style={styles.bottomSheetHeader}>
+              <View style={styles.actionCard}>
+                <View style={styles.bottomSheetActions}>
+                  <TouchableOpacity
+                    style={styles.bottomSheetItem}
+                    onPress={() => {
+                      closeModal();
+                      router.push(`/kelola-dinas/edit-dinas/${selectedDinas?.id}` as any);
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={20} color="#FF9800" />
+                    <Text style={styles.bottomSheetItemText}>Edit</Text>
+                  </TouchableOpacity>
+                  
+                  <View style={styles.actionDivider} />
+                  
+                  <TouchableOpacity
+                    style={styles.bottomSheetItem}
+                    onPress={() => {
+                      closeModal();
+                      setTimeout(() => setShowDeleteModal(true), 300);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#F44336" />
+                    <Text style={[styles.bottomSheetItemText, { color: '#F44336' }]}>Hapus</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteIconContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color="#FF4444" />
+            </View>
+            
+            <Text style={styles.deleteModalTitle}>Hapus Data Dinas</Text>
+            
+            <Text style={styles.deleteModalMessage}>
+              Apakah Anda yakin ingin menghapus data dinas:
+            </Text>
+            
+            <View style={styles.employeeInfoCard}>
+              <Text style={styles.employeeName}>{selectedDinas?.namaKegiatan}</Text>
+              <Text style={styles.employeeDetail}>{selectedDinas?.nomorSpt}</Text>
+            </View>
+            
+            <Text style={styles.warningText}>Data yang dihapus tidak dapat dikembalikan</Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => {
+                  deleteDinas(
+                    selectedDinas?.id || 0,
+                    selectedDinas?.namaKegiatan || ''
+                  );
+                }}
+              >
+                <Text style={styles.deleteButtonText}>Ya, Hapus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -589,5 +784,162 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     fontStyle: 'italic'
+  },
+  moreBtn: {
+    padding: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingTop: Platform.OS === 'android' ? 0 : 50,
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  bottomSheetModal: {
+    backgroundColor: '#F8F9FA',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 8,
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  bottomSheetHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  actionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  bottomSheetActions: {
+    backgroundColor: 'transparent',
+  },
+  bottomSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    backgroundColor: 'transparent',
+    gap: 15,
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 20,
+  },
+  bottomSheetItemText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+  },
+  deleteIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFEBEE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  employeeInfoCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    marginBottom: 16,
+  },
+  employeeName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  employeeDetail: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#FF8C00',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6C757D',
+  },
+  deleteButton: {
+    flex: 1,
+    backgroundColor: '#FF4444',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#fff',
   },
 });

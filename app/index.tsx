@@ -163,23 +163,17 @@ export default function LoginScreen() {
 
   if (checkingSession) {
     return (
-      <LinearGradient
-        colors={['#F8FAFB', '#E8F4F8', '#F0F9FF']}
-        style={styles.container}
-      >
+      <View style={styles.container}>
         <View style={styles.loadingSessionContainer}>
           <ActivityIndicator size="large" color="#004643" />
           <Text style={styles.loadingSessionText}>Checking session...</Text>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   return (
-    <LinearGradient
-      colors={['#F8FAFB', '#E8F4F8', '#F0F9FF']}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.keyboardView}
@@ -303,13 +297,14 @@ export default function LoginScreen() {
         </Animated.View>
       </Animated.View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { 
-    flex: 1
+    flex: 1,
+    backgroundColor: '#fff'
   },
   keyboardView: {
     flex: 1
@@ -333,12 +328,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#004643',
-    elevation: 6,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8
+    borderColor: '#004643'
   },
   logoImage: {
     width: 140,
@@ -378,12 +368,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4
   },
   inputFocused: {
-    borderColor: '#004643',
-    elevation: 4,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12
+    borderColor: '#004643'
   },
   inputIcon: { 
     marginRight: 12 
@@ -428,19 +413,10 @@ const styles = StyleSheet.create({
     borderRadius: 14, 
     justifyContent: 'center', 
     alignItems: 'center',
-    marginTop: 10,
-    elevation: 6,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8
+    marginTop: 10
   },
   loginBtnDisabled: {
-    backgroundColor: '#7A9B99',
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    backgroundColor: '#7A9B99'
   },
   loginText: { 
     color: '#fff', 

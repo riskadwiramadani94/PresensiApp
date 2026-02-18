@@ -1,18 +1,43 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { AppHeader } from '../../../components';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppHeader } from '../../components';
 import { useRouter } from 'expo-router';
 
 export default function SyaratKetentuanScreen() {
   const router = useRouter();
+  const [userRole, setUserRole] = useState<string>('pegawai');
+  
+  useEffect(() => {
+    loadUserRole();
+  }, []);
+  
+  const loadUserRole = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        setUserRole(user.role || 'pegawai');
+      }
+    } catch (error) {
+      console.log('Error loading user role:', error);
+    }
+  };
+  
+  const handleBack = () => {
+    if (userRole === 'admin') {
+      router.push('/admin/profil-admin' as any);
+    } else {
+      router.push('/(pegawai)/profil' as any);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
-      <AppHeader title="Syarat dan Ketentuan" showBack={true} onBackPress={() => router.replace('/admin/profil-admin' as any)} />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+      <AppHeader title="Syarat dan Ketentuan" showBack={true} onBackPress={handleBack} />
       
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.introText}>

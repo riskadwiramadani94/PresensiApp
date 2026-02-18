@@ -355,8 +355,8 @@ export default function PusatValidasiScreen() {
 
 
 
-  const handleOpenAbsenDinas = () => {
-    router.push('/pusat-validasi/absen-dinas/' as any);
+  const handleOpenAbsenDinas = (dinasId: number) => {
+    router.push(`/pusat-validasi/absen-dinas/?dinasId=${dinasId}` as any);
   };
 
 
@@ -387,7 +387,7 @@ export default function PusatValidasiScreen() {
     return (
       <TouchableOpacity 
         style={styles.dinasCard}
-        onPress={handleOpenAbsenDinas}
+        onPress={() => handleOpenAbsenDinas(item.id)}
         activeOpacity={0.7}
       >
         <View style={styles.dinasCardHeader}>

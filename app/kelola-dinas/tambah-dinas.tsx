@@ -39,26 +39,13 @@ export default function TambahDinasScreen() {
   const [coordinateInput, setCoordinateInput] = useState('');
   const [isUpdatingFromInput, setIsUpdatingFromInput] = useState(false);
   const [selectedFile, setSelectedFile] = useState<any>(null);
-  const [showJamMulaiPicker, setShowJamMulaiPicker] = useState(false);
-  const [showJamSelesaiPicker, setShowJamSelesaiPicker] = useState(false);
-
-  const handleJamMulaiConfirm = (time: Date) => {
-    const formattedTime = formatTime(time);
-    setFormData({...formData, jamMulai: formattedTime});
-    validateField('jamMulai', formattedTime);
-    setShowJamMulaiPicker(false);
-  };
-
-  const handleJamSelesaiConfirm = (time: Date) => {
-    const formattedTime = formatTime(time);
-    setFormData({...formData, jamSelesai: formattedTime});
-    validateField('jamSelesai', formattedTime);
-    setShowJamSelesaiPicker(false);
-  };
 
   const [showJenisDinasDropdown, setShowJenisDinasDropdown] = useState(false);
   const [showDateMulaiPicker, setShowDateMulaiPicker] = useState(false);
   const [showDateSelesaiPicker, setShowDateSelesaiPicker] = useState(false);
+  const [showJamMulaiPicker, setShowJamMulaiPicker] = useState(false);
+  const [showJamSelesaiPicker, setShowJamSelesaiPicker] = useState(false);
+  const [useDefaultJam, setUseDefaultJam] = useState(true);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -305,26 +292,6 @@ export default function TambahDinasScreen() {
           delete errors.tanggalSelesai;
         }
         break;
-      case 'jamMulai':
-        if (!value) {
-          errors.jamMulai = 'Jam mulai wajib diisi';
-        } else if (!isValidTime(value)) {
-          errors.jamMulai = 'Format jam tidak valid (HH:MM)';
-        } else {
-          delete errors.jamMulai;
-        }
-        break;
-      case 'jamSelesai':
-        if (!value) {
-          errors.jamSelesai = 'Jam selesai wajib diisi';
-        } else if (!isValidTime(value)) {
-          errors.jamSelesai = 'Format jam tidak valid (HH:MM)';
-        } else if (formData.jamMulai && value <= formData.jamMulai) {
-          errors.jamSelesai = 'Jam selesai harus setelah jam mulai';
-        } else {
-          delete errors.jamSelesai;
-        }
-        break;
     }
     
     setValidationErrors(errors);
@@ -523,6 +490,18 @@ export default function TambahDinasScreen() {
     setShowDateSelesaiPicker(false);
   };
 
+  const handleJamMulaiSelect = (time: Date) => {
+    const formattedTime = formatTime(time);
+    setFormData({...formData, jamMulai: formattedTime});
+    setShowJamMulaiPicker(false);
+  };
+
+  const handleJamSelesaiSelect = (time: Date) => {
+    const formattedTime = formatTime(time);
+    setFormData({...formData, jamSelesai: formattedTime});
+    setShowJamSelesaiPicker(false);
+  };
+
 
 
   const formatTime = (time: Date) => {
@@ -566,8 +545,6 @@ export default function TambahDinasScreen() {
     if (!formData.nomorSpt.trim()) errors.nomorSpt = 'Nomor SPT wajib diisi';
     if (!formData.tanggalMulai) errors.tanggalMulai = 'Tanggal mulai wajib diisi';
     if (!formData.tanggalSelesai) errors.tanggalSelesai = 'Tanggal selesai wajib diisi';
-    if (!formData.jamMulai) errors.jamMulai = 'Jam mulai wajib diisi';
-    if (!formData.jamSelesai) errors.jamSelesai = 'Jam selesai wajib diisi';
     if (selectedLokasi.length === 0) errors.lokasi = 'Minimal pilih 1 lokasi untuk dinas';
     if (selectedPegawai.length === 0) errors.pegawai = 'Minimal pilih 1 pegawai untuk dinas';
     
@@ -589,8 +566,6 @@ export default function TambahDinasScreen() {
     if (!formData.nomorSpt.trim()) errors.nomorSpt = 'Nomor SPT wajib diisi';
     if (!formData.tanggalMulai) errors.tanggalMulai = 'Tanggal mulai wajib diisi';
     if (!formData.tanggalSelesai) errors.tanggalSelesai = 'Tanggal selesai wajib diisi';
-    if (!formData.jamMulai) errors.jamMulai = 'Jam mulai wajib diisi';
-    if (!formData.jamSelesai) errors.jamSelesai = 'Jam selesai wajib diisi';
     if (selectedLokasi.length === 0) errors.lokasi = 'Minimal pilih 1 lokasi untuk dinas';
     if (selectedPegawai.length === 0) errors.pegawai = 'Minimal pilih 1 pegawai untuk dinas';
     
@@ -605,20 +580,34 @@ export default function TambahDinasScreen() {
     setShowConfirmModal(false);
     
     try {
-      const dinasData = {
-        nama_kegiatan: formData.namaKegiatan.trim(),
-        nomor_spt: formData.nomorSpt.trim(),
-        jenis_dinas: formData.jenisDinas,
-        tanggal_mulai: convertDateFormat(formData.tanggalMulai),
-        tanggal_selesai: convertDateFormat(formData.tanggalSelesai),
-        jam_mulai: formData.jamMulai || '08:00:00',
-        jam_selesai: formData.jamSelesai || '17:00:00',
-        deskripsi: formData.deskripsi?.trim() || '',
-        pegawai_ids: formData.pegawaiIds.filter(id => id != null && !isNaN(id) && id > 0),
-        lokasi_ids: selectedLokasi.map(lokasi => lokasi.id)
-      };
+      // Gunakan FormData untuk kirim file + data
+      const formDataToSend = new FormData();
       
-      const response = await DinasAPI.createDinas(dinasData);
+      // Append semua field text
+      formDataToSend.append('nama_kegiatan', formData.namaKegiatan.trim());
+      formDataToSend.append('nomor_spt', formData.nomorSpt.trim());
+      formDataToSend.append('jenis_dinas', formData.jenisDinas);
+      formDataToSend.append('tanggal_mulai', convertDateFormat(formData.tanggalMulai));
+      formDataToSend.append('tanggal_selesai', convertDateFormat(formData.tanggalSelesai));
+      formDataToSend.append('jam_mulai', useDefaultJam ? '' : formData.jamMulai);
+      formDataToSend.append('jam_selesai', useDefaultJam ? '' : formData.jamSelesai);
+      formDataToSend.append('deskripsi', formData.deskripsi?.trim() || '');
+      
+      // Append array sebagai JSON string
+      const validPegawaiIds = formData.pegawaiIds.filter(id => id != null && !isNaN(id) && id > 0);
+      formDataToSend.append('pegawai_ids', JSON.stringify(validPegawaiIds));
+      formDataToSend.append('lokasi_ids', JSON.stringify(selectedLokasi.map(lokasi => lokasi.id)));
+      
+      // Append file jika ada
+      if (selectedFile) {
+        formDataToSend.append('dokumen_spt', {
+          uri: selectedFile.uri,
+          type: selectedFile.mimeType || 'application/pdf',
+          name: selectedFile.name
+        } as any);
+      }
+      
+      const response = await DinasAPI.createDinas(formDataToSend);
       
       if (response.success) {
         await clearDraftData();
@@ -635,6 +624,7 @@ export default function TambahDinasScreen() {
                 deskripsi: '',
                 pegawaiIds: []
               });
+              setUseDefaultJam(true);
               setSelectedPegawai([]);
               setSelectedLokasi([]);
               setSelectedFile(null);
@@ -654,7 +644,7 @@ export default function TambahDinasScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       <AppHeader 
         title="Tambah Dinas Baru"
         showBack={true}
@@ -815,50 +805,77 @@ export default function TambahDinasScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Jam Mulai *</Text>
-                <View style={styles.dateInputContainer}>
-                  <TextInput
-                    style={[styles.textInput, validationErrors.jamMulai && styles.inputError]}
-                    placeholder="08:00"
-                    value={formData.jamMulai}
-                    onChangeText={(text) => {
-                      const formatted = formatJam(text);
-                      setFormData({...formData, jamMulai: formatted});
-                      validateField('jamMulai', formatted);
+                <Text style={styles.inputLabel}>Pengaturan Jam Kerja</Text>
+                <View style={styles.radioGroup}>
+                  <TouchableOpacity 
+                    style={styles.radioOption}
+                    onPress={() => {
+                      setUseDefaultJam(true);
+                      setFormData({...formData, jamMulai: '', jamSelesai: ''});
                     }}
-                    keyboardType="numeric"
-                    maxLength={5}
-                  />
-                  <TouchableOpacity onPress={() => setShowJamMulaiPicker(true)} style={styles.calendarButton}>
-                    <Ionicons name="time" size={20} color="#004643" />
+                  >
+                    <Ionicons 
+                      name={useDefaultJam ? "radio-button-on" : "radio-button-off"} 
+                      size={20} 
+                      color="#004643" 
+                    />
+                    <Text style={styles.radioText}>Gunakan Jam Kantor Default</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.radioOption}
+                    onPress={() => setUseDefaultJam(false)}
+                  >
+                    <Ionicons 
+                      name={!useDefaultJam ? "radio-button-on" : "radio-button-off"} 
+                      size={20} 
+                      color="#004643" 
+                    />
+                    <Text style={styles.radioText}>Atur Jam Khusus</Text>
                   </TouchableOpacity>
                 </View>
-                {validationErrors.jamMulai && (
-                  <Text style={styles.errorText}>{validationErrors.jamMulai}</Text>
-                )}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Jam Selesai *</Text>
-                <View style={styles.dateInputContainer}>
-                  <TextInput
-                    style={[styles.textInput, validationErrors.jamSelesai && styles.inputError]}
-                    placeholder="17:00"
-                    value={formData.jamSelesai}
-                    onChangeText={(text) => {
-                      const formatted = formatJam(text);
-                      setFormData({...formData, jamSelesai: formatted});
-                      validateField('jamSelesai', formatted);
-                    }}
-                    keyboardType="numeric"
-                    maxLength={5}
-                  />
-                  <TouchableOpacity onPress={() => setShowJamSelesaiPicker(true)} style={styles.calendarButton}>
-                    <Ionicons name="time" size={20} color="#004643" />
-                  </TouchableOpacity>
-                </View>
-                {validationErrors.jamSelesai && (
-                  <Text style={styles.errorText}>{validationErrors.jamSelesai}</Text>
+                
+                {!useDefaultJam && (
+                  <View style={styles.jamKhususContainer}>
+                    <View style={styles.jamInputGroup}>
+                      <Text style={styles.jamLabel}>Jam Mulai</Text>
+                      <View style={styles.dateInputContainer}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="08:00"
+                          value={formData.jamMulai}
+                          onChangeText={(text) => setFormData({...formData, jamMulai: formatJam(text)})}
+                          keyboardType="numeric"
+                          maxLength={5}
+                        />
+                        <TouchableOpacity onPress={() => setShowJamMulaiPicker(true)} style={styles.calendarButton}>
+                          <Ionicons name="time" size={20} color="#004643" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.jamInputGroup}>
+                      <Text style={styles.jamLabel}>Jam Selesai</Text>
+                      <View style={styles.dateInputContainer}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="17:00"
+                          value={formData.jamSelesai}
+                          onChangeText={(text) => setFormData({...formData, jamSelesai: formatJam(text)})}
+                          keyboardType="numeric"
+                          maxLength={5}
+                        />
+                        <TouchableOpacity onPress={() => setShowJamSelesaiPicker(true)} style={styles.calendarButton}>
+                          <Ionicons name="time" size={20} color="#004643" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.infoBox}>
+                      <Ionicons name="information-circle" size={16} color="#004643" />
+                      <Text style={styles.infoText}>Jam ini berlaku untuk semua hari dinas</Text>
+                    </View>
+                  </View>
                 )}
               </View>
             </View>
@@ -1103,11 +1120,10 @@ export default function TambahDinasScreen() {
         </View>
       </Modal>
 
-      {/* Time Picker Modals - Simple Version */}
       <DateTimePickerModal
         isVisible={showJamMulaiPicker}
         mode="time"
-        onConfirm={handleJamMulaiConfirm}
+        onConfirm={handleJamMulaiSelect}
         onCancel={() => setShowJamMulaiPicker(false)}
         is24Hour={true}
         display="default"
@@ -1116,7 +1132,7 @@ export default function TambahDinasScreen() {
       <DateTimePickerModal
         isVisible={showJamSelesaiPicker}
         mode="time"
-        onConfirm={handleJamSelesaiConfirm}
+        onConfirm={handleJamSelesaiSelect}
         onCancel={() => setShowJamSelesaiPicker(false)}
         is24Hour={true}
         display="default"
@@ -1177,13 +1193,6 @@ export default function TambahDinasScreen() {
                 <Text style={styles.confirmLabel}>Periode:</Text>
                 <Text style={styles.confirmValue}>
                   {formData.tanggalMulai} - {formData.tanggalSelesai}
-                </Text>
-              </View>
-              
-              <View style={styles.confirmItem}>
-                <Text style={styles.confirmLabel}>Waktu:</Text>
-                <Text style={styles.confirmValue}>
-                  {formData.jamMulai} - {formData.jamSelesai}
                 </Text>
               </View>
               
@@ -1609,6 +1618,47 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#004643'
+  },
+  radioGroup: {
+    gap: 12,
+    marginBottom: 12
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  radioText: {
+    fontSize: 14,
+    color: '#333'
+  },
+  jamKhususContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    gap: 12
+  },
+  jamInputGroup: {
+    gap: 6
+  },
+  jamLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#666'
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 8,
+    backgroundColor: '#F0F8F7',
+    borderRadius: 6
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#004643',
+    flex: 1
   },
   
   // Input Modal styles

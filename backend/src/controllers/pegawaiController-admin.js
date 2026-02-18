@@ -180,7 +180,11 @@ const getDetailPegawai = async (req, res) => {
         p.jabatan,
         p.divisi,
         p.tanggal_masuk,
-        p.foto_profil,
+        CASE 
+          WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
+          THEN CONCAT('/uploads/pegawai/', p.foto_profil)
+          ELSE NULL
+        END as foto_profil,
         p.status_pegawai,
         u.email,
         u.password,
@@ -205,7 +209,11 @@ const getDetailPegawai = async (req, res) => {
           p.jabatan,
           p.divisi,
           p.tanggal_masuk,
-          p.foto_profil,
+          CASE 
+            WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
+            THEN CONCAT('/uploads/pegawai/', p.foto_profil)
+            ELSE NULL
+          END as foto_profil,
           p.status_pegawai,
           u.email,
           u.password,

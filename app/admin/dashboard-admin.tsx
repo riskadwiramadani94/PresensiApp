@@ -5,10 +5,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Image,
-  Modal,
   Platform,
   RefreshControl,
-  SafeAreaView,
   StatusBar as RNStatusBar,
   ScrollView,
   StyleSheet,
@@ -16,7 +14,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SkeletonLoader } from "../../components";
 import { API_CONFIG, getApiUrl } from "../../constants/config";
 
@@ -42,22 +39,19 @@ interface DashboardData {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [data, setData] = useState<DashboardData>({
     stats: { hadir: 0, tidak_hadir: 0, total_pegawai: 0 },
     recent: [],
-    user: { nama_lengkap: "Administrator", email: "", password: "" },
+    user: undefined,
   });
   const [loading, setLoading] = useState(true);
-  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     loadUserData();
     getDashboardData();
 
-    // Auto refresh setiap 30 detik - load user data juga
+    // Auto refresh setiap 30 detik
     const interval = setInterval(() => {
-      loadUserData();
       getDashboardData();
     }, 30000);
 
@@ -76,6 +70,7 @@ export default function AdminDashboard() {
       const userData = await AsyncStorage.getItem("userData");
       if (userData) {
         const user = JSON.parse(userData);
+        // Set user data dari AsyncStorage DULU
         setData((prev) => ({
           ...prev,
           user: {
@@ -84,9 +79,28 @@ export default function AdminDashboard() {
             password: "",
           },
         }));
+      } else {
+        // Fallback jika tidak ada data
+        setData((prev) => ({
+          ...prev,
+          user: {
+            nama_lengkap: "Administrator",
+            email: "",
+            password: "",
+          },
+        }));
       }
     } catch (error) {
       console.log("Error loading user data:", error);
+      // Fallback jika error
+      setData((prev) => ({
+        ...prev,
+        user: {
+          nama_lengkap: "Administrator",
+          email: "",
+          password: "",
+        },
+      }));
     }
   };
 
@@ -129,11 +143,11 @@ export default function AdminDashboard() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <RNStatusBar 
-        barStyle="dark-content" 
-        backgroundColor="#004643" 
-        translucent={false} 
+        barStyle="light-content" 
+        backgroundColor="transparent" 
+        translucent={true} 
       />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -153,306 +167,122 @@ export default function AdminDashboard() {
         >
           {/* SECTION 1: HEADER */}
           <View style={styles.headerSection}>
-          <View style={styles.adminInfo}>
-            <Text style={styles.greetingText}>Selamat datang,</Text>
-            <Text style={styles.userName}>
-              {data.user?.nama_lengkap || "Administrator"}
-            </Text>
-          </View>
-          <View style={styles.rightSection}>
-            <View style={styles.dateTimeContainer}>
-              <Text style={styles.dateTimeText}>
-                {new Date().toLocaleDateString("id-ID", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </Text>
-              <Text style={styles.timeText}>
-                {new Date().toLocaleTimeString("id-ID", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}{" "}
-                WIB
+            <View style={styles.adminInfo}>
+              <Text style={styles.greetingText}>Selamat datang,</Text>
+              <Text style={styles.userName}>
+                {data.user?.nama_lengkap || "Administrator"}
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.notificationButton}
-              onPress={() => setShowNotifications(true)}
-            >
-              <Ionicons name="notifications" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
+            <View style={styles.rightSection}>
+              <View style={styles.dateTimeContainer}>
+                <Text style={styles.dateTimeText}>
+                  {new Date().toLocaleDateString("id-ID", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </Text>
+                <Text style={styles.timeText}>
+                  {new Date().toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  WIB
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.notificationButton}
+                onPress={() => router.push("/notifikasi-admin" as any)}
+              >
+                <Ionicons name="notifications" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* SECTION 2: RINGKASAN KEHADIRAN */}
           <View style={styles.summarySection}>
-          <View style={styles.quickStatsRow}>
-            <View style={styles.quickStatBox}>
-              <View style={styles.statContent}>
-                <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                <Text style={styles.quickStatNumber}>{data.stats.hadir}</Text>
+            <View style={styles.statsCard}>
+              <View style={styles.quickStatsRow}>
+                <View style={styles.statItem}>
+                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                  <Text style={styles.quickStatNumber}>{data.stats.hadir}</Text>
+                  <Text style={styles.quickStatLabel}>Hadir</Text>
+                </View>
+                
+                <View style={styles.divider} />
+                
+                <View style={styles.statItem}>
+                  <Ionicons name="close-circle" size={20} color="#EF5350" />
+                  <Text style={styles.quickStatNumber}>{data.stats.tidak_hadir}</Text>
+                  <Text style={styles.quickStatLabel}>Tidak Hadir</Text>
+                </View>
+                
+                <View style={styles.divider} />
+                
+                <View style={styles.statItem}>
+                  <Ionicons name="people" size={20} color="#42A5F5" />
+                  <Text style={styles.quickStatNumber}>{data.stats.total_pegawai}</Text>
+                  <Text style={styles.quickStatLabel}>Total</Text>
+                </View>
+                
+                <View style={styles.divider} />
+                
+                <View style={styles.statItem}>
+                  <Ionicons name="analytics" size={20} color="#FFA726" />
+                  <Text style={styles.quickStatNumber}>
+                    {data.stats.total_pegawai > 0
+                      ? Math.round((data.stats.hadir / data.stats.total_pegawai) * 100)
+                      : 0}%
+                  </Text>
+                  <Text style={styles.quickStatLabel}>Kehadiran</Text>
+                </View>
               </View>
-              <Text style={styles.quickStatLabel}>Hadir</Text>
             </View>
-
-            <View style={styles.quickStatBox}>
-              <View style={styles.statContent}>
-                <Ionicons name="close-circle" size={18} color="#fff" />
-                <Text style={styles.quickStatNumber}>
-                  {data.stats.tidak_hadir}
-                </Text>
-              </View>
-              <Text style={styles.quickStatLabel}>Tidak Hadir</Text>
-            </View>
-
-            <View style={styles.quickStatBox}>
-              <View style={styles.statContent}>
-                <Ionicons name="people" size={18} color="#fff" />
-                <Text style={styles.quickStatNumber}>
-                  {data.stats.total_pegawai}
-                </Text>
-              </View>
-              <Text style={styles.quickStatLabel}>Total</Text>
-            </View>
-
-            <View style={styles.quickStatBox}>
-              <View style={styles.statContent}>
-                <Ionicons name="analytics" size={18} color="#fff" />
-                <Text style={styles.quickStatNumber}>
-                  {data.stats.total_pegawai > 0
-                    ? Math.round(
-                        (data.stats.hadir / data.stats.total_pegawai) * 100,
-                      )
-                    : 0}
-                  %
-                </Text>
-              </View>
-              <Text style={styles.quickStatLabel}>Kehadiran</Text>
-            </View>
-          </View>
           </View>
         </LinearGradient>
 
         {/* SECTION 3: MENU LAYANAN */}
         <View style={styles.menuSection}>
-          {/* Baris pertama - 4 menu utama */}
           <View style={styles.mainMenuRow}>
             {[
-              {
-                id: 1,
-                name: "Pegawai",
-                icon: "people",
-                color: "#E8F5E9",
-                iconColor: "#2E7D32",
-                route: "/pegawai-akun",
-              },
-              {
-                id: 2,
-                name: "Dinas",
-                icon: "business",
-                color: "#E3F2FD",
-                iconColor: "#1976D2",
-                route: "/kelola-dinas",
-              },
-              {
-                id: 3,
-                name: "Laporan",
-                icon: "document-text",
-                color: "#F3E5F5",
-                iconColor: "#7B1FA2",
-                route: "/laporan/laporan-admin",
-              },
-              {
-                id: 4,
-                name: "Pengaturan",
-                icon: "settings",
-                color: "#FFEBEE",
-                iconColor: "#D32F2F",
-                route: "/pengaturan",
-              },
+              { id: 1, name: 'Pegawai', icon: 'people', color: '#E8F5E9', iconColor: '#2E7D32', route: '/pegawai-akun' },
+              { id: 2, name: 'Dinas', icon: 'business', color: '#E3F2FD', iconColor: '#1976D2', route: '/kelola-dinas' },
+              { id: 3, name: 'Laporan', icon: 'document-text', color: '#F3E5F5', iconColor: '#7B1FA2', route: '/laporan/laporan-admin' },
+              { id: 4, name: 'Pengaturan', icon: 'settings', color: '#FFEBEE', iconColor: '#D32F2F', route: '/pengaturan' },
             ].map((item) => (
-              <TouchableOpacity
-                key={item.id}
+              <TouchableOpacity 
+                key={item.id} 
                 style={styles.mainMenuItem}
+                activeOpacity={0.7}
                 onPress={() => router.push(item.route as any)}
               >
-                <View
-                  style={[
-                    styles.menuIconCircle,
-                    { backgroundColor: item.color },
-                  ]}
-                >
-                  <Ionicons
-                    name={item.icon as any}
-                    size={22}
-                    color={item.iconColor}
-                  />
+                <View style={[styles.menuIconCircle, { backgroundColor: item.color }]}>
+                  <Ionicons name={item.icon as any} size={22} color={item.iconColor} />
                 </View>
                 <Text style={styles.menuLabel}>{item.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-
-        {/* SECTION 4: LOG AKTIVITAS */}
-        <View style={styles.recentList}>
-          <Text style={styles.sectionTitle}>Aktivitas Terbaru</Text>
-
-          {loading ? (
-            <SkeletonLoader message="Memuat aktivitas..." />
-          ) : data.recent &&
-            Array.isArray(data.recent) &&
-            data.recent.length > 0 ? (
-            data.recent.map((item: any, index: number) => (
-              <View key={index} style={styles.activityCard}>
-                <Image
-                  source={{
-                    uri: `https://ui-avatars.com/api/?name=${item.nama_lengkap}&background=random`,
-                  }}
-                  style={styles.avatar}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.nameText}>{item.nama_lengkap}</Text>
-                  <Text style={styles.activityText}>
-                    {item.status} •{" "}
-                    {item.jam_masuk ? item.jam_masuk.substring(0, 5) : "-"} WIB
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor:
-                        item.status === "Hadir" ? "#E8F5E9" : "#FFF4E5",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: item.status === "Hadir" ? "#2E7D32" : "#F9BC60",
-                      fontSize: 10,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {item.status}
-                  </Text>
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={{ textAlign: "center", color: "#999", marginTop: 20 }}>
-              Belum ada aktivitas hari ini
-            </Text>
-          )}
-        </View>
       </ScrollView>
-
-      {/* Modal Notifikasi */}
-      <Modal
-        visible={showNotifications}
-        animationType="fade"
-        transparent={true}
-        statusBarTranslucent={true}
-        onRequestClose={() => setShowNotifications(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowNotifications(false)}
-        >
-          <View
-            style={[
-              styles.notificationDropdown,
-              {
-                top:
-                  Platform.OS === "ios"
-                    ? insets.top + 60
-                    : (RNStatusBar.currentHeight || 0) + 70,
-              },
-            ]}
-          >
-            <View style={styles.dropdownArrow} />
-            <View style={styles.dropdownHeader}>
-              <Text style={styles.modalTitle}>Notifikasi</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowNotifications(false);
-                  router.push("/notifikasi-admin" as any);
-                }}
-              >
-                <Text style={styles.seeAllText}>Lihat Semua</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.notificationList}>
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationIcon}>
-                  <Ionicons name="person-add" size={16} color="#4CAF50" />
-                </View>
-                <View style={styles.notificationContent}>
-                  <Text style={styles.notificationTitle}>
-                    Pegawai Baru Terdaftar
-                  </Text>
-                  <Text style={styles.notificationDesc}>
-                    John Doe telah mendaftar sebagai pegawai baru
-                  </Text>
-                  <Text style={styles.notificationTime}>2 jam yang lalu</Text>
-                </View>
-              </View>
-
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationIcon}>
-                  <Ionicons name="time" size={16} color="#FF9800" />
-                </View>
-                <View style={styles.notificationContent}>
-                  <Text style={styles.notificationTitle}>Keterlambatan</Text>
-                  <Text style={styles.notificationDesc}>
-                    5 pegawai terlambat masuk hari ini
-                  </Text>
-                  <Text style={styles.notificationTime}>1 jam yang lalu</Text>
-                </View>
-              </View>
-
-              <View style={styles.notificationItem}>
-                <View style={styles.notificationIcon}>
-                  <Ionicons name="checkmark-circle" size={16} color="#2196F3" />
-                </View>
-                <View style={styles.notificationContent}>
-                  <Text style={styles.notificationTitle}>
-                    Validasi Diperlukan
-                  </Text>
-                  <Text style={styles.notificationDesc}>
-                    3 item menunggu validasi di Pusat Validasi
-                  </Text>
-                  <Text style={styles.notificationTime}>
-                    30 menit yang lalu
-                  </Text>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
   gradientBackground: {
-    paddingTop: Platform.OS === 'ios' ? 20 : 40,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingHorizontal: 20,
-    paddingBottom: 80,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingBottom: 120,
   },
-  scrollContent: { paddingBottom: 100 },
+  scrollContent: { flexGrow: 1 },
   headerSection: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    paddingBottom: 10,
     marginBottom: 25,
   },
   adminInfo: { flex: 1 },
@@ -483,23 +313,29 @@ const styles = StyleSheet.create({
   },
   summarySection: {
     marginBottom: 40,
+    paddingHorizontal: 8,
+  },
+  statsCard: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
   },
   quickStatsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
+    justifyContent: "space-around",
+    alignItems: "center",
   },
-  quickStatBox: {
+  statItem: {
     flex: 1,
-    marginHorizontal: 4,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-    borderRadius: 8,
-    padding: 8,
-    paddingBottom: 8,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    position: "relative",
-    overflow: "hidden",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  divider: {
+    width: 1,
+    height: 50,
+    backgroundColor: "rgba(255,255,255,0.3)",
   },
   progressFill: {
     position: "absolute",
@@ -534,95 +370,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
   },
-  statContent: {
-    alignItems: "center",
-    marginBottom: 4,
-  },
   quickStatNumber: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#fff",
-    marginTop: 2,
+    marginTop: 6,
+    marginBottom: 4,
     textAlign: "center",
   },
   quickStatLabel: {
     fontSize: 8,
-    color: "rgba(255,255,255,0.9)",
+    color: "rgba(255,255,255,0.95)",
     textAlign: "center",
-    fontWeight: "400",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.2,
   },
-  menuSection: {
-    marginTop: -80,
-    marginHorizontal: 20,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    marginBottom: 20,
+  menuSection: { 
+    marginTop: -100, 
+    backgroundColor: '#FFFFFF', 
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 35,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    flex: 1,
   },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#333" },
   mainMenuRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-    paddingHorizontal: Platform.OS === "ios" ? 5 : 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: Platform.OS === 'ios' ? 5 : 0,
   },
   mainMenuItem: {
-    width: Platform.OS === "ios" ? "22%" : "23%",
-    alignItems: "center",
+    width: Platform.OS === 'ios' ? '22%' : '23%',
+    alignItems: 'center',
   },
   menuIconCircle: {
-    width: Platform.OS === "ios" ? 56 : 58,
-    height: Platform.OS === "ios" ? 56 : 58,
+    width: Platform.OS === 'ios' ? 56 : 58,
+    height: Platform.OS === 'ios' ? 56 : 58,
     borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  menuLabel: {
-    fontSize: 11,
-    color: "#444",
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  recentList: {
-    paddingHorizontal: 20,
-    marginTop: 10,
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  activityCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-  },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
-  nameText: { fontWeight: "bold", fontSize: 14, color: "#333" },
-  activityText: { fontSize: 12, color: "#888" },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  menuLabel: { fontSize: 11, color: '#444', fontWeight: '500', textAlign: 'center' },
+  sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#333" },
+
   footer: { marginTop: 20, alignItems: "center" },
   footerText: { fontSize: 10, color: "#BBB" },
   modalOverlay: {

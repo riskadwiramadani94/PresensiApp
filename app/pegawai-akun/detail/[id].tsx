@@ -83,7 +83,7 @@ export default function DetailPegawai() {
     return (
       <View style={styles.container}>
         <StatusBar
-          style="dark"
+          style="light"
           translucent={true}
           backgroundColor="transparent"
         />
@@ -99,7 +99,7 @@ export default function DetailPegawai() {
     return (
       <View style={styles.container}>
         <StatusBar
-          style="dark"
+          style="light"
           translucent={true}
           backgroundColor="transparent"
         />
@@ -120,7 +120,7 @@ export default function DetailPegawai() {
   return (
     <View style={styles.container}>
       <StatusBar
-        style="dark"
+        style="light"
         translucent={true}
         backgroundColor="transparent"
       />

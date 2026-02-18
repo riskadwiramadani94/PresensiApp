@@ -25,6 +25,16 @@ const getDynamicAttendanceStatus = async (userId, targetDate = null) => {
     [dayName]
   );
   
+  // Check if today is a holiday
+  const [holidayRows] = await db.execute(
+    'SELECT nama_libur FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+    [today]
+  );
+  
+  if (holidayRows.length > 0) {
+    return { status: 'Libur', isWorkDay: false, holidayName: holidayRows[0].nama_libur };
+  }
+  
   if (!scheduleRows.length || !scheduleRows[0].is_kerja) {
     return { status: 'Libur', isWorkDay: false };
   }
@@ -124,7 +134,11 @@ const getLaporan = async (req, res) => {
           p.id_pegawai as id_pegawai,
           p.nama_lengkap as nama_lengkap,
           p.nip,
-          p.foto_profil,
+          CASE 
+            WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
+            THEN CONCAT('/uploads/pegawai/', p.foto_profil)
+            ELSE NULL
+          END as foto_profil,
           p.id_user
         FROM pegawai p
         LEFT JOIN users u ON p.id_user = u.id_user
@@ -153,6 +167,25 @@ const getLaporan = async (req, res) => {
         
         const summary = summaryRows[0];
         
+        // Count days on dinas (from dinas_pegawai table)
+        const [dinasCountRows] = await db.execute(`
+          SELECT COUNT(DISTINCT DATE(calendar.tanggal)) as dinas_count
+          FROM dinas_pegawai dp
+          JOIN dinas d ON dp.id_dinas = d.id_dinas
+          CROSS JOIN (
+            SELECT CURDATE() - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as tanggal
+            FROM (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS a
+            CROSS JOIN (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS b
+            CROSS JOIN (SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS c
+          ) calendar
+          LEFT JOIN presensi pr ON pr.id_user = dp.id_user AND DATE(pr.tanggal) = DATE(calendar.tanggal)
+          WHERE dp.id_user = ?
+          AND DATE(calendar.tanggal) BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+          AND pr.id_presensi IS NULL
+        `, [pegawai.id_user]);
+        
+        const dinasCount = dinasCountRows[0]?.dinas_count || 0;
+        
         // Get dynamic status for today
         const todayStatus = await getDynamicAttendanceStatus(pegawai.id_user);
         
@@ -166,6 +199,7 @@ const getLaporan = async (req, res) => {
           'Cuti': parseInt(summary.cuti || 0),
           'Pulang Cepat': parseInt(summary.pulang_cepat || 0),
           'Dinas Luar/ Perjalanan Dinas': parseInt(summary.dinas_luar || 0),
+          'Dinas': parseInt(dinasCount),
           'Mangkir/ Alpha': parseInt(summary.mangkir || 0)
         };
         
@@ -368,6 +402,35 @@ const getDetailAbsenPegawai = async (req, res) => {
     while (currentDate <= endDateObj) {
       const dateStr = currentDate.toISOString().split('T')[0];
       
+      // Get day name
+      const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const dayName = dayNames[currentDate.getDay()];
+      
+      // Check if it's a holiday from hari_libur (PRIORITY 1)
+      const [hariLiburRows] = await db.execute(
+        'SELECT nama_libur FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+        [dateStr]
+      );
+      const isHoliday = hariLiburRows.length > 0;
+      
+      // Check if it's a work day from jam_kerja_hari (PRIORITY 2)
+      const [jamKerjaRows] = await db.execute(
+        'SELECT is_kerja, jam_masuk, jam_pulang FROM jam_kerja_hari WHERE hari = ?',
+        [dayName]
+      );
+      const isWorkDay = jamKerjaRows.length > 0 && jamKerjaRows[0].is_kerja === 1;
+      
+      // Cek apakah sedang dinas
+      const [dinasRows] = await db.execute(`
+        SELECT d.nama_kegiatan, d.tanggal_mulai, d.tanggal_selesai
+        FROM dinas_pegawai dp
+        JOIN dinas d ON dp.id_dinas = d.id_dinas
+        WHERE dp.id_user = ?
+        AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+        LIMIT 1
+      `, [user_id, dateStr]);
+      const dinas = dinasRows[0];
+      
       // Cek presensi normal
       const [presensiRows] = await db.execute(`
         SELECT tanggal, jam_masuk, jam_pulang, status, alasan_luar_lokasi as keterangan
@@ -376,15 +439,29 @@ const getDetailAbsenPegawai = async (req, res) => {
       `, [user_id, dateStr]);
       const presensi = presensiRows[0];
       
-      // Cek absen dinas
-      const [absenDinasRows] = await db.execute(`
-        SELECT tanggal_absen as tanggal, jam_masuk, jam_pulang, status, keterangan
-        FROM absen_dinas 
-        WHERE id_user = ? AND tanggal_absen = ?
-      `, [user_id, dateStr]);
-      const absenDinas = absenDinasRows[0];
-      
-      if (presensi) {
+      // PRIORITY 1: Hari libur nasional
+      if (isHoliday) {
+        absenData.push({
+          tanggal: dateStr,
+          status: 'Libur',
+          jam_masuk: null,
+          jam_keluar: null,
+          keterangan: hariLiburRows[0].nama_libur
+        });
+      }
+      // PRIORITY 2: is_kerja = 0 (hari libur setting)
+      else if (!isWorkDay) {
+        absenData.push({
+          tanggal: dateStr,
+          status: 'Libur',
+          jam_masuk: null,
+          jam_keluar: null,
+          keterangan: `Hari ${dayName}`
+        });
+      }
+      // PRIORITY 3: is_kerja = 1 (hari kerja)
+      else if (presensi) {
+        // Ada absen kantor normal
         absenData.push({
           tanggal: presensi.tanggal,
           status: presensi.status,
@@ -392,16 +469,21 @@ const getDetailAbsenPegawai = async (req, res) => {
           jam_keluar: presensi.jam_pulang,
           keterangan: presensi.keterangan || 'Absen normal'
         });
-      } else if (absenDinas) {
+      } else if (dinas) {
+        // Sedang dinas - tampilkan status Dinas
+        const startDate = new Date(dinas.tanggal_mulai).toLocaleDateString('id-ID', { day: 'numeric' });
+        const endDate = new Date(dinas.tanggal_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+        const keterangan = `${dinas.nama_kegiatan} (${startDate}-${endDate})`;
+        
         absenData.push({
-          tanggal: absenDinas.tanggal,
-          status: absenDinas.status,
-          jam_masuk: absenDinas.jam_masuk,
-          jam_keluar: absenDinas.jam_pulang,
-          keterangan: absenDinas.keterangan || 'Absen dinas'
+          tanggal: dateStr,
+          status: 'Dinas',
+          jam_masuk: null,
+          jam_keluar: null,
+          keterangan: keterangan
         });
       } else {
-        // Tidak ada data absen
+        // Tidak ada data absen dan tidak dinas
         absenData.push({
           tanggal: dateStr,
           status: 'Tidak Hadir',
@@ -493,22 +575,30 @@ const getDetailAbsen = async (req, res) => {
         p.tanggal,
         p.jam_masuk,
         p.jam_pulang,
-        p.foto_masuk as foto_masuk,
-        p.foto_pulang,
+        CASE 
+          WHEN p.foto_masuk IS NOT NULL AND p.foto_masuk != '' 
+          THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', p.foto_masuk)
+          ELSE NULL
+        END as foto_masuk,
+        CASE 
+          WHEN p.foto_pulang IS NOT NULL AND p.foto_pulang != '' 
+          THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', p.foto_pulang)
+          ELSE NULL
+        END as foto_pulang,
         p.lintang_masuk as lat_masuk,
         p.bujur_masuk as long_masuk,
-        p.lintang_pulang,
-        p.bujur_pulang,
+        p.lintang_pulang as lat_pulang,
+        p.bujur_pulang as long_pulang,
         p.status,
-        p.alasan_luar_lokasi as alasan_pulang_cepat,
-        p.alasan_luar_lokasi as lokasi_masuk,
+        lk.nama_lokasi as lokasi_masuk,
         CASE 
-          WHEN p.jam_pulang IS NOT NULL THEN p.alasan_luar_lokasi
+          WHEN p.jam_pulang IS NOT NULL THEN lk.nama_lokasi
           ELSE NULL 
         END as lokasi_pulang
       FROM presensi p
       INNER JOIN pegawai pg ON p.id_user = pg.id_user
-      WHERE p.tanggal = ? AND p.id_user = ?
+      LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
+      WHERE DATE_FORMAT(p.tanggal, '%Y-%m-%d') = ? AND p.id_user = ?
       LIMIT 1
     `, [date, user_id]);
     
@@ -527,12 +617,11 @@ const getDetailAbsen = async (req, res) => {
         foto_pulang: detail.foto_pulang,
         lat_masuk: parseFloat(detail.lat_masuk || 0),
         long_masuk: parseFloat(detail.long_masuk || 0),
-        lat_pulang: detail.lintang_pulang ? parseFloat(detail.lintang_pulang) : null,
-        long_pulang: detail.bujur_pulang ? parseFloat(detail.bujur_pulang) : null,
+        lat_pulang: detail.lat_pulang ? parseFloat(detail.lat_pulang) : null,
+        long_pulang: detail.long_pulang ? parseFloat(detail.long_pulang) : null,
         status: detail.status,
-        alasan_pulang_cepat: detail.alasan_pulang_cepat,
-        lokasi_masuk: detail.lokasi_masuk,
-        lokasi_pulang: detail.lokasi_pulang
+        lokasi_masuk: detail.lokasi_masuk || '-',
+        lokasi_pulang: detail.lokasi_pulang || '-'
       };
       
       res.json({

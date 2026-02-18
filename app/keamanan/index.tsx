@@ -13,8 +13,8 @@ import {
   View
 } from "react-native";
 import { StatusBar } from 'expo-status-bar';
-import { API_CONFIG, getApiUrl } from "../../../constants/config";
-import AppHeader from "../../../components/AppHeader";
+import { API_CONFIG, getApiUrl } from "../../constants/config";
+import AppHeader from "../../components/AppHeader";
 
 export const unstable_settings = {
   presentation: 'modal'
@@ -26,6 +26,7 @@ export default function PengaturanKeamananScreen() {
   const [showPasswordBaru, setShowPasswordBaru] = useState(false);
   const [showKonfirmasiPassword, setShowKonfirmasiPassword] = useState(false);
   const [currentEmail, setCurrentEmail] = useState("");
+  const [userRole, setUserRole] = useState<string>('pegawai');
   const [formData, setFormData] = useState({
     email: "",
     passwordLama: "",
@@ -48,11 +49,14 @@ export default function PengaturanKeamananScreen() {
       if (userData) {
         const email = userData.email || "";
         const userId = userData.id_user;
+        const role = userData.role || 'pegawai';
         
         console.log('Extracted email:', email);
         console.log('Extracted user ID:', userId);
+        console.log('Extracted role:', role);
         
         setCurrentEmail(email);
+        setUserRole(role);
         setFormData(prev => ({ ...prev, email: email }));
         
         if (!userId) {
@@ -67,6 +71,14 @@ export default function PengaturanKeamananScreen() {
     } catch (error) {
       console.error("Error loading current data:", error);
       Alert.alert("Error", "Gagal memuat data pengguna");
+    }
+  };
+  
+  const handleBack = () => {
+    if (userRole === 'admin') {
+      router.replace('/admin/profil-admin' as any);
+    } else {
+      router.replace('/(pegawai)/profil' as any);
     }
   };
 
@@ -98,10 +110,8 @@ export default function PengaturanKeamananScreen() {
         return;
       }
 
-      // Debug user data
-      console.log('User data from AsyncStorage:', userData);
       const userId = userData.id_user;
-      console.log('Extracted user ID:', userId);
+      const userRole = userData.role;
 
       if (!userId) {
         Alert.alert("Error", "ID pengguna tidak ditemukan. Silakan login ulang.");
@@ -109,18 +119,33 @@ export default function PengaturanKeamananScreen() {
         return;
       }
 
-      const requestBody: any = {
-        action: "update",
-        user_id: parseInt(String(userId)),
-        password_lama: formData.passwordLama.trim(),
-        password_baru: formData.passwordBaru.trim()
-      };
+      let apiUrl;
+      let requestBody: any;
+
+      if (userRole === 'admin') {
+        apiUrl = getApiUrl(API_CONFIG.ENDPOINTS.ADMIN);
+        requestBody = {
+          action: "update",
+          user_id: parseInt(String(userId)),
+          password_lama: formData.passwordLama.trim(),
+          password_baru: formData.passwordBaru.trim()
+        };
+      } else {
+        apiUrl = getApiUrl('/pegawai/profil/api/change-password');
+        requestBody = {
+          password_lama: formData.passwordLama.trim(),
+          password_baru: formData.passwordBaru.trim()
+        };
+      }
 
       console.log('Sending update request:', requestBody);
 
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.ADMIN), {
+      const response = await fetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "user-id": userId.toString()
+        },
         body: JSON.stringify(requestBody),
       });
 
@@ -144,7 +169,7 @@ export default function PengaturanKeamananScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title="Pengaturan Keamanan" showBack onBackPress={() => router.push('/admin/profil-admin' as any)} />
+      <AppHeader title="Pengaturan Keamanan" showBack onBackPress={handleBack} />
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
 
         {/* FORM UBAH EMAIL & PASSWORD */}

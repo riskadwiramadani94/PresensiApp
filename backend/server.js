@@ -9,6 +9,7 @@ const adminRoutes = require('./src/routes/admin-admin');
 const pegawaiRoutes = require('./src/routes/pegawai-admin');
 const presensiRoutes = require('./src/routes/presensi');
 const dashboardRoutes = require('./src/routes/dashboard');
+const dashboardPegawaiRoutes = require('./src/routes/dashboard-pegawai');
 const laporanRoutes = require('./src/routes/laporan-admin');
 const pengaturanRoutes = require('./src/routes/pengaturan-admin');
 
@@ -36,7 +37,7 @@ app.use('/admin/api', adminRoutes);
 app.use('/admin/pegawai-akun/api', pegawaiRoutes);
 app.use('/admin/pegawai-akun/api', akunRoutes);
 app.use('/pegawai/presensi/api', presensiRoutes);
-app.use('/pegawai/api', dashboardRoutes);
+app.use('/pegawai', dashboardPegawaiRoutes);
 app.use('/admin/laporan/api', laporanRoutes);
 app.use('/admin/pengaturan/api', pengaturanRoutes);
 

@@ -22,6 +22,7 @@ interface PegawaiAbsen {
     'Cuti': number;
     'Pulang Cepat': number;
     'Dinas Luar/ Perjalanan Dinas': number;
+    'Dinas': number;
   };
 }
 
@@ -34,6 +35,7 @@ const statusConfig = {
   'Cuti': { color: '#9C27B0', icon: 'calendar' },
   'Pulang Cepat': { color: '#795548', icon: 'exit' },
   'Dinas Luar/ Perjalanan Dinas': { color: '#607D8B', icon: 'airplane' },
+  'Dinas': { color: '#00BCD4', icon: 'briefcase' },
   'Belum Absen': { color: '#FF9800', icon: 'time-outline' },
 };
 
@@ -116,6 +118,17 @@ export default function LaporanDetailAbsenScreen() {
     const config = statusConfig[status as keyof typeof statusConfig];
     if (!config) return null;
     
+    // Untuk status Dinas, tampilkan tanpa angka
+    if (status === 'Dinas') {
+      return (
+        <View key={status} style={[styles.statusBadge, { backgroundColor: config.color + '15' }]}>
+          <Text style={[styles.statusText, { color: config.color }]}>
+            Dinas
+          </Text>
+        </View>
+      );
+    }
+    
     return (
       <View key={status} style={[styles.statusBadge, { backgroundColor: config.color + '15' }]}>
         <Text style={[styles.statusText, { color: config.color }]}>
@@ -132,31 +145,34 @@ export default function LaporanDetailAbsenScreen() {
     
     // Calculate expected working days for each filter
     if (selectedDateFilter === 'minggu_ini') {
-      // Count weekdays in current week
+      // Count working days in current week based on jam_kerja_hari
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
       expectedWorkingDays = 0;
-      for (let i = 0; i < 5; i++) { // Mon-Fri
+      for (let i = 0; i < 7; i++) {
         const checkDate = new Date(startOfWeek);
         checkDate.setDate(startOfWeek.getDate() + i);
-        if (checkDate <= today) expectedWorkingDays++;
+        if (checkDate <= today) {
+          // Check jam_kerja_hari for this day (will be checked by backend)
+          expectedWorkingDays++;
+        }
       }
     } else if (selectedDateFilter === 'bulan_ini') {
-      // Count weekdays in current month up to today
+      // Count working days in current month based on jam_kerja_hari
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       expectedWorkingDays = 0;
       for (let d = new Date(startOfMonth); d <= today; d.setDate(d.getDate() + 1)) {
-        const dayOfWeek = d.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) expectedWorkingDays++; // Not weekend
+        // All days counted, backend will filter based on jam_kerja_hari
+        expectedWorkingDays++;
       }
     } else if (selectedDateFilter === 'pilih_tanggal' && dateRange.start && dateRange.end) {
-      // Count weekdays in selected range
+      // Count working days in selected range based on jam_kerja_hari
       const start = new Date(dateRange.start);
       const end = new Date(dateRange.end);
       expectedWorkingDays = 0;
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dayOfWeek = d.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) expectedWorkingDays++; // Not weekend
+        // All days counted, backend will filter based on jam_kerja_hari
+        expectedWorkingDays++;
       }
     }
     
@@ -167,7 +183,8 @@ export default function LaporanDetailAbsenScreen() {
                            item.summary['Sakit'] + 
                            item.summary['Cuti'] + 
                            item.summary['Pulang Cepat'] + 
-                           item.summary['Dinas Luar/ Perjalanan Dinas'];
+                           item.summary['Dinas Luar/ Perjalanan Dinas'] +
+                           (item.summary['Dinas'] || 0);
     
     const absentDays = expectedWorkingDays - totalAttendance;
     
@@ -246,9 +263,11 @@ export default function LaporanDetailAbsenScreen() {
         <View style={styles.avatar}>
           {item.foto_profil ? (
             <Image 
-              source={{ uri: item.foto_profil }} 
+              source={{ uri: `${API_CONFIG.BASE_URL}${item.foto_profil}` }} 
               style={styles.avatarImage}
-              onError={() => {}}
+              onError={(e) => {
+                console.log('Error loading image:', `${API_CONFIG.BASE_URL}${item.foto_profil}`);
+              }}
             />
           ) : (
             <Text style={styles.avatarText}>{item.nama_lengkap.charAt(0).toUpperCase()}</Text>
@@ -275,7 +294,7 @@ export default function LaporanDetailAbsenScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
         title="Laporan Absen"

@@ -228,7 +228,7 @@ export default function ProfilAdminScreen() {
   return (
     <View style={styles.container}>
       <RNStatusBar 
-        barStyle="dark-content"
+        barStyle="light-content"
         backgroundColor="transparent"
         translucent={true}
       />
@@ -294,7 +294,7 @@ export default function ProfilAdminScreen() {
           <View style={styles.menuCard}>
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => router.push('/profile-admin/pengaturan-akun/keamanan' as any)}
+              onPress={() => router.push('/keamanan' as any)}
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#FFF3E0' }]}>
@@ -325,7 +325,7 @@ export default function ProfilAdminScreen() {
           <View style={styles.menuCard}>
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => router.push('/profile-admin/tentang/kebijakan-privasi' as any)}
+              onPress={() => router.push('/tentang/kebijakan-privasi' as any)}
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#E0F2F1' }]}>
@@ -340,7 +340,7 @@ export default function ProfilAdminScreen() {
             
             <TouchableOpacity 
               style={styles.menuItem}
-              onPress={() => router.push('/profile-admin/tentang/syarat-ketentuan' as any)}
+              onPress={() => router.push('/tentang/syarat-ketentuan' as any)}
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#E8F5E9' }]}>

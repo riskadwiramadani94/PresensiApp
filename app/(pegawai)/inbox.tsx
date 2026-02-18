@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AppHeader from '@/components/AppHeader';
 
 export default function InboxScreen() {
   // Data dummy notifikasi
-  const [notifications] = useState([
+  const [notifications, setNotifications] = useState([
     {
       id: 1,
       type: 'approval',
@@ -37,15 +38,21 @@ export default function InboxScreen() {
     }
   ]);
 
+  const handleMarkAllRead = () => {
+    setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifikasi</Text>
-        <TouchableOpacity>
-          <Text style={styles.markRead}>Tandai dibaca</Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader 
+        title="Notifikasi" 
+        showBack={false}
+        rightComponent={
+          <TouchableOpacity onPress={handleMarkAllRead}>
+            <Text style={styles.markRead}>Tandai dibaca</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {notifications.map((item) => (
@@ -85,16 +92,6 @@ export default function InboxScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFB' },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 20, 
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
-  },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
   markRead: { fontSize: 13, color: '#004643', fontWeight: '600' },
   notifCard: { 
     flexDirection: 'row', 

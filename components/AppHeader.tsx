@@ -33,8 +33,8 @@ export default function AppHeader({
   onAddPress,
   rightComponent,
   fallbackRoute,
-  primaryColor = "#004643",
-  backgroundColor = "#fff",
+  primaryColor = "#fff",
+  backgroundColor = "#004643",
 }: AppHeaderProps) {
   const router = useRouter();
 
@@ -89,8 +89,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 5 : 35,
     paddingBottom: 10,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
+    borderBottomWidth: 0,
   },
   headerContent: {
     flexDirection: "row",

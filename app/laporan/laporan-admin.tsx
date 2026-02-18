@@ -93,7 +93,7 @@ export default function LaporanAdminScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       {/* HEADER */}
       <AppHeader 

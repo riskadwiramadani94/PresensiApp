@@ -106,7 +106,7 @@ export default function DetailDinasScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         
         <AppHeader 
           title="Detail Perjalanan Dinas"
@@ -124,7 +124,7 @@ export default function DetailDinasScreen() {
   if (!data) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         
         <AppHeader 
           title="Detail Perjalanan Dinas"
@@ -141,7 +141,7 @@ export default function DetailDinasScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
         title="Detail Perjalanan Dinas"

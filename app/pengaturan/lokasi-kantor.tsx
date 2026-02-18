@@ -130,7 +130,7 @@ export default function LokasiKantorScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
         title="Lokasi Kantor"

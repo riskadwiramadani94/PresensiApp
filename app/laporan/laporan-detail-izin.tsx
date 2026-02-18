@@ -217,7 +217,7 @@ export default function LaporanDetailIzinScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
 
       <AppHeader 
         title="Laporan Izin/Cuti"

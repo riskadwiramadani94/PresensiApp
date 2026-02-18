@@ -1,7 +1,7 @@
 // Konfigurasi API untuk HadirinApp - Node.js Backend
 
 const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
-const BASE_URL = __DEV__ ? 'http://10.251.109.21:3000' : 'http://10.251.109.21:3000';
+const BASE_URL = __DEV__ ? 'http://10.251.109.248:3000' : 'http://10.251.109.248:3000';
 
 const debugLog = (message: string, data?: any) => {
   if (isDevelopment) {
@@ -46,6 +46,8 @@ export const API_CONFIG = {
     // Kelola Dinas
     DINAS_AKTIF: '/admin/kelola-dinas/api/dinas-aktif',
     CREATE_DINAS: '/admin/kelola-dinas/api/create-dinas',
+    UPDATE_DINAS: '/admin/kelola-dinas/api/update-dinas',
+    DELETE_DINAS: '/admin/kelola-dinas/api/delete-dinas',
     DETAIL_DINAS: '/admin/kelola-dinas/api/detail-dinas',
     RIWAYAT_DINAS: '/admin/kelola-dinas/api/riwayat-dinas',
     VALIDASI_ABSEN: '/admin/kelola-dinas/api/validasi-absen',
@@ -307,10 +309,14 @@ export const PegawaiAkunAPI = {
 
 // Kelola Dinas API
 export const KelolaDinasAPI = {
-  getDinasAktif: async (status?: string) => {
+  getDinasAktif: async (status?: string, tanggal?: string) => {
     try {
-      const params = status ? `?status=${status}` : '';
-      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.DINAS_AKTIF)}${params}`);
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      if (tanggal) params.append('tanggal', tanggal);
+      const queryString = params.toString();
+      const url = queryString ? `${getApiUrl(API_CONFIG.ENDPOINTS.DINAS_AKTIF)}?${queryString}` : getApiUrl(API_CONFIG.ENDPOINTS.DINAS_AKTIF);
+      const response = await fetchWithRetry(url);
       return response.json();
     } catch (error) {
       return { success: false, message: 'Tidak dapat terhubung ke server', data: [] };
@@ -319,10 +325,33 @@ export const KelolaDinasAPI = {
   
   createDinas: async (data: any) => {
     try {
-      const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.CREATE_DINAS), {
+      // Jangan pakai fetchWithRetry karena FormData butuh auto Content-Type
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.CREATE_DINAS), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: data, // FormData, jangan set Content-Type manual
+      });
+      return response.json();
+    } catch (error) {
+      return { success: false, message: 'Tidak dapat terhubung ke server' };
+    }
+  },
+  
+  updateDinas: async (id: number, data: any) => {
+    try {
+      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.UPDATE_DINAS)}/${id}`, {
+        method: 'PUT',
+        body: data,
+      });
+      return response.json();
+    } catch (error) {
+      return { success: false, message: 'Tidak dapat terhubung ke server' };
+    }
+  },
+  
+  deleteDinas: async (id: number) => {
+    try {
+      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.DELETE_DINAS)}/${id}`, {
+        method: 'DELETE',
       });
       return response.json();
     } catch (error) {
@@ -372,6 +401,19 @@ export const KelolaDinasAPI = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id_dinas, latitude, longitude }),
+      });
+      return response.json();
+    } catch (error) {
+      return { success: false, message: 'Tidak dapat terhubung ke server' };
+    }
+  },
+  
+  validateAbsen: async (absenId: number, action: 'approve' | 'reject') => {
+    try {
+      const response = await fetchWithRetry(`${getApiUrl('/admin/kelola-dinas/api/validate-absen')}/${absenId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
       });
       return response.json();
     } catch (error) {

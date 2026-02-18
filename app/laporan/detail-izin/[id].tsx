@@ -116,7 +116,7 @@ export default function DetailIzinScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         <AppHeader 
           title="Detail Izin/Cuti"
           showBack={true}
@@ -132,7 +132,7 @@ export default function DetailIzinScreen() {
   if (!data) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         <AppHeader 
           title="Detail Izin/Cuti"
           showBack={true}
@@ -147,7 +147,7 @@ export default function DetailIzinScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
         title="Detail Izin/Cuti"

@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { PegawaiAPI } from '../../constants/config';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar as RNStatusBar, Image } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { PegawaiAPI, getApiUrl } from '../../constants/config';
 import { AuthStorage } from '../../utils/AuthStorage';
+import { AppHeader } from '../../components';
+import * as ImagePicker from 'expo-image-picker';
 
 interface UserProfile {
   id_user: number;
@@ -21,35 +23,25 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editModal, setEditModal] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
-  const [hasNIP, setHasNIP] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [editData, setEditData] = useState({
-    nip: '',
-    jenis_kelamin: '',
-    jabatan: '',
-    divisi: '',
-    no_telepon: '',
-    alamat: '',
-    tanggal_lahir: '',
-    password_baru: '',
-    konfirmasi_password: ''
-  });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadUserData();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, [])
+  );
+
   const loadUserData = async () => {
     try {
       const userData = await AuthStorage.getUser();
       if (userData) {
-        setUser(userData);
         fetchProfile(userData);
       } else {
         router.replace('/');
@@ -62,152 +54,70 @@ export default function ProfileScreen() {
 
   const fetchProfile = async (userData?: any) => {
     try {
-      console.log('Fetching profile...');
-      
-      const currentUser = userData || user;
+      const currentUser = userData;
       
       if (!currentUser) {
-        console.log('No user data, redirecting to login');
         Alert.alert('Error', 'Silakan login ulang');
         router.replace('/');
         return;
       }
       
-      console.log('User data from AsyncStorage:', currentUser);
-      
-      // Coba berbagai kemungkinan field untuk user ID
       const userId = currentUser.id_user || currentUser.id;
-      console.log('Extracted user ID:', userId);
       
-      if (!userId) {
-        console.log('No valid user ID found, using fallback data only');
-        // Gunakan data dari AsyncStorage sebagai fallback
-        const fallbackProfile = {
-          id_user: 0,
-          nama_lengkap: currentUser.nama_lengkap || 'User',
-          email: currentUser.email || 'No email',
-          jabatan: currentUser.jabatan || 'Staff',
-          nip: currentUser.nip || 'Belum ada NIP',
-          no_telepon: currentUser.no_telepon || 'Belum diisi',
-          divisi: currentUser.divisi || 'Umum',
-          jenis_kelamin: currentUser.jenis_kelamin || 'Belum diisi',
-          alamat: currentUser.alamat || 'Belum diisi',
-          tanggal_lahir: currentUser.tanggal_lahir || 'Belum diisi',
-          foto_profil: null
-        };
-        
-        setProfile(fallbackProfile);
-        setHasNIP(!!fallbackProfile.nip);
-        setEditData({
-          nip: fallbackProfile.nip || '',
-          jenis_kelamin: fallbackProfile.jenis_kelamin || '',
-          jabatan: fallbackProfile.jabatan || '',
-          divisi: fallbackProfile.divisi || '',
-          no_telepon: fallbackProfile.no_telepon || '',
-          alamat: fallbackProfile.alamat || '',
-          tanggal_lahir: fallbackProfile.tanggal_lahir || '',
-          password_baru: '',
-          konfirmasi_password: ''
-        });
-        return;
-      }
-      
-      console.log('User ID:', userId);
-      console.log('Calling PegawaiAPI.getProfile...');
-      
-      // Coba ambil dari server terlebih dahulu
-      try {
-        const result = await PegawaiAPI.getProfile(userId.toString());
-        console.log('Server response:', result);
-        
-        if (result.success && result.data) {
-          console.log('Profile data from server:', result.data);
-          setProfile(result.data);
-          setHasNIP(!!result.data.nip);
-          setEditData({
-            nip: result.data.nip || '',
-            jenis_kelamin: result.data.jenis_kelamin || '',
-            jabatan: result.data.jabatan || '',
-            divisi: result.data.divisi || '',
-            no_telepon: result.data.no_telepon || '',
-            alamat: result.data.alamat || '',
-            tanggal_lahir: result.data.tanggal_lahir || '',
-            password_baru: '',
-            konfirmasi_password: ''
-          });
-          return;
-        }
-      } catch (serverError) {
-        console.log('Server error, using AsyncStorage data:', serverError);
-      }
-      
-      // Fallback ke data AsyncStorage
-      console.log('Using fallback data from AsyncStorage');
-      const fallbackProfile = {
-        id_user: parseInt(userId),
+      // Set fallback dari AsyncStorage DULU
+      const fallbackProfile: UserProfile = {
+        id_user: userId,
         nama_lengkap: currentUser.nama_lengkap || 'User',
         email: currentUser.email || 'No email',
         jabatan: currentUser.jabatan || 'Staff',
-        nip: currentUser.nip || 'Belum ada NIP',
-        no_telepon: currentUser.no_telepon || 'Belum diisi',
+        nip: currentUser.nip || '',
+        no_telepon: currentUser.no_telepon || '',
         divisi: currentUser.divisi || 'Umum',
-        jenis_kelamin: currentUser.jenis_kelamin || 'Belum diisi',
-        alamat: currentUser.alamat || 'Belum diisi',
-        tanggal_lahir: currentUser.tanggal_lahir || 'Belum diisi',
-        foto_profil: null
+        jenis_kelamin: currentUser.jenis_kelamin || '',
+        alamat: currentUser.alamat || '',
+        tanggal_lahir: currentUser.tanggal_lahir || '',
+        foto_profil: currentUser.foto_profil || undefined
       };
       
-      console.log('Fallback profile:', fallbackProfile);
       setProfile(fallbackProfile);
-      setHasNIP(!!fallbackProfile.nip);
-      setEditData({
-        nip: fallbackProfile.nip || '',
-        jenis_kelamin: fallbackProfile.jenis_kelamin || '',
-        jabatan: fallbackProfile.jabatan || '',
-        divisi: fallbackProfile.divisi || '',
-        no_telepon: fallbackProfile.no_telepon || '',
-        alamat: fallbackProfile.alamat || '',
-        tanggal_lahir: fallbackProfile.tanggal_lahir || '',
-        password_baru: '',
-        konfirmasi_password: ''
-      });
+      
+      // Coba ambil dari server (opsional)
+      try {
+        const result = await PegawaiAPI.getDashboard(userId.toString());
+        
+        if (result.success && result.data?.user_info) {
+          const serverProfile: UserProfile = {
+            id_user: userId,
+            nama_lengkap: result.data.user_info.nama_lengkap || fallbackProfile.nama_lengkap,
+            email: currentUser.email || fallbackProfile.email,
+            jabatan: result.data.user_info.jabatan || fallbackProfile.jabatan,
+            nip: currentUser.nip || fallbackProfile.nip,
+            no_telepon: currentUser.no_telepon || fallbackProfile.no_telepon,
+            divisi: result.data.user_info.divisi || fallbackProfile.divisi,
+            jenis_kelamin: currentUser.jenis_kelamin || fallbackProfile.jenis_kelamin,
+            alamat: currentUser.alamat || fallbackProfile.alamat,
+            tanggal_lahir: currentUser.tanggal_lahir || fallbackProfile.tanggal_lahir,
+            foto_profil: result.data.user_info.foto_profil || fallbackProfile.foto_profil
+          };
+          
+          setProfile(serverProfile);
+          
+          // Update AsyncStorage dengan data terbaru
+          const updatedUserData = {
+            ...currentUser,
+            ...serverProfile
+          };
+          await AuthStorage.setUser(updatedUserData);
+        }
+      } catch (serverError) {
+        console.log('Server error (using fallback):', serverError);
+        // Tetap gunakan data fallback yang sudah di-set
+      }
     } catch (error) {
       console.error('Profile Error:', error);
-      Alert.alert('Error', 'Gagal memuat profil: ' + (error as Error).message);
+      Alert.alert('Error', 'Gagal memuat profil');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const updateProfile = async () => {
-    try {
-      if (!user) {
-        Alert.alert('Error', 'Silakan login ulang');
-        return;
-      }
-      
-      const userId = user.id_user || user.id;
-      if (!userId) {
-        Alert.alert('Error', 'Data login tidak valid');
-        return;
-      }
-      
-      const result = await PegawaiAPI.updateProfile({
-        user_id: userId.toString(),
-        nama_lengkap: profile?.nama_lengkap,
-        no_telepon: editData.no_telepon,
-        alamat: editData.alamat
-      });
-      
-      if (result.success) {
-        Alert.alert('Sukses', result.message);
-        setEditModal(false);
-        fetchProfile();
-      } else {
-        Alert.alert('Error', result.message);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Gagal update profil');
     }
   };
 
@@ -222,232 +132,253 @@ export default function ProfileScreen() {
     }
   };
 
+  const pickAndUploadImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Izin akses galeri diperlukan');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadPhoto(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Gagal memilih foto');
+    }
+  };
+
+  const uploadPhoto = async (photoUri: string) => {
+    setUploading(true);
+    try {
+      const userData = await AuthStorage.getUser();
+      if (!userData) {
+        Alert.alert('Error', 'Silakan login ulang');
+        router.replace('/');
+        return;
+      }
+
+      const userId = userData.id_user || userData.id;
+      const formData = new FormData();
+      
+      formData.append('nama_lengkap', profile?.nama_lengkap || '');
+      formData.append('jenis_kelamin', profile?.jenis_kelamin || '');
+      formData.append('tanggal_lahir', profile?.tanggal_lahir || '');
+      formData.append('alamat', profile?.alamat || '');
+      formData.append('no_telepon', profile?.no_telepon || '');
+
+      const filename = photoUri.split('/').pop() || 'profile.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('foto_profil', {
+        uri: photoUri,
+        name: filename,
+        type: type,
+      } as any);
+
+      const url = getApiUrl('/pegawai/profil/api/profile');
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'user-id': userId.toString()
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const updatedUserData = {
+          ...userData,
+          foto_profil: result.data?.foto_profil || profile?.foto_profil
+        };
+        await AuthStorage.setUser(updatedUserData);
+        
+        setProfile({
+          ...profile!,
+          foto_profil: result.data?.foto_profil || profile?.foto_profil || undefined
+        });
+        
+        Alert.alert('Berhasil', 'Foto profil berhasil diperbarui');
+      } else {
+        Alert.alert('Error', result.message || 'Gagal memperbarui foto profil');
+      }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      Alert.alert('Error', 'Gagal mengupload foto profil');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <Text>Memuat profil...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <RNStatusBar 
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      
+      <AppHeader 
+        title="Profil"
+        showBack={false}
+      />
+      
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* HEADER PROFIL */}
-        <View style={styles.profileHeader}>
-          <View style={styles.imageWrapper}>
-            <Image 
-              source={{ 
-                uri: profile?.foto_profil || `https://ui-avatars.com/api/?name=${profile?.nama_lengkap}&background=004643&color=fff&size=128`
-              }} 
-              style={styles.profileImage} 
-            />
-            <TouchableOpacity style={styles.editIcon}>
-              <Ionicons name="camera" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.userName}>{profile?.nama_lengkap || 'User'}</Text>
-          <Text style={styles.userRole}>👤 {profile?.jabatan || 'Pegawai'}</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>NIP: {profile?.nip || 'Belum ada'}</Text>
-          </View>
-        </View>
-
-        {/* INFO PRIBADI */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Informasi Pribadi</Text>
+        <View style={styles.profileSection}>
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{profile?.nama_lengkap || 'User'}</Text>
+            <Text style={styles.profileEmail}>{profile?.email || 'user@example.com'}</Text>
+            
             <TouchableOpacity 
-              style={styles.editBtn}
-              onPress={() => setEditModal(true)}
+              style={styles.editProfileBtn}
+              onPress={() => router.push('/profile-pegawai/edit-profil' as any)}
             >
-              <Ionicons name="create-outline" size={16} color="#004643" />
-              <Text style={styles.editBtnText}>Edit</Text>
+              <Text style={styles.editProfileText}>Edit Profil</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.infoCard}>
-            <InfoItem icon="mail-outline" label="Email" value={profile?.email || '-'} />
-            <InfoItem icon="call-outline" label="Telepon" value={profile?.no_telepon || 'Belum diisi'} />
-            <InfoItem icon="business-outline" label="Jabatan" value={profile?.jabatan || 'Belum diisi'} />
-            <InfoItem icon="briefcase-outline" label="Divisi" value={profile?.divisi || 'Belum diisi'} />
-            <InfoItem icon="person-outline" label="Jenis Kelamin" value={profile?.jenis_kelamin || 'Belum diisi'} />
-            <InfoItem icon="location-outline" label="Alamat" value={profile?.alamat || 'Belum diisi'} />
-            <InfoItem icon="calendar-outline" label="Tanggal Lahir" value={profile?.tanggal_lahir || 'Belum diisi'} />
+          <View style={styles.profileImageWrapper}>
+            {profile?.foto_profil ? (
+              <View style={styles.profileAvatar}>
+                <Image 
+                  source={{ uri: getApiUrl(`/${profile.foto_profil}`) }} 
+                  style={styles.profileAvatarImage}
+                />
+              </View>
+            ) : (
+              <View style={styles.profileAvatar}>
+                <Ionicons name="person" size={40} color="#004643" />
+              </View>
+            )}
+            <TouchableOpacity 
+              style={styles.editPhotoBtn}
+              onPress={pickAndUploadImage}
+              disabled={uploading}
+            >
+              <Ionicons name="camera-outline" size={16} color="#004643" />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* PENGATURAN & LAINNYA */}
+        <View style={styles.divider} />
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pengaturan Aplikasi</Text>
-          <View style={styles.infoCard}>
-            <MenuLink icon="shield-checkmark-outline" title="Ubah Password" />
-            <MenuLink icon="notifications-outline" title="Pengaturan Notifikasi" />
-            <MenuLink icon="help-circle-outline" title="Pusat Bantuan" />
+          <Text style={styles.sectionLabel}>PENGATURAN AKUN</Text>
+          <View style={styles.menuCard}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/keamanan' as any)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#FFF3E0' }]}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#F57C00" />
+                </View>
+                <Text style={styles.menuText}>Keamanan</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
+                  <Ionicons name="notifications-outline" size={20} color="#1976D2" />
+                </View>
+                <Text style={styles.menuText}>Notifikasi</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* TOMBOL LOGOUT */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={() => setLogoutModal(true)}>
-          <Ionicons name="log-out-outline" size={20} color="#FF4D4D" />
-          <Text style={styles.logoutText}>Keluar Akun</Text>
-        </TouchableOpacity>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>INFO DAN DUKUNGAN SELENGKAPNYA</Text>
+          <View style={styles.menuCard}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/tentang/kebijakan-privasi' as any)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#E0F2F1' }]}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#00897B" />
+                </View>
+                <Text style={styles.menuText}>Kebijakan Privasi</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/tentang/syarat-ketentuan' as any)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#E8F5E9' }]}>
+                  <Ionicons name="document-text-outline" size={20} color="#388E3C" />
+                </View>
+                <Text style={styles.menuText}>Syarat dan Ketentuan</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#FFF9C4' }]}>
+                  <Ionicons name="help-circle-outline" size={20} color="#F9A825" />
+                </View>
+                <Text style={styles.menuText}>Bantuan</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-
-
+        <View style={styles.section}>
+          <View style={styles.menuCard}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => setLogoutModal(true)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#FFEBEE' }]}>
+                  <Ionicons name="log-out-outline" size={20} color="#D32F2F" />
+                </View>
+                <Text style={styles.menuText}>Keluar Akun</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
       
-      {/* Modal Edit */}
-      <Modal visible={editModal} transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{hasNIP ? 'Edit Profil' : 'Lengkapi Profil'}</Text>
-            
-            {!hasNIP && (
-              <>
-                <Text style={styles.inputLabel}>NIP</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editData.nip}
-                  onChangeText={(text) => setEditData({...editData, nip: text})}
-                  placeholder="Masukkan NIP"
-                />
-                
-                <Text style={styles.inputLabel}>Jenis Kelamin</Text>
-                <View style={styles.genderContainer}>
-                  <TouchableOpacity 
-                    style={[styles.genderBtn, editData.jenis_kelamin === 'Laki-laki' && styles.genderBtnActive]}
-                    onPress={() => setEditData({...editData, jenis_kelamin: 'Laki-laki'})}
-                  >
-                    <Text style={[styles.genderText, editData.jenis_kelamin === 'Laki-laki' && styles.genderTextActive]}>Laki-laki</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.genderBtn, editData.jenis_kelamin === 'Perempuan' && styles.genderBtnActive]}
-                    onPress={() => setEditData({...editData, jenis_kelamin: 'Perempuan'})}
-                  >
-                    <Text style={[styles.genderText, editData.jenis_kelamin === 'Perempuan' && styles.genderTextActive]}>Perempuan</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                <Text style={styles.inputLabel}>Jabatan</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editData.jabatan}
-                  onChangeText={(text) => setEditData({...editData, jabatan: text})}
-                  placeholder="Masukkan jabatan"
-                />
-                
-                <Text style={styles.inputLabel}>Divisi</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editData.divisi}
-                  onChangeText={(text) => setEditData({...editData, divisi: text})}
-                  placeholder="Masukkan divisi"
-                />
-                
-                <Text style={styles.inputLabel}>Tanggal Lahir</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editData.tanggal_lahir}
-                  onChangeText={(text) => setEditData({...editData, tanggal_lahir: text})}
-                  placeholder="YYYY-MM-DD"
-                />
-              </>
-            )}
-            
-            <Text style={styles.inputLabel}>No. Telepon</Text>
-            <TextInput
-              style={styles.input}
-              value={editData.no_telepon}
-              onChangeText={(text) => setEditData({...editData, no_telepon: text})}
-              placeholder="Masukkan nomor telepon"
-            />
-            
-            <Text style={styles.inputLabel}>Alamat</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={editData.alamat}
-              onChangeText={(text) => setEditData({...editData, alamat: text})}
-              placeholder="Masukkan alamat"
-              multiline
-              numberOfLines={3}
-            />
-            
-            <View style={styles.divider} />
-            <Text style={styles.sectionLabel}>Ubah Password (Opsional)</Text>
-            
-            <Text style={styles.inputLabel}>Password Baru</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                value={editData.password_baru}
-                onChangeText={(text) => setEditData({...editData, password_baru: text})}
-                placeholder="Kosongkan jika tidak ubah password"
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity 
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons 
-                  name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={20} 
-                  color="#666" 
-                />
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={styles.inputLabel}>Konfirmasi Password Baru</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                value={editData.konfirmasi_password}
-                onChangeText={(text) => setEditData({...editData, konfirmasi_password: text})}
-                placeholder="Ulangi password baru"
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity 
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons 
-                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
-                  size={20} 
-                  color="#666" 
-                />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setEditModal(false)}
-              >
-                <Text style={styles.cancelBtnText}>Batal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.modalBtn, styles.saveBtn]}
-                onPress={updateProfile}
-              >
-                <Text style={styles.saveBtnText}>Simpan</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* Modal Konfirmasi Logout */}
-      <Modal visible={logoutModal} transparent animationType="fade">
+      <Modal 
+        visible={logoutModal} 
+        transparent 
+        statusBarTranslucent={true}
+        animationType="none"
+      >
         <TouchableOpacity 
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            paddingTop: Platform.OS === 'ios' ? 50 : 30,
-          }}
+          style={styles.logoutModalOverlay}
           activeOpacity={1}
           onPress={() => setLogoutModal(false)}
         >
@@ -478,88 +409,89 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
-  );
-}
-
-function InfoItem({ icon, label, value }: any) {
-  return (
-    <View style={styles.infoItem}>
-      <Ionicons name={icon} size={20} color="#004643" style={styles.infoIcon} />
-      <View>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value}</Text>
-      </View>
     </View>
   );
 }
 
-function MenuLink({ icon, title }: any) {
-  return (
-    <TouchableOpacity style={styles.menuLink}>
-      <View style={styles.menuLinkLeft}>
-        <Ionicons name={icon} size={20} color="#555" />
-        <Text style={styles.menuLinkText}>{title}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color="#CCC" />
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFB' },
-  scrollContent: { paddingTop: Platform.OS === 'ios' ? 0 : 20 },
-  profileHeader: { backgroundColor: '#fff', alignItems: 'center', paddingTop: Platform.OS === 'ios' ? 20 : 40, paddingBottom: 30, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 2 },
-  imageWrapper: { position: 'relative', marginBottom: 15 },
-  profileImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#004643' },
-  editIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#004643', padding: 8, borderRadius: 20, borderWidth: 2, borderColor: '#fff' },
-  userName: { fontSize: 22, fontWeight: 'bold', color: '#333' },
-  userRole: { fontSize: 14, color: '#777', marginTop: 4 },
-  badge: { backgroundColor: '#E6F0EF', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 10 },
-  badgeText: { color: '#004643', fontSize: 12, fontWeight: 'bold' },
-  section: { marginTop: 25, paddingHorizontal: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: 'bold', color: '#333' },
-  editBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6F0EF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  editBtnText: { marginLeft: 4, fontSize: 12, color: '#004643', fontWeight: '500' },
-  infoCard: { backgroundColor: '#fff', borderRadius: 15, paddingVertical: 10, elevation: 1 },
-  infoItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12 },
-  infoIcon: { width: 35 },
-  infoLabel: { fontSize: 11, color: '#999' },
-  infoValue: { fontSize: 14, color: '#333', fontWeight: '500' },
-  menuLink: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  menuLinkLeft: { flexDirection: 'row', alignItems: 'center' },
-  menuLinkText: { marginLeft: 15, fontSize: 14, color: '#333' },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 30, marginBottom: 100 },
-  logoutText: { marginLeft: 10, color: '#FF4D4D', fontWeight: 'bold', fontSize: 16 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: {
+  container: { flex: 1, backgroundColor: '#fff' },
+  scrollContent: { paddingBottom: 30 },
+  
+  profileSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  profileEmail: { fontSize: 14, color: '#666', marginBottom: 12 },
+  profileImageWrapper: { position: 'relative' },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E6F0EF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profileAvatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  editPhotoBtn: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#004643',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editProfileBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#004643',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  editProfileText: { fontSize: 13, fontWeight: '600', color: '#004643' },
+  
+  divider: { height: 1, backgroundColor: '#E0E0E0', marginVertical: 10 },
+  
+  section: { paddingHorizontal: 20, marginTop: 10 },
+  sectionLabel: { fontSize: 12, fontWeight: '600', color: '#999', marginBottom: 10, marginLeft: 5, letterSpacing: 0.5 },
+  
+  menuCard: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E0E0E0', overflow: 'hidden' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 15 },
+  menuLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  iconCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  menuText: { fontSize: 15, color: '#333', fontWeight: '500' },
+  menuDivider: { height: 1, backgroundColor: '#F0F0F0' },
+  
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 15 },
+  infoLabel: { fontSize: 14, color: '#666' },
+  infoValue: { fontSize: 14, color: '#333', fontWeight: '500' },
+  
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  
+  logoutModalOverlay: {
+    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 9999,
+    paddingTop: Platform.OS === 'android' ? 0 : 50,
   },
-  modalContent: { backgroundColor: '#fff', margin: 20, padding: 20, borderRadius: 15, width: '90%' },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  inputLabel: { fontSize: 14, fontWeight: '500', marginBottom: 8, color: '#333' },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 15, fontSize: 14 },
-  textArea: { height: 80, textAlignVertical: 'top' },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  modalBtn: { flex: 1, padding: 12, borderRadius: 8, marginHorizontal: 5 },
-  cancelBtn: { backgroundColor: '#f5f5f5' },
-  saveBtn: { backgroundColor: '#004643' },
-  cancelBtnText: { textAlign: 'center', color: '#666', fontWeight: '500' },
-  saveBtnText: { textAlign: 'center', color: '#fff', fontWeight: 'bold' },
-  genderContainer: { flexDirection: 'row', marginBottom: 15 },
-  genderBtn: { flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginHorizontal: 5, alignItems: 'center' },
-  genderBtnActive: { backgroundColor: '#004643', borderColor: '#004643' },
-  genderText: { color: '#666' },
-  genderTextActive: { color: '#fff', fontWeight: 'bold' },
   logoutModalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '85%', maxWidth: 320 },
   logoutModalHeader: { alignItems: 'center', marginBottom: 24 },
   logoutModalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 12, marginBottom: 8 },
@@ -569,9 +501,4 @@ const styles = StyleSheet.create({
   logoutCancelText: { fontSize: 16, fontWeight: '600', color: '#666' },
   logoutConfirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#FF4D4D', alignItems: 'center' },
   logoutConfirmText: { fontSize: 16, fontWeight: '600', color: '#fff' },
-  divider: { height: 1, backgroundColor: '#E0E0E0', marginVertical: 15 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginBottom: 10 },
-  passwordContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginBottom: 15 },
-  passwordInput: { flex: 1, padding: 12, fontSize: 14 },
-  eyeButton: { padding: 12 }
 });

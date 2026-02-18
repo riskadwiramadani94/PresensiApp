@@ -5,7 +5,6 @@ import {
   Text, 
   ScrollView, 
   TouchableOpacity, 
-  SafeAreaView, 
   StatusBar as RNStatusBar,
   Alert,
   Platform,
@@ -21,6 +20,7 @@ interface UserData {
   nama: string;
   jabatan: string;
   statusAbsen: string;
+  keteranganAbsen: string;
   jamMasuk: string;
   jamKeluar: string;
   totalJamKerja: string;
@@ -32,6 +32,7 @@ export default function BerandaScreen() {
     nama: '',
     jabatan: '',
     statusAbsen: 'Belum Absen',
+    keteranganAbsen: 'Anda belum melakukan absensi hari ini',
     jamMasuk: '08:00',
     jamKeluar: '17:00',
     totalJamKerja: '0j 0m'
@@ -41,6 +42,7 @@ export default function BerandaScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
+    loadUserDataFirst();
     fetchUserData();
     
     // Update time every 30 seconds
@@ -71,93 +73,104 @@ export default function BerandaScreen() {
     return 'Selamat Malam';
   };
 
+  const loadUserDataFirst = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        // Set data dari AsyncStorage DULU
+        setUserData((prev) => ({
+          ...prev,
+          nama: user.nama_lengkap || user.nama || 'Pengguna',
+          jabatan: user.jabatan || 'Pegawai'
+        }));
+      }
+    } catch (error) {
+      console.log('Error loading user data first:', error);
+    }
+  };
+
   const fetchUserData = async () => {
     try {
-      // Ambil user data dari AsyncStorage (dari hasil login)
-      const userData = await AsyncStorage.getItem('userData');
-      console.log('AsyncStorage userData:', userData);
+      // Ambil user data dari AsyncStorage
+      const userDataStr = await AsyncStorage.getItem('userData');
       
-      if (!userData) {
+      if (!userDataStr) {
         console.log('No userData in AsyncStorage');
-        // Gunakan data fallback jika tidak ada data login
-        setUserData({
+        setUserData((prev) => ({
+          ...prev,
           nama: 'Pengguna',
-          jabatan: 'Pegawai', 
-          statusAbsen: 'Belum Absen',
-          jamMasuk: '08:00',
-          jamKeluar: '17:00',
-          totalJamKerja: '0h'
-        });
+          jabatan: 'Pegawai'
+        }));
         return;
       }
       
-      const user = JSON.parse(userData);
-      console.log('Parsed user:', user);
-      
-      // Gunakan id atau id_user yang tersedia
+      const user = JSON.parse(userDataStr);
       const userId = user.id_user || user.id;
+      
       if (!userId) {
         throw new Error('No user ID found');
       }
       
       const result = await PegawaiAPI.getDashboard(userId.toString());
       console.log('Dashboard API result:', result);
-      console.log('Jam kerja data:', result.data?.jam_kerja);
-      console.log('Jam masuk dari API:', result.data?.jam_kerja?.jam_masuk);
-      console.log('Jam keluar dari API:', result.data?.jam_kerja?.jam_keluar);
       
       if (result.success) {
         const data = result.data;
+        
+        // Tentukan status dan keterangan absen
+        let statusAbsen = 'Belum Absen';
+        let keteranganAbsen = 'Anda belum melakukan absensi hari ini';
+        
+        if (data.presensi_hari_ini) {
+          const jamMasuk = data.presensi_hari_ini.jam_masuk;
+          const status = data.presensi_hari_ini.status;
+          
+          if (status === 'Terlambat') {
+            statusAbsen = 'Terlambat';
+            keteranganAbsen = `Anda terlambat absen pada pukul ${jamMasuk?.substring(0, 5)} WIB`;
+          } else {
+            statusAbsen = 'Sudah Absen';
+            keteranganAbsen = `Anda sudah absen pada pukul ${jamMasuk?.substring(0, 5)} WIB`;
+          }
+        }
+        
         setUserData({
-          nama: data.user_info?.nama_lengkap || user.nama || 'Pengguna',
-          jabatan: data.user_info?.jabatan || 'Pegawai',
-          statusAbsen: data.presensi_hari_ini ? 'Sudah Absen' : 'Belum Absen',
+          nama: data.user_info?.nama_lengkap || user.nama_lengkap || user.nama || 'Pengguna',
+          jabatan: data.user_info?.jabatan || user.jabatan || 'Pegawai',
+          statusAbsen,
+          keteranganAbsen,
           jamMasuk: data.jam_kerja?.jam_masuk || '08:00',
           jamKeluar: data.jam_kerja?.jam_keluar || '17:00',
           totalJamKerja: data.summary_bulan_ini?.total_hadir + 'h' || '0h'
         });
+        
+        // Update AsyncStorage dengan data terbaru
+        const updatedUserData = {
+          ...user,
+          nama_lengkap: data.user_info?.nama_lengkap || user.nama_lengkap,
+          jabatan: data.user_info?.jabatan || user.jabatan
+        };
+        await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
       } else {
         throw new Error(result.message);
       }
     } catch (error) {
       console.log('Dashboard Error:', error);
       
-      // Gunakan data fallback dari AsyncStorage jika ada
-      const userData = await AsyncStorage.getItem('userData');
-      if (userData) {
-        const user = JSON.parse(userData);
-        setUserData({
-          nama: user.nama_lengkap || user.nama || 'Pengguna',
-          jabatan: user.jabatan || 'Pegawai',
-          statusAbsen: 'Belum Absen',
-          jamMasuk: '08:00',
-          jamKeluar: '17:00',
-          totalJamKerja: '0h'
-        });
-        
-        // Hanya tampilkan alert jika benar-benar error koneksi, bukan data kosong
-        if (error instanceof Error && error.message.includes('fetch')) {
-          Alert.alert('Info', 'Menggunakan data offline - tidak dapat terhubung ke server');
-        }
-      } else {
-        // Jika tidak ada data sama sekali
-        setUserData({
-          nama: 'Pengguna',
-          jabatan: 'Pegawai',
-          statusAbsen: 'Belum Absen',
-          jamMasuk: '08:00',
-          jamKeluar: '17:00',
-          totalJamKerja: '0h'
-        });
-      }
+      // Tetap gunakan data dari AsyncStorage yang sudah di-set di loadUserDataFirst
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="dark-content" backgroundColor="#004643" translucent={false} />
+    <View style={styles.container}>
+      <RNStatusBar 
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
@@ -169,7 +182,7 @@ export default function BerandaScreen() {
       >
         {/* Background Gradient */}
         <LinearGradient
-          colors={['#004643', '#2E7D32']}
+          colors={['#004643', '#43A047']}
           style={styles.gradientBackground}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -193,21 +206,41 @@ export default function BerandaScreen() {
             </View>
           </View>
 
-          {/* SECTION 2: JAM KERJA CARD */}
-          <View style={styles.jamKerjaContainer}>
-            <View style={styles.jamKerjaBox}>
-              <Ionicons name="timer-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
-              <View>
-                <Text style={styles.jamKerjaLabel}>Jam Masuk</Text>
-                <Text style={styles.jamKerjaValue}>{userData.jamMasuk || '08:00'}</Text>
+          {/* SECTION 2: INFO CARD - STATUS & JAM KERJA */}
+          <View style={styles.infoCard}>
+            {/* Status Absensi */}
+            <View style={styles.statusRow}>
+              <View style={[styles.statusDot, 
+                userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
+                userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
+              ]} />
+              <View style={styles.statusContent}>
+                <Text style={styles.statusTitle}>Status Absensi</Text>
+                <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
               </View>
             </View>
 
-            <View style={styles.jamKerjaBox}>
-              <Ionicons name="calendar-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
-              <View>
-                <Text style={styles.jamKerjaLabel}>Jam Pulang</Text>
-                <Text style={styles.jamKerjaValue}>{userData.jamKeluar || '17:00'}</Text>
+            {/* Divider */}
+            <View style={styles.dividerLine} />
+
+            {/* Jam Kerja */}
+            <View style={styles.jamKerjaRow}>
+              <View style={styles.jamItem}>
+                <View style={styles.jamIconBox}>
+                  <Ionicons name="log-in-outline" size={18} color="#fff" />
+                </View>
+                <Text style={styles.jamLabel}>Jam Masuk</Text>
+                <Text style={styles.jamValue}>{userData.jamMasuk || '08:00'}</Text>
+              </View>
+              
+              <View style={styles.verticalDivider} />
+              
+              <View style={styles.jamItem}>
+                <View style={styles.jamIconBox}>
+                  <Ionicons name="log-out-outline" size={18} color="#fff" />
+                </View>
+                <Text style={styles.jamLabel}>Jam Pulang</Text>
+                <Text style={styles.jamValue}>{userData.jamKeluar || '17:00'}</Text>
               </View>
             </View>
           </View>
@@ -242,20 +275,20 @@ export default function BerandaScreen() {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   gradientBackground: {
-    paddingTop: Platform.OS === 'ios' ? 20 : 40,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingHorizontal: 20,
     paddingBottom: 80,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  scrollContent: { paddingBottom: 100 },
+  scrollContent: { flexGrow: 1 },
   headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -325,44 +358,101 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '400',
   },
-  jamKerjaContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  infoCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
-  jamKerjaBox: {
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
+    marginRight: 10,
+  },
+  dotOrange: {
+    backgroundColor: '#FFA726',
+  },
+  dotRed: {
+    backgroundColor: '#EF5350',
+  },
+  dotGreen: {
+    backgroundColor: '#66BB6A',
+  },
+  statusContent: {
+    flex: 1,
+  },
+  statusTitle: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 3,
+  },
+  statusText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  dividerLine: {
+    height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    width: '48%',
-    padding: 15,
-    borderRadius: 12,
+    marginBottom: 14,
+  },
+  jamKerjaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  iconBox: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 10, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginRight: 10,
-    backgroundColor: 'transparent'
+  jamItem: {
+    flex: 1,
+    alignItems: 'center',
   },
-  jamKerjaLabel: { fontSize: 10, color: 'rgba(255,255,255,0.9)' },
-  jamKerjaValue: { fontSize: 13, fontWeight: 'bold', color: '#fff' },
+  jamIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  jamLabel: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '500',
+    marginBottom: 3,
+  },
+  jamValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  verticalDivider: {
+    width: 1,
+    height: 45,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 16,
+  },
   menuSection: { 
     marginTop: -80, 
-    marginHorizontal: 20, 
-    backgroundColor: '#fff', 
-    borderRadius: 20, 
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    marginBottom: 20
+    backgroundColor: '#FFFFFF', 
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 35,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    flex: 1,
   },
   mainMenuRow: {
     flexDirection: 'row',

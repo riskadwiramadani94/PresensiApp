@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, FlatList, 
-  Alert, ActivityIndicator, ScrollView, Platform, RefreshControl
+  Alert, ActivityIndicator, ScrollView, Platform, RefreshControl, Modal, Image, StatusBar as RNStatusBar
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as NavigationBar from 'expo-navigation-bar';
 import { AppHeader } from '../../../components';
 import { KelolaDinasAPI } from '../../../constants/config';
@@ -26,6 +26,7 @@ interface DinasItem {
     radius: number;
   }>;
   pegawai: Array<{
+    absenId?: number;
     nama: string;
     nip: string;
     status: string;
@@ -33,6 +34,7 @@ interface DinasItem {
     lokasiAbsen?: string;
     isLokasiSesuai?: boolean;
     fotoAbsen?: string;
+    statusValidasi?: string;
   }>;
 }
 
@@ -46,11 +48,14 @@ interface DateItem {
 
 export default function AbsenDinasValidasiScreen() {
   const router = useRouter();
+  const { dinasId } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dinasData, setDinasData] = useState<DinasItem[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [pegawaiData, setPegawaiData] = useState<any[]>([]);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<string>('');
 
   useFocusEffect(
     useCallback(() => {
@@ -61,32 +66,45 @@ export default function AbsenDinasValidasiScreen() {
     }, [])
   );
 
-  const fetchDinasData = async () => {
+  const fetchDinasData = async (tanggal?: string) => {
     try {
       setLoading(true);
-      const result = await KelolaDinasAPI.getDinasAktif();
+      const todayString = tanggal || getTodayDateString();
       
-      if (result.success) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+      if (dinasId) {
+        const result = await KelolaDinasAPI.getDinasAktif(undefined, todayString);
+        if (result.success) {
+          const selectedDinas = result.data.find((d: DinasItem) => d.id === Number(dinasId));
+          if (selectedDinas) {
+            setDinasData([selectedDinas]);
+            setSelectedDate(todayString);
+            setPegawaiData(selectedDinas.pegawai || []);
+          }
+        }
+      } else {
+        const result = await KelolaDinasAPI.getDinasAktif(undefined, todayString);
         
-        const dinasAktif = result.data.filter((dinas: DinasItem) => {
-          const mulai = new Date(dinas.tanggal_mulai);
-          const selesai = new Date(dinas.tanggal_selesai);
+        if (result.success) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
           
-          mulai.setHours(0, 0, 0, 0);
-          selesai.setHours(23, 59, 59, 999);
+          const dinasAktif = result.data.filter((dinas: DinasItem) => {
+            const mulai = new Date(dinas.tanggal_mulai);
+            const selesai = new Date(dinas.tanggal_selesai);
+            
+            mulai.setHours(0, 0, 0, 0);
+            selesai.setHours(23, 59, 59, 999);
+            
+            return today >= mulai && today <= selesai;
+          });
           
-          return today >= mulai && today <= selesai;
-        });
-        
-        setDinasData(dinasAktif);
-        
-        // Auto-select today's date and load pegawai data
-        if (dinasAktif.length > 0) {
-          const todayString = getTodayDateString();
-          setSelectedDate(todayString);
-          setPegawaiData(dinasAktif[0].pegawai || []);
+          setDinasData(dinasAktif);
+          
+          if (dinasAktif.length > 0) {
+            const todayString = getTodayDateString();
+            setSelectedDate(todayString);
+            setPegawaiData(dinasAktif[0].pegawai || []);
+          }
         }
       }
     } catch (error) {
@@ -99,7 +117,7 @@ export default function AbsenDinasValidasiScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchDinasData();
+    await fetchDinasData(selectedDate || undefined);
     setRefreshing(false);
   };
 
@@ -146,12 +164,20 @@ export default function AbsenDinasValidasiScreen() {
 
 
 
-  const handleDateClick = (date: string, dinas: DinasItem) => {
+  const handleDateClick = async (date: string, dinas: DinasItem) => {
     setSelectedDate(date);
-    // TODO: Fetch pegawai yang bertugas di tanggal ini dari API
-    // Sementara gunakan data pegawai dari dinas
-    console.log('Pegawai data:', dinas.pegawai);
-    setPegawaiData(dinas.pegawai || []);
+    // Fetch pegawai data for selected date
+    try {
+      const result = await KelolaDinasAPI.getDinasAktif(undefined, date);
+      if (result.success && result.data.length > 0) {
+        const selectedDinas = result.data.find((d: DinasItem) => d.id === dinas.id);
+        if (selectedDinas) {
+          setPegawaiData(selectedDinas.pegawai || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching pegawai for date:', error);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -384,7 +410,14 @@ export default function AbsenDinasValidasiScreen() {
                 
                 <View style={styles.actionButtons}>
                   {pegawai.status === 'hadir' && pegawai.fotoAbsen ? (
-                    <TouchableOpacity style={styles.actionIconBtn}>
+                    <TouchableOpacity 
+                      style={styles.actionIconBtn}
+                      onPress={() => {
+                        console.log('Opening photo:', pegawai.fotoAbsen);
+                        setSelectedPhoto(pegawai.fotoAbsen);
+                        setShowPhotoModal(true);
+                      }}
+                    >
                       <Ionicons name="camera" size={18} color="#004643" />
                     </TouchableOpacity>
                   ) : (
@@ -393,7 +426,7 @@ export default function AbsenDinasValidasiScreen() {
                     </View>
                   )}
                   
-                  {pegawai.status === 'hadir' ? (
+                  {pegawai.status === 'hadir' && pegawai.statusValidasi === 'menunggu' ? (
                     <TouchableOpacity 
                       style={styles.actionIconBtn}
                       onPress={async () => {
@@ -406,19 +439,13 @@ export default function AbsenDinasValidasiScreen() {
                               text: 'Terima', 
                               onPress: async () => {
                                 try {
-                                  // TODO: Call API to validate
-                                  // await KelolaDinasAPI.validateAbsen(pegawai.id);
-                                  
-                                  Alert.alert('Berhasil', `Absen ${pegawai.nama} berhasil divalidasi`);
-                                  
-                                  // Update local state
-                                  setPegawaiData(prev => 
-                                    prev.map(p => 
-                                      p.nama === pegawai.nama 
-                                        ? { ...p, isValidated: true } 
-                                        : p
-                                    )
-                                  );
+                                  const result = await KelolaDinasAPI.validateAbsen(pegawai.absenId, 'approve');
+                                  if (result.success) {
+                                    Alert.alert('Berhasil', `Absen ${pegawai.nama} berhasil divalidasi`);
+                                    await fetchDinasData(selectedDate || undefined);
+                                  } else {
+                                    Alert.alert('Error', result.message || 'Gagal memvalidasi absen');
+                                  }
                                 } catch (error) {
                                   Alert.alert('Error', 'Gagal memvalidasi absen');
                                 }
@@ -428,19 +455,19 @@ export default function AbsenDinasValidasiScreen() {
                         );
                       }}
                     >
-                      <Ionicons 
-                        name={pegawai.isValidated ? "checkmark-circle" : "checkmark-circle-outline"} 
-                        size={18} 
-                        color={pegawai.isValidated ? "#4CAF50" : "#4CAF50"} 
-                      />
+                      <Ionicons name="checkmark-circle-outline" size={18} color="#4CAF50" />
                     </TouchableOpacity>
+                  ) : pegawai.statusValidasi === 'disetujui' ? (
+                    <View style={styles.actionIconBtn}>
+                      <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+                    </View>
                   ) : (
                     <View style={[styles.actionIconBtn, styles.actionIconBtnDisabled]}>
                       <Ionicons name="checkmark-circle-outline" size={18} color="#ccc" />
                     </View>
                   )}
                   
-                  {pegawai.status === 'hadir' ? (
+                  {pegawai.status === 'hadir' && pegawai.statusValidasi === 'menunggu' ? (
                     <TouchableOpacity 
                       style={[styles.actionIconBtn, styles.actionIconBtnReject]}
                       onPress={async () => {
@@ -454,19 +481,13 @@ export default function AbsenDinasValidasiScreen() {
                               style: 'destructive',
                               onPress: async () => {
                                 try {
-                                  // TODO: Call API to reject validation
-                                  // await KelolaDinasAPI.rejectAbsen(pegawai.id);
-                                  
-                                  Alert.alert('Berhasil', `Validasi absen ${pegawai.nama} ditolak`);
-                                  
-                                  // Update local state
-                                  setPegawaiData(prev => 
-                                    prev.map(p => 
-                                      p.nama === pegawai.nama 
-                                        ? { ...p, isRejected: true } 
-                                        : p
-                                    )
-                                  );
+                                  const result = await KelolaDinasAPI.validateAbsen(pegawai.absenId, 'reject');
+                                  if (result.success) {
+                                    Alert.alert('Berhasil', `Validasi absen ${pegawai.nama} ditolak`);
+                                    await fetchDinasData(selectedDate || undefined);
+                                  } else {
+                                    Alert.alert('Error', result.message || 'Gagal menolak validasi');
+                                  }
                                 } catch (error) {
                                   Alert.alert('Error', 'Gagal menolak validasi absen');
                                 }
@@ -478,6 +499,10 @@ export default function AbsenDinasValidasiScreen() {
                     >
                       <Ionicons name="close-circle-outline" size={18} color="#F44336" />
                     </TouchableOpacity>
+                  ) : pegawai.statusValidasi === 'ditolak' ? (
+                    <View style={[styles.actionIconBtn, styles.actionIconBtnReject]}>
+                      <Ionicons name="close-circle" size={18} color="#F44336" />
+                    </View>
                   ) : (
                     <View style={[styles.actionIconBtn, styles.actionIconBtnDisabled]}>
                       <Ionicons name="close-circle-outline" size={18} color="#ccc" />
@@ -542,6 +567,38 @@ export default function AbsenDinasValidasiScreen() {
           </View>
         )}
       />
+
+      <Modal
+        visible={showPhotoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPhotoModal(false)}
+        statusBarTranslucent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Foto Absen Masuk</Text>
+              <TouchableOpacity onPress={() => setShowPhotoModal(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            {selectedPhoto ? (
+              <Image 
+                source={{ uri: selectedPhoto }} 
+                style={styles.photoImage}
+                resizeMode="contain"
+                onError={(e) => console.log('Image load error:', e.nativeEvent.error)}
+                onLoad={() => console.log('Image loaded successfully')}
+              />
+            ) : (
+              <View style={styles.photoImage}>
+                <Text>Tidak ada foto</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -748,7 +805,6 @@ const styles = StyleSheet.create({
   },
   pegawaiCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#fff',
     padding: 14,
@@ -758,6 +814,7 @@ const styles = StyleSheet.create({
   },
   pegawaiInfo: {
     flex: 1,
+    marginRight: 12,
   },
   pegawaiNameRow: {
     flexDirection: 'row',
@@ -854,5 +911,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     marginTop: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: RNStatusBar.currentHeight || 0,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '90%',
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  photoImage: {
+    width: '100%',
+    height: 400,
   },
 });

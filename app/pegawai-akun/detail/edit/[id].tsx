@@ -103,7 +103,7 @@ export default function EditPegawai() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#004643" />
           <Text style={styles.loadingText}>Memuat data pegawai...</Text>
@@ -114,7 +114,7 @@ export default function EditPegawai() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       {/* HEADER */}
       <AppHeader 

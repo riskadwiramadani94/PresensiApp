@@ -23,6 +23,7 @@ const statusConfig = {
   'Sakit': { color: '#E91E63', icon: 'medical' },
   'Cuti': { color: '#9C27B0', icon: 'calendar' },
   'Pulang Cepat': { color: '#795548', icon: 'exit' },
+  'Dinas': { color: '#00BCD4', icon: 'briefcase' },
   'Libur': { color: '#F44336', icon: 'calendar' }
 };
 
@@ -33,6 +34,7 @@ export default function DetailAbsenPegawai() {
   const router = useRouter();
   const { id, filter, start_date, end_date } = useLocalSearchParams();
   const [pegawai, setPegawai] = useState({ nama: '', nip: '', user_id: '' });
+  const [pegawaiData, setPegawaiData] = useState<any>(null);
   const [absenData, setAbsenData] = useState<AbsenDetail[]>([]);
   const [hariLibur, setHariLibur] = useState<{tanggal: string, nama_libur: string}[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +103,7 @@ export default function DetailAbsenPegawai() {
       console.log('Pegawai response:', pegawaiData);
       
       if (pegawaiData.success && pegawaiData.data) {
+        setPegawaiData(pegawaiData.data);
         setPegawai({ 
           nama: pegawaiData.data.nama_lengkap || 'Nama tidak ditemukan', 
           nip: pegawaiData.data.nip || '-',
@@ -140,11 +143,15 @@ export default function DetailAbsenPegawai() {
           break;
         case 'minggu_ini':
           const startOfWeek = new Date(today);
-          startOfWeek.setDate(today.getDate() - today.getDay());
+          // Senin sebagai hari pertama (getDay: 0=Minggu, 1=Senin)
+          const dayOfWeek = today.getDay();
+          const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Jika Minggu, mundur 6 hari
+          startOfWeek.setDate(today.getDate() + diff);
           const endOfWeek = new Date(startOfWeek);
           endOfWeek.setDate(startOfWeek.getDate() + 6);
           startDate = startOfWeek.toISOString().split('T')[0];
           endDate = endOfWeek.toISOString().split('T')[0];
+          console.log('Minggu ini:', startDate, 'to', endDate);
           break;
         case 'bulan_ini':
           startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
@@ -162,21 +169,26 @@ export default function DetailAbsenPegawai() {
       const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_PRESENSI)}?user_id=${userId}&start_date=${startDate}&end_date=${endDate}`);
       const data = await response.json();
       
-      console.log('Absen response:', data);
+      console.log('=== ABSEN DATA DEBUG ===');
+      console.log('Response:', JSON.stringify(data, null, 2));
+      console.log('Is Array:', Array.isArray(data.data));
+      if (Array.isArray(data.data) && data.data.length > 0) {
+        console.log('First item:', JSON.stringify(data.data[0], null, 2));
+      }
       
-      if (data.success && data.data) {
-        // Transform data presensi ke format yang dibutuhkan
+      if (data.success && data.data && Array.isArray(data.data) && data.data.length > 0) {
+        // Ada data dari backend - transform
         const transformedData = transformPresensiData(data.data, startDate, endDate);
+        console.log('Transformed data:', JSON.stringify(transformedData.slice(0, 2), null, 2));
         setAbsenData(transformedData);
       } else {
-        console.log('No presensi data found, using empty data');
-        // Jika tidak ada data, buat data kosong untuk periode yang dipilih
+        // Tidak ada data sama sekali
+        console.log('No data, generating empty');
         const emptyData = generateEmptyAbsenData(startDate, endDate);
         setAbsenData(emptyData);
       }
     } catch (error) {
       console.error('Error fetching absen data:', error);
-      // Fallback ke data kosong
       const today = new Date();
       const startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
       const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -190,27 +202,38 @@ export default function DetailAbsenPegawai() {
     const endDate = new Date(endDateStr);
     const absenData = [];
     
-    // Pastikan presensiData adalah array
-    const dataArray = Array.isArray(presensiData) ? presensiData : [];
+    // Buat map dari data presensi untuk lookup cepat
+    const presensiMap = new Map();
+    presensiData.forEach((p: any) => {
+      const dateKey = p.tanggal.includes('T') ? p.tanggal.split('T')[0] : p.tanggal;
+      presensiMap.set(dateKey, p);
+    });
+    
+    console.log('PresensiMap keys:', Array.from(presensiMap.keys()));
+    console.log('Date range:', startDateStr, 'to', endDateStr);
     
     // Loop through each day in the date range
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateString = d.toISOString().split('T')[0];
-      
-      // Cari data presensi untuk tanggal ini
-      const presensi = dataArray.find(p => p.tanggal === dateString);
+      const presensi = presensiMap.get(dateString);
       
       if (presensi) {
+        console.log(`✓ Date ${dateString}: FOUND - status=${presensi.status}`);
+      } else {
+        console.log(`✗ Date ${dateString}: NOT FOUND`);
+      }
+      
+      if (presensi) {
+        // ADA DATA PRESENSI - gunakan status dari database
         absenData.push({
           tanggal: dateString,
-          status: presensi.status || 'Hadir',
+          status: presensi.status,
           jam_masuk: presensi.jam_masuk,
           jam_keluar: presensi.jam_keluar,
-          keterangan: presensi.keterangan || 'Hadir normal'
+          keterangan: presensi.keterangan || presensi.status
         });
       } else {
-        // Tidak ada data presensi
-        const dayOfWeek = d.getDay();
+        // Tidak ada data presensi - gunakan status dari backend atau fallback
         const today = new Date();
         const currentTime = new Date();
         const itemDate = new Date(dateString);
@@ -220,19 +243,13 @@ export default function DetailAbsenPegawai() {
         let status = 'Tidak Hadir';
         let keterangan = 'Belum absen';
         
-        // Weekend
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-          status = 'Libur';
-          keterangan = dayOfWeek === 0 ? 'Hari Minggu' : 'Hari Sabtu';
-        }
         // Hari yang akan datang
-        else if (itemDate > today) {
+        if (itemDate > today) {
           status = 'Belum Waktunya';
           keterangan = 'Belum waktunya absen';
         }
-        // Hari ini
+        // Hari ini - cek jam kerja
         else if (itemDate.getTime() === today.getTime()) {
-          // Cek apakah sudah lewat batas absen
           const [batasJam, batasMenit] = [8, 30];
           const [pulangJam, pulangMenit] = [17, 0];
           
@@ -253,7 +270,7 @@ export default function DetailAbsenPegawai() {
             keterangan = 'Belum melakukan absensi';
           }
         }
-        // Hari yang sudah lewat tapi belum absen
+        // Hari yang sudah lewat
         else if (itemDate < today) {
           status = 'Tidak Hadir';
           keterangan = 'Tidak hadir';
@@ -280,7 +297,6 @@ export default function DetailAbsenPegawai() {
     // Loop through each day in the date range
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateString = d.toISOString().split('T')[0];
-      const dayOfWeek = d.getDay();
       const today = new Date();
       const currentTime = new Date();
       const itemDate = new Date(dateString);
@@ -290,19 +306,13 @@ export default function DetailAbsenPegawai() {
       let status = 'Tidak Hadir';
       let keterangan = 'Belum absen';
       
-      // Weekend
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        status = 'Libur';
-        keterangan = dayOfWeek === 0 ? 'Hari Minggu' : 'Hari Sabtu';
-      }
       // Hari yang akan datang
-      else if (itemDate > today) {
+      if (itemDate > today) {
         status = 'Belum Waktunya';
         keterangan = 'Belum waktunya absen';
       }
       // Hari ini
       else if (itemDate.getTime() === today.getTime()) {
-        // Cek apakah sudah lewat batas absen
         const [batasJam, batasMenit] = [8, 30];
         const [pulangJam, pulangMenit] = [17, 0];
         
@@ -323,7 +333,7 @@ export default function DetailAbsenPegawai() {
           keterangan = 'Belum melakukan absensi';
         }
       }
-      // Hari yang sudah lewat tapi belum absen
+      // Hari yang sudah lewat
       else if (itemDate < today) {
         status = 'Tidak Hadir';
         keterangan = 'Tidak hadir';
@@ -342,33 +352,14 @@ export default function DetailAbsenPegawai() {
   };
 
   const showDetailForDate = (item: AbsenDetail) => {
-    const date = new Date(item.tanggal);
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const liburInfo = hariLibur.find(h => h.tanggal === item.tanggal);
     
-    if (liburInfo) {
+    // Jika status Libur, tampilkan modal libur sederhana
+    if (item.status === 'Libur' || liburInfo) {
       const mockLiburData = {
         tanggal: item.tanggal,
         status: 'Libur',
-        keterangan: liburInfo.nama_libur,
-        isLibur: true
-      };
-      setDetailAbsen(mockLiburData);
-      setShowDetailModal(true);
-    }
-    else if (isWeekend && !item.jam_masuk) {
-      let keteranganLibur = 'Hari Libur';
-      if (dayOfWeek === 0) {
-        keteranganLibur = 'Hari Minggu';
-      } else if (dayOfWeek === 6) {
-        keteranganLibur = 'Hari Sabtu';
-      }
-      
-      const mockLiburData = {
-        tanggal: item.tanggal,
-        status: 'Libur',
-        keterangan: keteranganLibur,
+        keterangan: liburInfo ? liburInfo.nama_libur : item.keterangan,
         isLibur: true
       };
       setDetailAbsen(mockLiburData);
@@ -489,84 +480,39 @@ export default function DetailAbsenPegawai() {
 
   const renderAbsenItem = ({ item }: { item: AbsenDetail }) => {
     const dateInfo = formatDate(item.tanggal);
-    const date = new Date(item.tanggal);
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const liburInfo = hariLibur.find(h => h.tanggal === item.tanggal);
     
-    // Check if date is in the future (not clickable)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const itemDate = new Date(item.tanggal);
     itemDate.setHours(0, 0, 0, 0);
     const isFutureDate = itemDate > today;
+    const isDinas = item.status === 'Dinas';
+    const isLibur = item.status === 'Libur';
+    const isDisabled = isFutureDate || isDinas;
     
     let displayStatus = item.status;
     let displayKeterangan = item.keterangan;
     
-    // Gabung Mangkir/Alpha ke Tidak Hadir
-    if (displayStatus === 'Mangkir/ Alpha' || displayStatus === 'Mangkir' || displayStatus === 'Alpha') {
-      displayStatus = 'Tidak Hadir';
-    }
+    console.log(`Render ${item.tanggal}: status=${item.status}, jam_masuk=${item.jam_masuk}`);
     
-    // Gabung Dinas ke Hadir
-    if (displayStatus === 'Dinas Luar/ Perjalanan Dinas' || displayStatus === 'Dinas Luar' || displayStatus === 'Perjalanan Dinas') {
-      displayStatus = 'Hadir';
-    }
-    
-    // Prioritas: Jika ada hari libur merah, selalu tampilkan sebagai libur
+    // Prioritas: Jika ada hari libur merah
     if (liburInfo) {
       displayStatus = 'Libur';
       displayKeterangan = liburInfo.nama_libur;
     }
-    // Jika weekend dan tidak ada absensi
-    else if (isWeekend && (!item.status || item.status === 'Tidak Hadir') && !item.jam_masuk) {
-      displayStatus = 'Libur';
-      if (dayOfWeek === 0) {
-        displayKeterangan = 'Hari Minggu';
-      } else if (dayOfWeek === 6) {
-        displayKeterangan = 'Hari Sabtu';
-      }
-    }
+    // JIKA ADA JAM MASUK, GUNAKAN STATUS DARI DATABASE TANPA PERUBAHAN
     
-    // Normalisasi status - handle case sensitivity
-    if (displayStatus && typeof displayStatus === 'string') {
-      const normalizedStatus = displayStatus.toLowerCase();
-      if (normalizedStatus === 'tidak hadir') {
-        displayStatus = 'Tidak Hadir';
-      } else if (normalizedStatus === 'belum waktunya') {
-        displayStatus = 'Belum Waktunya';
-      } else if (normalizedStatus === 'belum absen') {
-        displayStatus = 'Belum Absen';
-      } else if (normalizedStatus === 'hadir') {
-        displayStatus = 'Hadir';
-      } else if (normalizedStatus === 'libur') {
-        displayStatus = 'Libur';
-      } else {
-        displayStatus = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1).toLowerCase();
-      }
-    }
+    console.log(`Display ${item.tanggal}: displayStatus=${displayStatus}`);
     
     const config = statusConfig[displayStatus as keyof typeof statusConfig] || statusConfig['Tidak Hadir'];
     
-    // Debug: log untuk melihat status yang tidak cocok
-    if (!statusConfig[displayStatus as keyof typeof statusConfig]) {
-      console.log('Status tidak ditemukan:', displayStatus, 'Original:', item.status);
-    }
-    
-    // Cek jika hadir tapi dinas untuk warna keterangan khusus
-    const isDinas = displayStatus === 'Hadir' && 
-      (displayKeterangan.toLowerCase().includes('dinas') || 
-       item.status === 'Dinas Luar/ Perjalanan Dinas' ||
-       item.status === 'Dinas Luar' ||
-       item.status === 'Perjalanan Dinas');
-    
     return (
       <TouchableOpacity 
-        style={[styles.absenItem, isFutureDate && styles.absenItemDisabled]} 
-        onPress={() => !isFutureDate && showDetailForDate(item)}
-        activeOpacity={isFutureDate ? 1 : 0.7}
-        disabled={isFutureDate}
+        style={[styles.absenItem, (isDisabled || isLibur) && styles.absenItemDisabled]} 
+        onPress={() => !isDisabled && !isLibur && showDetailForDate(item)}
+        activeOpacity={(isDisabled || isLibur) ? 1 : 0.7}
+        disabled={isDisabled || isLibur}
       >
         <View style={styles.dateSection}>
           <Text style={styles.dayText}>{dateInfo.day}</Text>
@@ -582,10 +528,7 @@ export default function DetailAbsenPegawai() {
             </View>
           </View>
           
-          <Text style={[
-            styles.keteranganText,
-            isDinas && { color: '#2196F3', fontWeight: '600' }
-          ]}>
+          <Text style={styles.keteranganText}>
             {displayKeterangan || '-'}
           </Text>
           
@@ -598,7 +541,7 @@ export default function DetailAbsenPegawai() {
           )}
         </View>
         
-        <Ionicons name="chevron-forward" size={20} color="#666" />
+        {!isDisabled && !isLibur && <Ionicons name="chevron-forward" size={20} color="#666" />}
       </TouchableOpacity>
     );
   };
@@ -807,7 +750,7 @@ export default function DetailAbsenPegawai() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         
         <AppHeader 
           title="Detail Absensi"
@@ -822,7 +765,7 @@ export default function DetailAbsenPegawai() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
         title="Detail Absensi"
@@ -832,9 +775,17 @@ export default function DetailAbsenPegawai() {
 
       <View style={styles.pegawaiInfo}>
         <View style={styles.pegawaiHeader}>
-          <View style={styles.avatarContainer}>
-            <Ionicons name="person-circle" size={40} color="#004643" />
-          </View>
+          {pegawaiData?.foto_profil ? (
+            <Image 
+              source={{ uri: `${API_CONFIG.BASE_URL}${pegawaiData.foto_profil}` }} 
+              style={styles.avatarImage}
+              onError={() => console.log('Error loading image')}
+            />
+          ) : (
+            <View style={styles.avatarContainer}>
+              <Ionicons name="person-circle" size={40} color="#004643" />
+            </View>
+          )}
           <View style={styles.pegawaiDetails}>
             <Text style={styles.pegawaiNama}>{pegawai.nama}</Text>
             <Text style={styles.pegawaiNip}>NIP: {pegawai.nip || 'Belum diisi'}</Text>
@@ -890,9 +841,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#E6F0EF',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 16,
   },
   pegawaiDetails: {
     flex: 1,
@@ -953,8 +914,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   absenItemDisabled: {
-    opacity: 0.5,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#fff',
   },
   dateSection: {
     alignItems: 'center',
@@ -1024,14 +984,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
   detailModalContainer: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxHeight: '90%',
   },
   detailModalHeader: {
     flexDirection: 'row',

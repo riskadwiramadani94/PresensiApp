@@ -377,7 +377,7 @@ export default function AddDataPegawaiForm() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       <AppHeader 
         title="Tambah Pegawai"
         showBack={true}

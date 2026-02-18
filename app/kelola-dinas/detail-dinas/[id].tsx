@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -13,8 +13,8 @@ interface DetailDinas {
   jenisDinas: string;
   tanggal_mulai: string;
   tanggal_selesai: string;
-  jamMulai: string;
-  jamSelesai: string;
+  jam_mulai?: string;
+  jam_selesai?: string;
   deskripsi?: string;
   lokasi: string;
   jamKerja: string;
@@ -52,22 +52,15 @@ export default function DetailDinasScreen() {
   const fetchDetailDinas = async () => {
     try {
       setLoading(true);
-      // Sementara menggunakan getDinasAktif karena endpoint detail-dinas belum tersedia
       const response = await KelolaDinasAPI.getDinasAktif();
       
       if (response.success && response.data) {
-        // Cari data dinas berdasarkan ID
         const dinasData = response.data.find((item: any) => item.id === Number(id));
         
         if (dinasData) {
-          console.log('Detail Dinas Data:', JSON.stringify(dinasData, null, 2));
-          
-          // Ambil data pegawai lengkap dari API pegawai
           const pegawaiResponse = await PegawaiAkunAPI.getDataPegawai();
-          const lokasiResponse = await PengaturanAPI.getLokasiKantor();
           
           if (pegawaiResponse.success && pegawaiResponse.data) {
-            // Map pegawai dinas dengan data pegawai lengkap
             const pegawaiLengkap = dinasData.pegawai.map((pegawaiDinas: any) => {
               const pegawaiData = pegawaiResponse.data.find((p: any) => 
                 p.nama_lengkap === pegawaiDinas.nama
@@ -80,19 +73,11 @@ export default function DetailDinasScreen() {
               };
             });
             
-            // Parse jam kerja untuk mendapatkan jam mulai dan selesai
-            const jamKerjaParts = dinasData.jamKerja ? dinasData.jamKerja.split('-') : ['', ''];
-            const jamMulai = jamKerjaParts[0]?.trim() || '';
-            const jamSelesai = jamKerjaParts[1]?.trim() || '';
-            
-            // Update data dinas dengan semua field lengkap
             const updatedDinasData = {
               ...dinasData,
-              jamMulai,
-              jamSelesai,
               jenisDinas: dinasData.jenisDinas || 'lokal',
               pegawai: pegawaiLengkap,
-              lokasi_dinas: lokasiResponse.success ? lokasiResponse.data : []
+              lokasi_dinas: dinasData.lokasi_list || []
             };
             
             setDetailDinas(updatedDinasData);
@@ -109,26 +94,6 @@ export default function DetailDinasScreen() {
       Alert.alert('Error', 'Gagal memuat detail dinas');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'hadir': return '#4CAF50';
-      case 'terlambat': return '#FF9800';
-      case 'belum_absen': return '#2196F3';
-      case 'tidak_hadir': return '#F44336';
-      default: return '#666';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'hadir': return 'Hadir';
-      case 'terlambat': return 'Terlambat';
-      case 'belum_absen': return 'Belum Absen';
-      case 'tidak_hadir': return 'Tidak Hadir';
-      default: return status;
     }
   };
 
@@ -153,20 +118,23 @@ export default function DetailDinasScreen() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('id-ID', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return '-';
+    }
   };
-
-
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         <AppHeader 
           title="Detail Dinas"
           showBack={true}
@@ -180,7 +148,7 @@ export default function DetailDinasScreen() {
   if (!detailDinas) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
         <AppHeader 
           title="Detail Dinas"
           showBack={true}
@@ -195,11 +163,11 @@ export default function DetailDinasScreen() {
   }
 
   const dinasStatus = getDinasStatus();
-  const totalPegawai = detailDinas.pegawai.length;
+  const totalPegawai = detailDinas.pegawai?.length || 0;
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
         title="Detail Dinas"
@@ -208,7 +176,6 @@ export default function DetailDinasScreen() {
       />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header Info */}
         <View style={styles.headerCard}>
           <View style={styles.headerTop}>
             <View style={styles.titleSection}>
@@ -226,7 +193,6 @@ export default function DetailDinasScreen() {
           )}
         </View>
 
-        {/* Informasi Kegiatan */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Informasi Kegiatan</Text>
           
@@ -238,7 +204,7 @@ export default function DetailDinasScreen() {
                 {detailDinas.jenisDinas === 'lokal' ? 'Dinas Lokal' : 
                  detailDinas.jenisDinas === 'luar_kota' ? 'Dinas Luar Kota' : 
                  detailDinas.jenisDinas === 'luar_negeri' ? 'Dinas Luar Negeri' : 
-                 detailDinas.jenisDinas || 'Tidak diketahui'}
+                 'Tidak diketahui'}
               </Text>
             </View>
           </View>
@@ -250,10 +216,15 @@ export default function DetailDinasScreen() {
               <Text style={styles.infoValue}>{detailDinas.lokasi}</Text>
               {detailDinas.lokasi_dinas && detailDinas.lokasi_dinas.length > 0 && (
                 <View style={styles.lokasiDinasList}>
-                  {detailDinas.lokasi_dinas.map((lokasi, index) => (
-                    <Text key={lokasi.id} style={styles.lokasiDinasItem}>
-                      • {lokasi.nama_lokasi} ({lokasi.jenis_lokasi === 'tetap' ? 'Kantor Tetap' : 'Lokasi Dinas'})
-                    </Text>
+                  {detailDinas.lokasi_dinas.map((lokasi) => (
+                    <View key={String(lokasi.id)} style={styles.lokasiDinasRow}>
+                      <Text style={styles.lokasiDinasItem}>
+                        • {lokasi.nama_lokasi} ({lokasi.jenis_lokasi === 'tetap' ? 'Kantor Tetap' : 'Lokasi Dinas'})
+                      </Text>
+                      <View style={styles.radiusBadge}>
+                        <Text style={styles.radiusText}>{detailDinas.radius}m</Text>
+                      </View>
+                    </View>
                   ))}
                 </View>
               )}
@@ -268,6 +239,7 @@ export default function DetailDinasScreen() {
             </View>
           </View>
         </View>
+
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Waktu & Jadwal Dinas</Text>
           
@@ -290,24 +262,14 @@ export default function DetailDinasScreen() {
           <View style={styles.infoRow}>
             <Ionicons name="time-outline" size={20} color="#004643" />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Jam Mulai</Text>
-              <Text style={styles.infoValue}>{detailDinas.jamMulai || '-'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={20} color="#004643" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Jam Selesai</Text>
-              <Text style={styles.infoValue}>{detailDinas.jamSelesai || '-'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Ionicons name="radio-outline" size={20} color="#004643" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Radius Absen</Text>
-              <Text style={styles.infoValue}>{detailDinas.radius} meter</Text>
+              <Text style={styles.infoLabel}>Jam Kerja</Text>
+              {detailDinas.jam_mulai && detailDinas.jam_selesai ? (
+                <Text style={styles.infoValue}>
+                  {detailDinas.jam_mulai} - {detailDinas.jam_selesai} (Jam Khusus)
+                </Text>
+              ) : (
+                <Text style={styles.infoValue}>Mengikuti jam kerja kantor</Text>
+              )}
             </View>
           </View>
 
@@ -324,19 +286,22 @@ export default function DetailDinasScreen() {
           )}
         </View>
 
-
-
-
-
-        {/* Dokumen SPT */}
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>Dokumen SPT</Text>
           
           {detailDinas.dokumen_spt ? (
-            <TouchableOpacity style={styles.documentRow}>
+            <TouchableOpacity 
+              style={styles.documentRow}
+              onPress={() => {
+                const fileUrl = `http://192.168.1.7:3000/uploads/spt/${detailDinas.dokumen_spt}`;
+                Linking.openURL(fileUrl).catch(() => {
+                  Alert.alert('Error', 'Tidak dapat membuka dokumen');
+                });
+              }}
+            >
               <Ionicons name="document-attach-outline" size={20} color="#004643" />
               <View style={styles.infoContent}>
-                <Text style={styles.infoValue}>Dokumen SPT</Text>
+                <Text style={styles.infoValue}>{detailDinas.dokumen_spt}</Text>
                 <Text style={styles.infoSubtext}>Tap untuk membuka dokumen</Text>
               </View>
               <Ionicons name="download-outline" size={20} color="#666" />
@@ -351,12 +316,11 @@ export default function DetailDinasScreen() {
           )}
         </View>
 
-        {/* Daftar Pegawai */}
         <View style={styles.pegawaiSection}>
           <Text style={styles.cardTitle}>Daftar Pegawai ({totalPegawai})</Text>
           
-          {detailDinas.pegawai.map((pegawai, index) => (
-            <View key={`pegawai-${pegawai.id}-${index}`} style={styles.pegawaiCard}>
+          {detailDinas.pegawai && detailDinas.pegawai.length > 0 ? detailDinas.pegawai.map((pegawai, index) => (
+            <View key={`pegawai-${pegawai.id_user || pegawai.nip || index}`} style={styles.pegawaiCard}>
               <View style={styles.pegawaiHeader}>
                 <View style={styles.avatarContainer}>
                   <Ionicons name="person-circle" size={40} color="#004643" />
@@ -368,10 +332,12 @@ export default function DetailDinasScreen() {
                 </View>
               </View>
             </View>
-          ))}
+          )) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>Tidak ada pegawai</Text>
+            </View>
+          )}
         </View>
-
-
       </ScrollView>
     </View>
   );
@@ -395,8 +361,6 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 10,
   },
-  
-  // Header Card
   headerCard: {
     backgroundColor: '#fff',
     marginHorizontal: 15,
@@ -442,8 +406,6 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
   },
-
-  // Info Card
   infoCard: {
     backgroundColor: '#fff',
     marginHorizontal: 15,
@@ -478,64 +440,47 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
-  deskripsiSection: {
-    marginTop: 8,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+  infoSubtext: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
   },
-  deskripsiLabel: {
+  lokasiDinasList: {
+    marginTop: 8,
+  },
+  lokasiDinasRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  lokasiDinasItem: {
     fontSize: 12,
     color: '#666',
-    marginBottom: 8,
+    flex: 1,
   },
-  deskripsiText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-
-  // Progress Card
-  progressCard: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  progressInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  progressPercentage: {
-    fontSize: 16,
-    color: '#004643',
-    fontWeight: 'bold',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-  },
-  progressFill: {
-    height: 8,
+  radiusBadge: {
     backgroundColor: '#4CAF50',
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
   },
-
-  // Pegawai Section
+  radiusText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  documentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
   pegawaiSection: {
     marginHorizontal: 15,
     marginBottom: 16,
@@ -573,110 +518,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#004643',
     fontWeight: '500',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  absenDetails: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  absenRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  absenLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 8,
-    flex: 1,
-  },
-  absenValue: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-  },
-  fotoContainer: {
-    marginTop: 8,
-  },
-  fotoLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  fotoAbsen: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
-  },
-  keteranganContainer: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  keteranganText: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-
-  // Action Section
-  actionSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginHorizontal: 16,
-    marginBottom: 32,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  actionButtonText: {
-    fontSize: 12,
-    color: '#004643',
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  infoSubtext: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
-  },
-  lokasiDinasList: {
-    marginTop: 8,
-  },
-  lokasiDinasItem: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  documentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
 });

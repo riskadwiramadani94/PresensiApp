@@ -1,13 +1,45 @@
 const { getConnection } = require('../config/database');
+const multer = require('multer');
+const path = require('path');
+
+// Setup multer untuk upload file
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/spt/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'SPT-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /pdf|doc|docx|jpg|jpeg|png/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only PDF, DOC, DOCX, JPG, PNG files are allowed!'));
+    }
+  }
+});
+
+const uploadSPT = upload.single('dokumen_spt');
 
 const getDinasAktifAdmin = async (req, res) => {
   try {
     console.log('Getting dinas aktif data...');
-    const { status } = req.query;
+    const { status, tanggal } = req.query;
     const db = await getConnection();
 
     let whereClause = '';
     const today = new Date().toISOString().split('T')[0];
+    const filterDate = tanggal || today;
     
     // Filter berdasarkan status jika ada
     if (status) {
@@ -56,30 +88,62 @@ const getDinasAktifAdmin = async (req, res) => {
         lokasiRows = [];
       }
 
-      // Get pegawai details for this dinas
+      // Get pegawai details for this dinas with specific date filter
       const [pegawaiRows] = await db.execute(`
         SELECT dp.*, p.nama_lengkap, p.nip,
-               ad.jam_masuk, ad.jam_pulang, ad.status as absen_status
+               ad.id as absen_id,
+               ad.jam_masuk, ad.jam_pulang, ad.status as absen_status,
+               ad.foto_masuk, ad.foto_pulang, ad.status_validasi,
+               ad.lintang_masuk, ad.bujur_masuk,
+               lk.nama_lokasi as lokasi_absen
         FROM dinas_pegawai dp 
         JOIN users u ON dp.id_user = u.id_user
         JOIN pegawai p ON u.id_user = p.id_user
-        LEFT JOIN absen_dinas ad ON dp.id_dinas = ad.id_dinas AND dp.id_user = ad.id_user
+        LEFT JOIN absen_dinas ad ON dp.id_dinas = ad.id_dinas 
+          AND dp.id_user = ad.id_user 
+          AND DATE(ad.tanggal_absen) = ?
+        LEFT JOIN lokasi_kantor lk ON ad.lokasi_id = lk.id
         WHERE dp.id_dinas = ?
-      `, [row.id_dinas]);
+      `, [filterDate, row.id_dinas]);
 
       const pegawai = pegawaiRows.map(pegawaiRow => {
         let status = 'belum_absen';
-        if (pegawaiRow.absen_status === 'hadir') {
+        if (pegawaiRow.absen_status === 'hadir' || pegawaiRow.absen_status === 'terlambat') {
           status = 'hadir';
-        } else if (pegawaiRow.absen_status === 'terlambat') {
-          status = 'terlambat';
+        }
+
+        let fotoUrl = null;
+        if (pegawaiRow.foto_masuk) {
+          fotoUrl = `http://192.168.1.7:3000/uploads/presensi/${pegawaiRow.foto_masuk}`;
+        }
+
+        // Hitung apakah lokasi sesuai radius
+        let isLokasiSesuai = false;
+        if (pegawaiRow.lintang_masuk && pegawaiRow.bujur_masuk && lokasiRows.length > 0) {
+          for (const lokasi of lokasiRows) {
+            const distance = calculateDistance(
+              parseFloat(pegawaiRow.lintang_masuk),
+              parseFloat(pegawaiRow.bujur_masuk),
+              parseFloat(lokasi.lintang),
+              parseFloat(lokasi.bujur)
+            );
+            if (distance <= lokasi.radius) {
+              isLokasiSesuai = true;
+              break;
+            }
+          }
         }
 
         return {
+          absenId: pegawaiRow.absen_id,
           nama: pegawaiRow.nama_lengkap,
           nip: pegawaiRow.nip,
           status: status,
-          jamAbsen: pegawaiRow.jam_masuk
+          jamAbsen: pegawaiRow.jam_masuk,
+          fotoAbsen: fotoUrl,
+          lokasiAbsen: pegawaiRow.lokasi_absen,
+          isLokasiSesuai: isLokasiSesuai,
+          statusValidasi: pegawaiRow.status_validasi
         };
       });
 
@@ -100,7 +164,9 @@ const getDinasAktifAdmin = async (req, res) => {
           radius: l.radius,
           is_lokasi_utama: l.is_lokasi_utama
         })),
-        jamKerja: `${row.jam_mulai}-${row.jam_selesai}`,
+        jamKerja: `${row.jam_mulai || '08:00'} - ${row.jam_selesai || '17:00'}`,
+        jam_mulai: row.jam_mulai,
+        jam_selesai: row.jam_selesai,
         radius: row.radius_absen,
         koordinat_lat: parseFloat(row.lintang),
         koordinat_lng: parseFloat(row.bujur),
@@ -128,7 +194,23 @@ const getDinasAktifAdmin = async (req, res) => {
 const createDinasAdmin = async (req, res) => {
   let connection;
   try {
-    const { nama_kegiatan, nomor_spt, tanggal_mulai, tanggal_selesai, pegawai_ids, lokasi_ids, jam_mulai, jam_selesai, jenis_dinas, deskripsi } = req.body;
+    const { nama_kegiatan, nomor_spt, tanggal_mulai, tanggal_selesai, jenis_dinas, deskripsi, jam_mulai, jam_selesai } = req.body;
+    
+    // Parse array dari JSON string (karena FormData)
+    let pegawai_ids, lokasi_ids;
+    try {
+      pegawai_ids = JSON.parse(req.body.pegawai_ids);
+      lokasi_ids = JSON.parse(req.body.lokasi_ids);
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid array format for pegawai_ids or lokasi_ids'
+      });
+    }
+    
+    // Get file info dari multer
+    const dokumen_spt = req.file ? req.file.filename : null;
+    console.log('📄 Dokumen SPT:', dokumen_spt);
 
     // Validate required fields
     const required_fields = ['nama_kegiatan', 'nomor_spt', 'tanggal_mulai', 'tanggal_selesai', 'pegawai_ids', 'lokasi_ids'];
@@ -198,26 +280,22 @@ const createDinasAdmin = async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      // Insert dinas data (keep old fields for backward compatibility)
+      // Insert dinas data dengan dokumen_spt
       const [result] = await connection.execute(`
         INSERT INTO dinas (
           nama_kegiatan, nomor_spt, jenis_dinas, tanggal_mulai, tanggal_selesai,
-          jam_mulai, jam_selesai, alamat_lengkap, latitude, longitude, radius_absen,
-          deskripsi, status, created_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif', ?, NOW())
+          jam_mulai, jam_selesai, deskripsi, dokumen_spt, status, created_by, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif', ?, NOW())
       `, [
         nama_kegiatan.trim(),
         nomor_spt.trim(),
         jenis_dinas || 'lokal',
         tanggal_mulai,
         tanggal_selesai,
-        jam_mulai || '08:00:00',
-        jam_selesai || '17:00:00',
-        'Multiple Locations',
-        -6.8915,
-        107.6107,
-        100,
+        jam_mulai || null,
+        jam_selesai || null,
         deskripsi || '',
+        dokumen_spt,
         adminUser.id_user
       ]);
 
@@ -500,12 +578,239 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c; // Distance in meters
 }
 
+const deleteDinas = async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID dinas wajib diisi'
+      });
+    }
+
+    const db = await getConnection();
+    connection = await db.getConnection();
+
+    const [dinasRows] = await connection.execute(
+      'SELECT * FROM dinas WHERE id_dinas = ?',
+      [id]
+    );
+
+    if (dinasRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Data dinas tidak ditemukan'
+      });
+    }
+
+    await connection.beginTransaction();
+
+    try {
+      await connection.execute('DELETE FROM dinas_pegawai WHERE id_dinas = ?', [id]);
+      await connection.execute('DELETE FROM dinas_lokasi WHERE id_dinas = ?', [id]);
+      await connection.execute('DELETE FROM absen_dinas WHERE id_dinas = ?', [id]);
+      await connection.execute('DELETE FROM dinas WHERE id_dinas = ?', [id]);
+
+      await connection.commit();
+
+      res.json({
+        success: true,
+        message: 'Data dinas berhasil dihapus'
+      });
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Delete dinas error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Gagal menghapus data dinas'
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
+
+const updateDinas = async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    const { nama_kegiatan, nomor_spt, tanggal_mulai, tanggal_selesai, jenis_dinas, deskripsi, jam_mulai, jam_selesai } = req.body;
+    
+    let pegawai_ids, lokasi_ids;
+    try {
+      pegawai_ids = JSON.parse(req.body.pegawai_ids);
+      lokasi_ids = JSON.parse(req.body.lokasi_ids);
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid array format'
+      });
+    }
+
+    const dokumen_spt = req.file ? req.file.filename : null;
+
+    const db = await getConnection();
+    connection = await db.getConnection();
+
+    await connection.beginTransaction();
+
+    try {
+      if (dokumen_spt) {
+        await connection.execute(`
+          UPDATE dinas SET
+            nama_kegiatan = ?, nomor_spt = ?, jenis_dinas = ?,
+            tanggal_mulai = ?, tanggal_selesai = ?,
+            jam_mulai = ?, jam_selesai = ?, deskripsi = ?, dokumen_spt = ?
+          WHERE id_dinas = ?
+        `, [
+          nama_kegiatan.trim(),
+          nomor_spt.trim(),
+          jenis_dinas || 'lokal',
+          tanggal_mulai,
+          tanggal_selesai,
+          jam_mulai || null,
+          jam_selesai || null,
+          deskripsi || '',
+          dokumen_spt,
+          id
+        ]);
+      } else {
+        await connection.execute(`
+          UPDATE dinas SET
+            nama_kegiatan = ?, nomor_spt = ?, jenis_dinas = ?,
+            tanggal_mulai = ?, tanggal_selesai = ?,
+            jam_mulai = ?, jam_selesai = ?, deskripsi = ?
+          WHERE id_dinas = ?
+        `, [
+          nama_kegiatan.trim(),
+          nomor_spt.trim(),
+          jenis_dinas || 'lokal',
+          tanggal_mulai,
+          tanggal_selesai,
+          jam_mulai || null,
+          jam_selesai || null,
+          deskripsi || '',
+          id
+        ]);
+      }
+
+      await connection.execute('DELETE FROM dinas_pegawai WHERE id_dinas = ?', [id]);
+      await connection.execute('DELETE FROM dinas_lokasi WHERE id_dinas = ?', [id]);
+
+      const lokasiPlaceholders = lokasi_ids.map(() => '?').join(',');
+      const [validLokasi] = await connection.execute(`SELECT id FROM lokasi_kantor WHERE id IN (${lokasiPlaceholders})`, lokasi_ids);
+
+      for (let i = 0; i < validLokasi.length; i++) {
+        await connection.execute(`
+          INSERT INTO dinas_lokasi (id_dinas, id_lokasi_kantor, id_lokasi, urutan, is_lokasi_utama)
+          VALUES (?, ?, ?, ?, ?)
+        `, [id, validLokasi[i].id, validLokasi[i].id, i + 1, i === 0 ? 1 : 0]);
+      }
+
+      const placeholders = pegawai_ids.map(() => '?').join(',');
+      const [validUsers] = await connection.execute(`SELECT id_user FROM users WHERE id_user IN (${placeholders})`, pegawai_ids);
+
+      for (const user of validUsers) {
+        await connection.execute(`
+          INSERT INTO dinas_pegawai (id_dinas, id_user, status_konfirmasi, tanggal_konfirmasi)
+          VALUES (?, ?, 'konfirmasi', NOW())
+        `, [id, user.id_user]);
+      }
+
+      await connection.commit();
+
+      res.json({
+        success: true,
+        message: 'Data dinas berhasil diupdate'
+      });
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Update dinas error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
+
+// NEW: Validate absen dinas
+const validateAbsenDinas = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, catatan } = req.body;
+    
+    if (!id || !action) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID absen dan action wajib diisi'
+      });
+    }
+    
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Action harus approve atau reject'
+      });
+    }
+    
+    const db = await getConnection();
+    
+    // Get admin user ID (simplified - in production, get from auth token)
+    const [adminRows] = await db.execute('SELECT id_user FROM users WHERE role = "admin" LIMIT 1');
+    const adminId = adminRows[0]?.id_user;
+    
+    const status = action === 'approve' ? 'disetujui' : 'ditolak';
+    
+    await db.execute(`
+      UPDATE absen_dinas 
+      SET status_validasi = ?, 
+          divalidasi_oleh = ?,
+          catatan_validasi = ?,
+          waktu_validasi = NOW()
+      WHERE id = ?
+    `, [status, adminId, catatan || null, id]);
+    
+    res.json({
+      success: true,
+      message: `Absen berhasil ${status}`
+    });
+    
+  } catch (error) {
+    console.error('Validate absen error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = { 
+  uploadSPT,
   getDinasAktifAdmin, 
-  createDinasAdmin, 
+  createDinasAdmin,
+  updateDinas,
+  deleteDinas, 
   getRiwayatDinasAdmin, 
   getValidasiAbsenAdmin,
   getDinasStats,
   getDinasLokasi,
-  checkAbsenLocation
+  checkAbsenLocation,
+  validateAbsenDinas
 };
