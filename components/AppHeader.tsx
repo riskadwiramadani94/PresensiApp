@@ -7,10 +7,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  SafeAreaView,
 } from "react-native";
 
 interface AppHeaderProps {
-  title: string;
+  title?: string;
   showBack?: boolean;
   onBackPress?: () => void;
   showStats?: boolean;
@@ -21,6 +22,8 @@ interface AppHeaderProps {
   fallbackRoute?: string;
   primaryColor?: string;
   backgroundColor?: string;
+  variant?: string;
+  children?: React.ReactNode;
 }
 
 export default function AppHeader({
@@ -35,6 +38,8 @@ export default function AppHeader({
   fallbackRoute,
   primaryColor = "#fff",
   backgroundColor = "#004643",
+  variant,
+  children,
 }: AppHeaderProps) {
   const router = useRouter();
 
@@ -50,44 +55,55 @@ export default function AppHeader({
     }
   };
 
-  return (
-    <View style={[styles.headerSection, { backgroundColor }]}>
-      <View style={styles.headerContent}>
-        <View style={styles.headerLeft}>
-          {showBack && (
-            <TouchableOpacity style={styles.backBtn} onPress={handleBackPress}>
-              <Ionicons name="chevron-back" size={28} color={primaryColor} />
-            </TouchableOpacity>
-          )}
-          <Text style={[styles.headerTitle, { color: primaryColor }]}>
-            {title}
-          </Text>
-        </View>
+  // Jika variant dashboard, render children
+  if (variant === "dashboard") {
+    return (
+      <View style={[styles.headerSection, { backgroundColor }]}>
+        {children}
+      </View>
+    );
+  }
 
-        {showStats && statsText && (
-          <View style={styles.headerStats}>
-            <Text style={[styles.statsText, { color: primaryColor }]}>
-              {statsText}
+  return (
+    <SafeAreaView style={{ backgroundColor }}>
+      <View style={[styles.headerSection, { backgroundColor }]}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            {showBack && (
+              <TouchableOpacity style={styles.backBtn} onPress={handleBackPress}>
+                <Ionicons name="chevron-back" size={28} color={primaryColor} />
+              </TouchableOpacity>
+            )}
+            <Text style={[styles.headerTitle, { color: primaryColor }]}>
+              {title}
             </Text>
           </View>
-        )}
 
-        {showAddButton && (
-          <TouchableOpacity style={styles.addButton} onPress={onAddPress}>
-            <Ionicons name="add" size={28} color={primaryColor} />
-          </TouchableOpacity>
-        )}
+          {showStats && statsText && (
+            <View style={styles.headerStats}>
+              <Text style={[styles.statsText, { color: primaryColor }]}>
+                {statsText}
+              </Text>
+            </View>
+          )}
 
-        {rightComponent}
+          {showAddButton && (
+            <TouchableOpacity style={styles.addButton} onPress={onAddPress}>
+              <Ionicons name="add" size={28} color={primaryColor} />
+            </TouchableOpacity>
+          )}
+
+          {rightComponent}
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   headerSection: {
-    paddingTop: Platform.OS === "ios" ? 5 : 35,
-    paddingBottom: 10,
+    paddingTop: Platform.OS === "ios" ? 10 : 20,
+    paddingBottom: Platform.OS === "ios" ? 10 : 20,
     paddingHorizontal: 20,
     borderBottomWidth: 0,
   },
@@ -95,6 +111,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 0 : 15,
   },
   headerLeft: {
     flexDirection: "row",
@@ -109,7 +126,7 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   headerTitle: {
-    fontSize: Platform.OS === "ios" ? 20 : 18,
+    fontSize: 18,
     fontWeight: "bold",
     alignItems: "center",
   },

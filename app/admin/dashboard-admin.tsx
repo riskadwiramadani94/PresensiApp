@@ -12,9 +12,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  SafeAreaView,
 } from "react-native";
-import { SkeletonLoader } from "../../components";
-import AppHeader from "../../components/AppHeader";
 import { API_CONFIG, getApiUrl } from "../../constants/config";
 
 interface RecentActivity {
@@ -51,12 +50,10 @@ export default function AdminDashboard() {
     loadUserData();
     getDashboardData();
 
-    // Auto refresh setiap 30 detik
     const interval = setInterval(() => {
       getDashboardData();
     }, 30000);
 
-    // Update waktu setiap menit
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
@@ -67,7 +64,6 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Auto-refresh saat kembali ke halaman ini
   useFocusEffect(
     useCallback(() => {
       loadUserData();
@@ -79,7 +75,6 @@ export default function AdminDashboard() {
       const userData = await AsyncStorage.getItem("userData");
       if (userData) {
         const user = JSON.parse(userData);
-        // Set user data dari AsyncStorage DULU
         setData((prev) => ({
           ...prev,
           user: {
@@ -89,7 +84,6 @@ export default function AdminDashboard() {
           },
         }));
       } else {
-        // Fallback jika tidak ada data
         setData((prev) => ({
           ...prev,
           user: {
@@ -101,7 +95,6 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.log("Error loading user data:", error);
-      // Fallback jika error
       setData((prev) => ({
         ...prev,
         user: {
@@ -115,12 +108,7 @@ export default function AdminDashboard() {
 
   const getDashboardData = async () => {
     try {
-      console.log(
-        "Fetching dashboard data from:",
-        getApiUrl(API_CONFIG.ENDPOINTS.ADMIN),
-      );
       const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.ADMIN));
-
       const result = await response.json();
 
       if (result.success) {
@@ -133,18 +121,15 @@ export default function AdminDashboard() {
             total_pegawai: totalPegawai,
           },
           recent: result.recent || [],
-          user: prev.user, // Pertahankan data user dari AsyncStorage
+          user: prev.user,
         }));
-      } else {
-        console.log("API returned success: false", result.message);
       }
     } catch (error) {
       console.log("Koneksi Error:", error);
-      // Set default data jika error, tapi pertahankan user data
       setData((prev) => ({
         stats: { hadir: 0, tidak_hadir: 0, total_pegawai: 0 },
         recent: [],
-        user: prev.user, // Pertahankan data user dari AsyncStorage
+        user: prev.user,
       }));
     } finally {
       setLoading(false);
@@ -152,32 +137,30 @@ export default function AdminDashboard() {
   };
 
   return (
-    <View style={styles.container}>
-      <RNStatusBar 
-        barStyle="light-content" 
-        backgroundColor="transparent" 
-        translucent={true} 
-      />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        bounces={false}
-        overScrollMode="never"
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={getDashboardData} />
-        }
-      >
-        {/* AppHeader dengan variant dashboard */}
-        <AppHeader variant="dashboard" backgroundColor="#004643">
-          {/* Background Pattern */}
-          <View style={styles.backgroundPattern}>
-            <View style={styles.bubble1} />
-            <View style={styles.bubble2} />
-            <View style={styles.bubble3} />
-          </View>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <RNStatusBar 
+          barStyle="light-content" 
+          backgroundColor="#004643" 
+          translucent={false} 
+        />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+          overScrollMode="never"
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={getDashboardData} />
+          }
+        >
+          <View style={styles.dashboardHeader}>
+            <View style={styles.backgroundPattern}>
+              <View style={styles.bubble1} />
+              <View style={styles.bubble2} />
+              <View style={styles.bubble3} />
+            </View>
 
-          {/* SECTION 1: HEADER */}
-          <View style={styles.headerSection}>
+            <View style={styles.headerSection}>
               <View style={styles.adminInfo}>
                 <Text style={styles.greetingText}>Selamat datang,</Text>
                 <Text style={styles.userName}>
@@ -211,7 +194,6 @@ export default function AdminDashboard() {
               </View>
             </View>
 
-            {/* SECTION 2: RINGKASAN KEHADIRAN */}
             <View style={styles.summarySection}>
               <View style={styles.statsCard}>
                 <View style={styles.quickStatsRow}>
@@ -251,40 +233,51 @@ export default function AdminDashboard() {
                 </View>
               </View>
             </View>
-          </AppHeader>
-
-        {/* SECTION 3: MENU LAYANAN */}
-        <View style={styles.menuSection}>
-          <View style={styles.mainMenuRow}>
-            {[
-              { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/pegawai-akun' },
-              { id: 2, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/kelola-dinas' },
-              { id: 3, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/laporan/laporan-admin' },
-              { id: 4, name: 'Pengaturan', image: require('../../assets/images/icons/admin/pengaturan.png'), route: '/pengaturan' },
-            ].map((item) => (
-              <TouchableOpacity 
-                key={item.id} 
-                style={styles.mainMenuItem}
-                activeOpacity={0.7}
-                onPress={() => router.push(item.route as any)}
-              >
-                <Image source={item.image} style={styles.menuIcon} />
-                <Text style={styles.menuLabel}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
           </View>
-        </View>
-      </ScrollView>
-    </View>
+
+          <View style={styles.menuSection}>
+            <View style={styles.mainMenuRow}>
+              {[
+                { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/pegawai-akun' },
+                { id: 2, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/kelola-dinas' },
+                { id: 3, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/laporan/laporan-admin' },
+                { id: 4, name: 'Pengaturan', image: require('../../assets/images/icons/admin/pengaturan.png'), route: '/pengaturan' },
+              ].map((item) => (
+                <TouchableOpacity 
+                  key={item.id} 
+                  style={styles.mainMenuItem}
+                  activeOpacity={0.7}
+                  onPress={() => router.push(item.route as any)}
+                >
+                  <Image source={item.image} style={styles.menuIcon} />
+                  <Text style={styles.menuLabel}>{item.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#004643',
+  },
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   scrollContent: { flexGrow: 1 },
+  dashboardHeader: {
+    backgroundColor: '#004643',
+    paddingTop: 0,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    position: 'relative',
+  },
   backgroundPattern: {
     position: 'absolute',
-    top: 0,
+    top: -150,
     left: 0,
     right: 0,
     bottom: 0,
@@ -296,7 +289,7 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 150,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    top: -100,
+    top: -50,
     right: -100,
   },
   bubble2: {
@@ -321,6 +314,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: Platform.OS === 'ios' ? 20 : 40,
     paddingBottom: 10,
     marginBottom: 25,
   },
@@ -396,7 +390,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   menuSection: { 
-    marginTop: -100, 
+    marginTop: -50, 
     backgroundColor: '#FFFFFF', 
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -411,12 +405,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Platform.OS === 'ios' ? 5 : 0,
   },
   mainMenuItem: {
+    marginTop: -10,
     width: Platform.OS === 'ios' ? '22%' : '23%',
     alignItems: 'center',
   },
   menuIcon: {
-    width: 48,
-    height: 48,
+    width: 35,
+    height: 35,
     resizeMode: 'contain',
     marginBottom: 8,
   },

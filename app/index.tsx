@@ -64,10 +64,16 @@ export default function LoginScreen() {
   const checkLoginStatus = async () => {
     try {
       const user = await AuthStorage.getUser();
+      console.log('Check login - User data:', user);
+      
       if (user) {
+        console.log('User role:', user.role);
+        
         if (user.role === 'admin') {
+          console.log('Redirecting to admin dashboard');
           router.replace('/admin/dashboard-admin' as any);
         } else {
+          console.log('Redirecting to pegawai dashboard');
           router.replace('/(pegawai)/dashboard-pegawai');
         }
         return;

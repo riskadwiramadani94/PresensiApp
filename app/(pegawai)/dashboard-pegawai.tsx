@@ -9,13 +9,13 @@ import {
   Alert,
   Platform,
   RefreshControl,
-  Image
+  Image,
+  SafeAreaView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PegawaiAPI } from '../../constants/config';
-import AppHeader from '../../components/AppHeader';
 
 interface UserData {
   nama: string;
@@ -46,7 +46,6 @@ export default function BerandaScreen() {
     loadUserDataFirst();
     fetchUserData();
     
-    // Update time every 30 seconds
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 30000);
@@ -54,32 +53,11 @@ export default function BerandaScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const formatDate = () => {
-    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    
-    const day = days[currentTime.getDay()];
-    const date = currentTime.getDate();
-    const month = months[currentTime.getMonth()];
-    const year = currentTime.getFullYear();
-    
-    return `${day}, ${date} ${month} ${year}`;
-  };
-
-  const getGreeting = () => {
-    const hour = currentTime.getHours();
-    if (hour >= 5 && hour < 11) return 'Selamat Pagi';
-    if (hour >= 11 && hour < 15) return 'Selamat Siang';
-    if (hour >= 15 && hour < 18) return 'Selamat Sore';
-    return 'Selamat Malam';
-  };
-
   const loadUserDataFirst = async () => {
     try {
       const userData = await AsyncStorage.getItem('userData');
       if (userData) {
         const user = JSON.parse(userData);
-        // Set data dari AsyncStorage DULU
         setUserData((prev) => ({
           ...prev,
           nama: user.nama_lengkap || user.nama || 'Pengguna',
@@ -93,7 +71,6 @@ export default function BerandaScreen() {
 
   const fetchUserData = async () => {
     try {
-      // Ambil user data dari AsyncStorage
       const userDataStr = await AsyncStorage.getItem('userData');
       
       if (!userDataStr) {
@@ -119,7 +96,6 @@ export default function BerandaScreen() {
       if (result.success) {
         const data = result.data;
         
-        // Tentukan status dan keterangan absen
         let statusAbsen = 'Belum Absen';
         let keteranganAbsen = 'Anda belum melakukan absensi hari ini';
         
@@ -146,7 +122,6 @@ export default function BerandaScreen() {
           totalJamKerja: data.summary_bulan_ini?.total_hadir + 'h' || '0h'
         });
         
-        // Update AsyncStorage dengan data terbaru
         const updatedUserData = {
           ...user,
           nama_lengkap: data.user_info?.nama_lengkap || user.nama_lengkap,
@@ -158,148 +133,154 @@ export default function BerandaScreen() {
       }
     } catch (error) {
       console.log('Dashboard Error:', error);
-      
-      // Tetap gunakan data dari AsyncStorage yang sudah di-set di loadUserDataFirst
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <RNStatusBar 
-        barStyle="light-content"
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        bounces={false}
-        overScrollMode="never"
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetchUserData} />
-        }
-      >
-        {/* AppHeader dengan variant dashboard */}
-        <AppHeader variant="dashboard" backgroundColor="#004643">
-          {/* Background Pattern */}
-          <View style={styles.backgroundPattern}>
-            <View style={styles.bubble1} />
-            <View style={styles.bubble2} />
-            <View style={styles.bubble3} />
-          </View>
-
-          {/* SECTION 1: HEADER */}
-          <View style={styles.headerSection}>
-            <View style={styles.adminInfo}>
-              <Text style={styles.greetingText}>Selamat datang,</Text>
-              <Text style={styles.userName}>{userData.nama || 'Memuat...'}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <RNStatusBar 
+          barStyle="light-content"
+          backgroundColor="#004643"
+          translucent={false}
+        />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+          overScrollMode="never"
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={fetchUserData} />
+          }
+        >
+          <View style={styles.dashboardHeader}>
+            <View style={styles.backgroundPattern}>
+              <View style={styles.bubble1} />
+              <View style={styles.bubble2} />
+              <View style={styles.bubble3} />
             </View>
-            <View style={styles.rightSection}>
-              <View style={styles.dateTimeContainer}>
-                <Text style={styles.dateTimeText}>
-                  {currentTime.toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </Text>
-                <Text style={styles.timeText}>
-                  {currentTime.toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })} WIB
-                </Text>
+
+            <View style={styles.headerSection}>
+              <View style={styles.adminInfo}>
+                <Text style={styles.greetingText}>Selamat datang,</Text>
+                <Text style={styles.userName}>{userData.nama || 'Memuat...'}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.notificationButton}
-                onPress={() => {}}
-              >
-                <Ionicons name="notifications" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* SECTION 2: INFO CARD - STATUS & JAM KERJA */}
-          <View style={styles.summarySection}>
-            <View style={styles.infoCard}>
-              {/* Status Absensi */}
-              <View style={styles.statusRow}>
-                <View style={[styles.statusDot, 
-                  userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
-                  userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
-                ]} />
-                <View style={styles.statusContent}>
-                  <Text style={styles.statusTitle}>Status Absensi</Text>
-                  <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
+              <View style={styles.rightSection}>
+                <View style={styles.dateTimeContainer}>
+                  <Text style={styles.dateTimeText}>
+                    {currentTime.toLocaleDateString('id-ID', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </Text>
+                  <Text style={styles.timeText}>
+                    {currentTime.toLocaleTimeString('id-ID', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })} WIB
+                  </Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.notificationButton}
+                  onPress={() => {}}
+                >
+                  <Ionicons name="notifications" size={24} color="#fff" />
+                </TouchableOpacity>
               </View>
+            </View>
 
-              {/* Divider */}
-              <View style={styles.dividerLine} />
-
-              {/* Jam Kerja */}
-              <View style={styles.jamKerjaRow}>
-                <View style={styles.jamItem}>
-                  <View style={styles.jamIconBox}>
-                    <Ionicons name="log-in-outline" size={18} color="#fff" />
+            <View style={styles.summarySection}>
+              <View style={styles.infoCard}>
+                <View style={styles.statusRow}>
+                  <View style={[styles.statusDot, 
+                    userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
+                    userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
+                  ]} />
+                  <View style={styles.statusContent}>
+                    <Text style={styles.statusTitle}>Status Absensi</Text>
+                    <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
                   </View>
-                  <Text style={styles.jamLabel}>Jam Masuk</Text>
-                  <Text style={styles.jamValue}>{userData.jamMasuk || '08:00'}</Text>
                 </View>
-                
-                <View style={styles.verticalDivider} />
-                
-                <View style={styles.jamItem}>
-                  <View style={styles.jamIconBox}>
-                    <Ionicons name="log-out-outline" size={18} color="#fff" />
+
+                <View style={styles.dividerLine} />
+
+                <View style={styles.jamKerjaRow}>
+                  <View style={styles.jamItem}>
+                    <View style={styles.jamIconBox}>
+                      <Ionicons name="log-in-outline" size={18} color="#fff" />
+                    </View>
+                    <Text style={styles.jamLabel}>Jam Masuk</Text>
+                    <Text style={styles.jamValue}>{userData.jamMasuk || '08:00'}</Text>
                   </View>
-                  <Text style={styles.jamLabel}>Jam Pulang</Text>
-                  <Text style={styles.jamValue}>{userData.jamKeluar || '17:00'}</Text>
+                  
+                  <View style={styles.verticalDivider} />
+                  
+                  <View style={styles.jamItem}>
+                    <View style={styles.jamIconBox}>
+                      <Ionicons name="log-out-outline" size={18} color="#fff" />
+                    </View>
+                    <Text style={styles.jamLabel}>Jam Pulang</Text>
+                    <Text style={styles.jamValue}>{userData.jamKeluar || '17:00'}</Text>
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        </AppHeader>
 
-        {/* SECTION 3: MENU LAYANAN */}
-        <View style={styles.menuSection}>
-          <View style={styles.mainMenuRow}>
-            {[
-              { id: 1, name: 'Kegiatan', image: require('../../assets/images/icons/pegawai/kegiatan.png') },
-              { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/pengajuan' },
-              { id: 3, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png') },
-              { id: 4, name: 'Bantuan', image: require('../../assets/images/icons/pegawai/bantuan.png') },
-            ].map((item) => (
-              <TouchableOpacity 
-                key={item.id} 
-                style={styles.mainMenuItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (item.route) {
-                    router.push(item.route as any);
-                  }
-                }}
-              >
-                <Image source={item.image} style={styles.menuIcon} />
-                <Text style={styles.menuLabel}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.menuSection}>
+            <View style={styles.mainMenuRow}>
+              {[
+                { id: 1, name: 'Kegiatan', image: require('../../assets/images/icons/pegawai/kegiatan.png') },
+                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/pengajuan' },
+                { id: 3, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png') },
+                { id: 4, name: 'Bantuan', image: require('../../assets/images/icons/pegawai/bantuan.png') },
+              ].map((item) => (
+                <TouchableOpacity 
+                  key={item.id} 
+                  style={styles.mainMenuItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (item.route) {
+                      router.push(item.route as any);
+                    }
+                  }}
+                >
+                  <Image source={item.image} style={styles.menuIcon} />
+                  <Text style={styles.menuLabel}>{item.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#004643',
+  },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#FFFFFF' 
+  },
   scrollContent: { flexGrow: 1 },
+  dashboardHeader: {
+    backgroundColor: '#004643',
+    paddingTop: 0,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    position: 'relative',
+  },
   backgroundPattern: {
     position: 'absolute',
-    top: 0,
+    top: -150,
     left: 0,
     right: 0,
     bottom: 0,
@@ -311,7 +292,7 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 150,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    top: -100,
+    top: -50,
     right: -100,
   },
   bubble2: {
@@ -336,6 +317,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 20 : 40,
     paddingBottom: 10,
     marginBottom: 25,
   },
@@ -458,11 +440,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   menuSection: { 
-    marginTop: -100, 
+    marginTop: -60, 
     backgroundColor: '#FFFFFF', 
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    paddingTop: 35,
+    paddingTop: 30,
     paddingHorizontal: 24,
     paddingBottom: 40,
     flex: 1,
@@ -477,8 +459,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   menuIcon: {
-    width: 48,
-    height: 48,
+    width: 35,
+    height: 35,
     resizeMode: 'contain',
     marginBottom: 8,
   },

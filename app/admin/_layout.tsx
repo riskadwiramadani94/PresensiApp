@@ -1,9 +1,51 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
+import { AuthStorage } from '../../utils/AuthStorage';
 
 export default function AdminTabLayout() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAdminRole();
+  }, []);
+
+  const checkAdminRole = async () => {
+    try {
+      const user = await AuthStorage.getUser();
+      console.log('Admin Layout - User role:', user?.role);
+      
+      if (!user) {
+        console.log('No user, redirecting to login');
+        router.replace('/');
+        return;
+      }
+      
+      if (user.role !== 'admin') {
+        console.log('Not admin, redirecting to pegawai');
+        router.replace('/(pegawai)/dashboard-pegawai');
+        return;
+      }
+      
+      console.log('User is admin, showing admin layout');
+    } catch (error) {
+      console.log('Error checking role:', error);
+      router.replace('/');
+      return;
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#004643' }}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
+
   return (
     <Tabs
       screenOptions={{
