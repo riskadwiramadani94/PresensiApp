@@ -260,19 +260,16 @@ export default function LaporanDetailAbsenScreen() {
       }}
     >
       <View style={styles.cardHeader}>
-        <View style={styles.avatar}>
-          {item.foto_profil ? (
-            <Image 
-              source={{ uri: `${API_CONFIG.BASE_URL}${item.foto_profil}` }} 
-              style={styles.avatarImage}
-              onError={(e) => {
-                console.log('Error loading image:', `${API_CONFIG.BASE_URL}${item.foto_profil}`);
-              }}
-            />
-          ) : (
+        {item.foto_profil ? (
+          <Image 
+            source={{ uri: `${API_CONFIG.BASE_URL}${item.foto_profil.replace('/uploads/pegawai/uploads/pegawai/', '/uploads/pegawai/')}` }} 
+            style={styles.avatarImage}
+          />
+        ) : (
+          <View style={styles.avatar}>
             <Text style={styles.avatarText}>{item.nama_lengkap.charAt(0).toUpperCase()}</Text>
-          )}
-        </View>
+          </View>
+        )}
         <View style={styles.employeeInfo}>
           <Text style={styles.employeeName}>{item.nama_lengkap}</Text>
           <Text style={styles.employeeNip}>NIP: {item.nip}</Text>
@@ -568,6 +565,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    marginRight: 12,
   },
   avatarText: {
     color: '#004643',

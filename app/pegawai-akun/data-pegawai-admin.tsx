@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Modal,
   Platform,
   RefreshControl,
@@ -339,11 +340,18 @@ export default function DataPegawaiAdminScreen() {
                 }}
                 activeOpacity={0.7}
               >
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {item.nama_lengkap?.charAt(0) || "P"}
-                  </Text>
-                </View>
+                {item.foto_profil ? (
+                  <Image
+                    source={{ uri: `${API_CONFIG.BASE_URL}/${item.foto_profil}` }}
+                    style={styles.profileImage}
+                  />
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {item.nama_lengkap?.charAt(0).toUpperCase() || "P"}
+                    </Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pegawaiName}>{item.nama_lengkap}</Text>
                   <Text style={styles.pegawaiEmail}>
@@ -570,6 +578,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "#E0E0E0",
+  },
+  profileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
   },
   avatar: {
     width: 50,

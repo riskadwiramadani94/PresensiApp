@@ -777,9 +777,8 @@ export default function DetailAbsenPegawai() {
         <View style={styles.pegawaiHeader}>
           {pegawaiData?.foto_profil ? (
             <Image 
-              source={{ uri: `${API_CONFIG.BASE_URL}${pegawaiData.foto_profil}` }} 
+              source={{ uri: `${API_CONFIG.BASE_URL}/${pegawaiData.foto_profil}` }} 
               style={styles.avatarImage}
-              onError={() => console.log('Error loading image')}
             />
           ) : (
             <View style={styles.avatarContainer}>

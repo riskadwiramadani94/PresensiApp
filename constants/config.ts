@@ -9,41 +9,46 @@ const debugLog = (message: string, data?: any) => {
   }
 };
 
+/* ========================================
+   API ENDPOINTS CONFIGURATION
+======================================== */
+
 export const API_CONFIG = {
   BASE_URL,
   ENDPOINTS: {
-    // Auth
+    
+    /* ================= AUTH ================= */
     LOGIN: '/auth/api/login',
     PROFILE: '/auth/api/profile',
     
-    // Admin
+    /* ================= ADMIN ================= */
     ADMIN: '/admin/api/admin',
     
-    // Pegawai & Akun
+    /* ================= PEGAWAI & AKUN (Admin) ================= */
     DATA_PEGAWAI: '/admin/pegawai-akun/api/data-pegawai',
     DETAIL_PEGAWAI: '/admin/pegawai-akun/api/detail-pegawai',
     UPDATE_PEGAWAI: '/admin/pegawai-akun/api/update-pegawai',
     DELETE_PEGAWAI: '/admin/pegawai-akun/api/delete-pegawai',
     CHECK_EMAILS: '/admin/pegawai-akun/api/check-emails',
     
-    // Laporan
+    /* ================= LAPORAN (Admin) ================= */
     LAPORAN: '/admin/laporan/api/laporan',
     DETAIL_LAPORAN: '/admin/laporan/api/detail-laporan',
     DETAIL_ABSEN_PEGAWAI: '/admin/laporan/api/detail-absen-pegawai',
     DETAIL_ABSEN: '/admin/laporan/api/detail-absen',
     
-    // Pengaturan
+    /* ================= PENGATURAN (Admin) ================= */
     LOKASI_KANTOR: '/admin/pengaturan/api/lokasi-kantor',
     JAM_KERJA: '/admin/pengaturan/api/jam-kerja',
     HARI_LIBUR: '/admin/pengaturan/api/hari-libur',
     
-    // Presensi
+    /* ================= PRESENSI (Admin) ================= */
     TRACKING: '/admin/presensi/api/tracking',
     
-    // Persetujuan
+    /* ================= PERSETUJUAN (Admin) ================= */
     APPROVAL: '/admin/persetujuan/api/approval',
     
-    // Kelola Dinas
+    /* ================= KELOLA DINAS (Admin) ================= */
     DINAS_AKTIF: '/admin/kelola-dinas/api/dinas-aktif',
     CREATE_DINAS: '/admin/kelola-dinas/api/create-dinas',
     UPDATE_DINAS: '/admin/kelola-dinas/api/update-dinas',
@@ -54,7 +59,7 @@ export const API_CONFIG = {
     DINAS_LOKASI: '/admin/kelola-dinas/api/dinas',
     CHECK_ABSEN_LOCATION: '/admin/kelola-dinas/api/check-location',
     
-    // Pusat Validasi
+    /* ================= PUSAT VALIDASI (Admin) ================= */
     PUSAT_VALIDASI: '/admin/pusat-validasi/api',
     PUSAT_VALIDASI_ABSEN_DINAS: '/admin/pusat-validasi/api/absen-dinas',
     PUSAT_VALIDASI_PENGAJUAN: '/admin/pusat-validasi/api/pengajuan',
@@ -62,7 +67,7 @@ export const API_CONFIG = {
     PUSAT_VALIDASI_SETUJUI: '/admin/pusat-validasi/api/setujui',
     PUSAT_VALIDASI_TOLAK: '/admin/pusat-validasi/api/tolak',
     
-    // Pegawai
+    /* ================= PEGAWAI ================= */
     PEGAWAI_DASHBOARD: '/pegawai/api/dashboard',
     PEGAWAI_PRESENSI: '/pegawai/presensi/api/presensi',
     PEGAWAI_PENGAJUAN: '/pegawai/pengajuan/api/pengajuan',
@@ -111,7 +116,9 @@ export const fetchWithRetry = async (url: string, options: any = {}): Promise<Re
   }
 };
 
-// Auth API
+/* ========================================
+   AUTH API
+======================================== */
 export const AuthAPI = {
   login: async (email: string, password: string) => {
     try {
@@ -141,7 +148,9 @@ export const AuthAPI = {
   },
 };
 
-// Admin API
+/* ========================================
+   ADMIN API
+======================================== */
 export const AdminAPI = {
   getAdminData: async (user_id?: string) => {
     try {
@@ -172,7 +181,9 @@ export const AdminAPI = {
   },
 };
 
-// Pegawai API
+/* ========================================
+   PEGAWAI API
+======================================== */
 export const PegawaiAPI = {
   getDashboard: async (user_id: string) => {
     try {
@@ -249,7 +260,9 @@ export const PegawaiAPI = {
   },
 };
 
-// Pegawai Akun API
+/* ========================================
+   PEGAWAI AKUN API (Admin)
+======================================== */
 export const PegawaiAkunAPI = {
   getDataPegawai: async () => {
     try {
@@ -307,7 +320,9 @@ export const PegawaiAkunAPI = {
   },
 };
 
-// Kelola Dinas API
+/* ========================================
+   KELOLA DINAS API (Admin)
+======================================== */
 export const KelolaDinasAPI = {
   getDinasAktif: async (status?: string, tanggal?: string) => {
     try {
@@ -422,7 +437,9 @@ export const KelolaDinasAPI = {
   },
 };
 
-// Pengaturan API
+/* ========================================
+   PENGATURAN API (Admin)
+======================================== */
 export const PengaturanAPI = {
   getLokasiKantor: async () => {
     try {
@@ -527,7 +544,9 @@ export const PengaturanAPI = {
   },
 };
 
-// Pusat Validasi API
+/* ========================================
+   PUSAT VALIDASI API (Admin)
+======================================== */
 export const PusatValidasiAPI = {
   getAbsenDinas: async () => {
     try {

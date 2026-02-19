@@ -146,13 +146,13 @@ export default function DetailPegawai() {
               <View style={styles.photoContainer}>
                 {pegawai.foto_profil ? (
                   <Image
-                    source={{ uri: pegawai.foto_profil }}
+                    source={{ uri: `${API_CONFIG.BASE_URL}/${pegawai.foto_profil}` }}
                     style={styles.profilePhoto}
                   />
                 ) : (
                   <View style={styles.defaultPhoto}>
                     <Text style={styles.avatarText}>
-                      {pegawai.nama_lengkap?.charAt(0) || "P"}
+                      {pegawai.nama_lengkap?.charAt(0).toUpperCase() || "P"}
                     </Text>
                   </View>
                 )}
