@@ -227,54 +227,65 @@ const getLaporan = async (req, res) => {
       });
 
     } else if (type === 'dinas') {
-      // Get all dinas data with search and date filter
+      // Get all dinas data with pegawai and absen dinas
       let query = `
         SELECT 
-          peng.id_pengajuan as id,
+          d.id_dinas as id,
+          d.nama_kegiatan,
+          d.tanggal_mulai,
+          d.tanggal_selesai,
+          d.status as status_dinas,
           p.nama_lengkap,
           p.nip,
           p.jabatan,
           p.foto_profil,
-          peng.jenis_pengajuan,
-          peng.tanggal_mulai,
-          peng.tanggal_selesai,
-          peng.lokasi_dinas,
-          peng.status
-        FROM pengajuan peng
-        INNER JOIN pegawai p ON peng.id_pegawai = p.id_pegawai
-        WHERE peng.jenis_pengajuan IN ('dinas_luar_kota', 'dinas_lokal', 'dinas_luar_negeri')
+          dp.status_konfirmasi,
+          COUNT(DISTINCT ad.id) as total_absen,
+          SUM(CASE WHEN ad.jam_masuk IS NOT NULL AND ad.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap,
+          GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas
+        FROM dinas d
+        INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
+        INNER JOIN pegawai p ON dp.id_user = p.id_user
+        LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND ad.id_user = dp.id_user
+        LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
+        LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+        WHERE 1=1
       `;
       
       const params = [];
       
       // Add date filter if provided
       if (req.query.date) {
-        query += ` AND peng.tanggal_mulai <= ? AND peng.tanggal_selesai >= ?`;
-        params.push(req.query.date, req.query.date);
+        query += ` AND ? BETWEEN d.tanggal_mulai AND d.tanggal_selesai`;
+        params.push(req.query.date);
       }
       
       // Add search filter if provided
       if (req.query.search) {
-        query += ` AND (p.nama_lengkap LIKE ? OR peng.jenis_pengajuan LIKE ? OR peng.lokasi_dinas LIKE ?)`;
+        query += ` AND (p.nama_lengkap LIKE ? OR d.nama_kegiatan LIKE ? OR lk.nama_lokasi LIKE ?)`;
         const searchTerm = `%${req.query.search}%`;
         params.push(searchTerm, searchTerm, searchTerm);
       }
       
-      query += ` ORDER BY peng.tanggal_mulai DESC`;
+      query += ` GROUP BY d.id_dinas, dp.id_user, p.nama_lengkap, p.nip, p.jabatan, p.foto_profil, dp.status_konfirmasi`;
+      query += ` ORDER BY d.tanggal_mulai DESC`;
       
       const [results] = await db.execute(query, params);
       
       const data = results.map(row => ({
         id: parseInt(row.id),
+        nama_kegiatan: row.nama_kegiatan,
         nama_lengkap: row.nama_lengkap,
         nip: row.nip,
         jabatan: row.jabatan,
         foto_profil: row.foto_profil,
-        jenis_pengajuan: row.jenis_pengajuan,
         tanggal_mulai: row.tanggal_mulai,
         tanggal_selesai: row.tanggal_selesai,
         lokasi_dinas: row.lokasi_dinas,
-        status: row.status
+        status_dinas: row.status_dinas,
+        status_konfirmasi: row.status_konfirmasi,
+        total_absen: parseInt(row.total_absen || 0),
+        absen_lengkap: parseInt(row.absen_lengkap || 0)
       }));
       
       res.json({
@@ -559,24 +570,29 @@ const getDetailLaporan = async (req, res) => {
     if (id && type === 'dinas') {
       const [rows] = await db.execute(`
         SELECT 
-          peng.id_pengajuan,
+          d.id_dinas,
+          d.nama_kegiatan,
+          d.tanggal_mulai,
+          d.tanggal_selesai,
+          d.status,
+          d.deskripsi,
           p.nama_lengkap,
           p.nip,
           p.foto_profil,
           p.jabatan,
-          peng.jenis_pengajuan,
-          peng.tanggal_mulai,
-          peng.tanggal_selesai,
-          peng.lokasi_dinas,
-          peng.alasan_text,
-          peng.dokumen_foto,
-          peng.status,
-          peng.tanggal_pengajuan,
-          peng.tanggal_approval,
-          peng.catatan_approval
-        FROM pengajuan peng
-        INNER JOIN pegawai p ON peng.id_pegawai = p.id_pegawai
-        WHERE peng.id_pengajuan = ?
+          dp.status_konfirmasi,
+          dp.tanggal_konfirmasi,
+          GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas,
+          COUNT(DISTINCT ad.id) as total_absen,
+          SUM(CASE WHEN ad.jam_masuk IS NOT NULL AND ad.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap
+        FROM dinas d
+        INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
+        INNER JOIN pegawai p ON dp.id_user = p.id_user
+        LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND ad.id_user = dp.id_user
+        LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
+        LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+        WHERE d.id_dinas = ?
+        GROUP BY d.id_dinas, dp.id_user, p.nama_lengkap, p.nip, p.foto_profil, p.jabatan, dp.status_konfirmasi, dp.tanggal_konfirmasi
       `, [id]);
       
       const data = rows[0];
@@ -710,13 +726,25 @@ const exportPDF = async (req, res) => {
       case 'dinas':
         filename = `Laporan_Dinas_${new Date().toISOString().split('T')[0]}.pdf`;
         const [dinasRows] = await db.execute(`
-          SELECT p.nama_lengkap, p.nip, pg.jenis_pengajuan, pg.tanggal_mulai, 
-                 pg.tanggal_selesai, pg.lokasi_dinas, pg.status
-          FROM pengajuan pg
-          JOIN pegawai p ON pg.id_pegawai = p.id_pegawai
-          WHERE pg.tanggal_mulai BETWEEN ? AND ?
-          AND pg.jenis_pengajuan LIKE 'dinas_%'
-          ORDER BY pg.tanggal_mulai DESC
+          SELECT 
+            p.nama_lengkap, 
+            p.nip, 
+            d.nama_kegiatan,
+            d.tanggal_mulai, 
+            d.tanggal_selesai, 
+            GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas,
+            d.status,
+            dp.status_konfirmasi,
+            COUNT(DISTINCT ad.id) as total_absen
+          FROM dinas d
+          INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
+          INNER JOIN pegawai p ON dp.id_user = p.id_user
+          LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND ad.id_user = dp.id_user
+          LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
+          LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+          WHERE d.tanggal_mulai BETWEEN ? AND ?
+          GROUP BY d.id_dinas, dp.id_user, p.nama_lengkap, p.nip, dp.status_konfirmasi
+          ORDER BY d.tanggal_mulai DESC
         `, [startDate, endDate]);
         data = dinasRows;
         break;

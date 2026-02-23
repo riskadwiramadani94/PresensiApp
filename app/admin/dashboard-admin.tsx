@@ -167,30 +167,22 @@ export default function AdminDashboard() {
                   {data.user?.nama_lengkap || "Administrator"}
                 </Text>
               </View>
-              <View style={styles.rightSection}>
-                <View style={styles.dateTimeContainer}>
-                  <Text style={styles.dateTimeText}>
-                    {currentTime.toLocaleDateString("id-ID", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </Text>
-                  <Text style={styles.timeText}>
-                    {currentTime.toLocaleTimeString("id-ID", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    WIB
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.notificationButton}
-                  onPress={() => router.push("/notifikasi-admin" as any)}
-                >
-                  <Ionicons name="notifications" size={24} color="#fff" />
-                </TouchableOpacity>
+              <View style={styles.dateTimeContainer}>
+                <Text style={styles.dateTimeText}>
+                  {currentTime.toLocaleDateString("id-ID", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </Text>
+                <Text style={styles.timeText}>
+                  {currentTime.toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  WIB
+                </Text>
               </View>
             </View>
 
@@ -321,11 +313,6 @@ const styles = StyleSheet.create({
   adminInfo: { flex: 1 },
   greetingText: { fontSize: 14, color: "#E8F5E9" },
   userName: { fontSize: 18, fontWeight: "bold", color: "#fff" },
-  rightSection: {
-    alignItems: "flex-end",
-    flexDirection: "row",
-    gap: 12,
-  },
   dateTimeContainer: {
     alignItems: "flex-end",
   },
@@ -339,13 +326,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     marginTop: 1,
-  },
-  notificationButton: {
-    padding: 10,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
   },
   summarySection: {
     marginBottom: 40,

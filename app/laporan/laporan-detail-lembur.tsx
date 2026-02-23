@@ -228,8 +228,6 @@ export default function LaporanDetailLemburScreen() {
       <AppHeader 
         title="Laporan Lembur"
         showBack={true}
-        showStats={true}
-        statsText={`${data.length} Data Lembur`}
         fallbackRoute="/admin/dashboard-admin"
       />
 

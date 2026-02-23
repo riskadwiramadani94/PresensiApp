@@ -11,13 +11,17 @@ interface DinasData {
   id: number;
   nama_lengkap: string;
   nip: string;
-  jenis_pengajuan: string;
+  nama_kegiatan: string;
   tanggal_mulai: string;
   tanggal_selesai: string;
   lokasi_dinas: string;
-  status: string;
+  status_dinas: string;
+  status?: string;
+  status_konfirmasi: string;
   jabatan: string;
   foto_profil?: string;
+  total_absen?: number;
+  absen_lengkap?: number;
 }
 
 export default function LaporanDetailDinasScreen() {
@@ -25,7 +29,7 @@ export default function LaporanDetailDinasScreen() {
   const [data, setData] = useState<DinasData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDateFilter, setSelectedDateFilter] = useState('hari_ini');
+  const [selectedDateFilter, setSelectedDateFilter] = useState('bulan_ini');
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
@@ -49,6 +53,7 @@ export default function LaporanDetailDinasScreen() {
         const dateStr = selectedDate.toISOString().split('T')[0];
         url += `&date=${dateStr}`;
       }
+      // Untuk bulan_ini dan minggu_ini, tidak perlu filter tanggal (tampilkan semua)
       
       if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
@@ -183,11 +188,13 @@ export default function LaporanDetailDinasScreen() {
       <View style={styles.cardContent}>
         <View style={styles.infoRow}>
           <Ionicons name="briefcase-outline" size={16} color="#666" />
-          <Text style={styles.infoText}>Jenis: {item.jenis_pengajuan || '-'}</Text>
+          <Text style={styles.infoText}>Kegiatan: {item.nama_kegiatan || '-'}</Text>
         </View>
         <View style={styles.infoRow}>
           <Ionicons name="calendar-outline" size={16} color="#666" />
-          <Text style={styles.infoText}>Periode: {item.tanggal_mulai || '-'} - {item.tanggal_selesai || '-'}</Text>
+          <Text style={styles.infoText}>
+            Periode: {item.tanggal_mulai ? new Date(item.tanggal_mulai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'} - {item.tanggal_selesai ? new Date(item.tanggal_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+          </Text>
         </View>
         <View style={styles.infoRow}>
           <Ionicons name="location-outline" size={16} color="#666" />
@@ -195,9 +202,9 @@ export default function LaporanDetailDinasScreen() {
         </View>
         
         <View style={styles.statusContainer}>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-              {getStatusLabel(item.status)}
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status_dinas || item.status || 'pending') + '20' }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(item.status_dinas || item.status || 'pending') }]}>
+              {getStatusLabel(item.status_dinas || item.status || 'pending')}
             </Text>
           </View>
         </View>
@@ -298,7 +305,7 @@ export default function LaporanDetailDinasScreen() {
           
           <FlatList
             data={data || []}
-            keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
+            keyExtractor={(item, index) => `${item?.id}-${item?.nip}-${index}`}
             renderItem={renderItem}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
@@ -458,7 +465,7 @@ export default function LaporanDetailDinasScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFB' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   contentContainer: {
     flex: 1,
   },
@@ -466,12 +473,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#fff'
+    backgroundColor: '#ffffff'
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
@@ -485,7 +492,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12
   },
   filterCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     marginHorizontal: 20,
     marginVertical: 5,
     borderRadius: 16,
@@ -515,7 +522,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginRight: 8,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#E0E0E0'
   },
@@ -529,13 +536,15 @@ const styles = StyleSheet.create({
     fontWeight: '500'
   },
   filterChipTextActive: {
-    color: '#fff'
+    color: '#ffffff'
   },
   selectedDateInfo: {
-    backgroundColor: '#F0F8F7',
+    backgroundColor: '#ffffff',
     padding: 8,
     borderRadius: 8,
-    marginBottom: 10
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
   },
   selectedDateText: {
     fontSize: 12,

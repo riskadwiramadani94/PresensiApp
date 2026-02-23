@@ -442,7 +442,7 @@ export default function LaporanDetailAbsenScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFB' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   contentContainer: {
     flex: 1,
   },

@@ -212,29 +212,21 @@ export default function BerandaScreen() {
                 <Text style={styles.greetingText}>Selamat datang,</Text>
                 <Text style={styles.userName}>{userData.nama || 'Memuat...'}</Text>
               </View>
-              <View style={styles.rightSection}>
-                <View style={styles.dateTimeContainer}>
-                  <Text style={styles.dateTimeText}>
-                    {currentTime.toLocaleDateString('id-ID', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </Text>
-                  <Text style={styles.timeText}>
-                    {currentTime.toLocaleTimeString('id-ID', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })} WIB
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.notificationButton}
-                  onPress={() => {}}
-                >
-                  <Ionicons name="notifications" size={24} color="#fff" />
-                </TouchableOpacity>
+              <View style={styles.dateTimeContainer}>
+                <Text style={styles.dateTimeText}>
+                  {currentTime.toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </Text>
+                <Text style={styles.timeText}>
+                  {currentTime.toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })} WIB
+                </Text>
               </View>
             </View>
 
@@ -282,7 +274,7 @@ export default function BerandaScreen() {
                 { id: 1, name: 'Kegiatan', image: require('../../assets/images/icons/pegawai/kegiatan.png'), route: '/menu-pegawai/kegiatan' },
                 { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/menu-pegawai/pengajuan' },
                 { id: 3, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png'), route: '/menu-pegawai/lembur' },
-                { id: 4, name: 'Bantuan', image: require('../../assets/images/icons/pegawai/bantuan.png'), route: '/menu-pegawai/bantuan' },
+                { id: 4, name: 'Performa', image: require('../../assets/images/icons/pegawai/performa.png'), route: '/menu-pegawai/performa' },
               ].map((item) => (
                 <TouchableOpacity 
                   key={item.id} 
@@ -369,11 +361,6 @@ const styles = StyleSheet.create({
   adminInfo: { flex: 1 },
   greetingText: { fontSize: 14, color: '#E8F5E9' },
   userName: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
-  rightSection: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: 12,
-  },
   dateTimeContainer: {
     alignItems: 'flex-end',
   },
@@ -387,13 +374,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     marginTop: 1,
-  },
-  notificationButton: {
-    padding: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
   summarySection: {
     marginBottom: 40,

@@ -222,8 +222,6 @@ export default function LaporanDetailIzinScreen() {
       <AppHeader 
         title="Laporan Izin/Cuti"
         showBack={true}
-        showStats={true}
-        statsText={`${data.length} Data Izin`}
         fallbackRoute="/admin/dashboard-admin"
       />
 
@@ -475,12 +473,12 @@ const styles = StyleSheet.create({
 
   contentWrapper: {
     flex: 1,
-    backgroundColor: "#F8FAFB",
+    backgroundColor: "#ffffff",
   },
   searchContainer: {
     paddingHorizontal: 15,
     paddingVertical: 15,
-    backgroundColor: '#F8FAFB'
+    backgroundColor: '#ffffff'
   },
   searchInputWrapper: {
     flexDirection: 'row',
