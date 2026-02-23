@@ -90,7 +90,8 @@ export default function EditLokasiScreen() {
         alamat: formData.alamat.trim(),
         lintang: formData.latitude,
         bujur: formData.longitude,
-        radius: parseInt(formData.radius)
+        radius: parseInt(formData.radius),
+        jenis_lokasi: formData.jenis
       });
 
       if (response.success) {
@@ -123,6 +124,26 @@ export default function EditLokasiScreen() {
             <Text style={styles.infoText}>
               Edit informasi lokasi absensi. Gunakan peta untuk memilih koordinat yang akurat.
             </Text>
+          </View>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Jenis Lokasi *</Text>
+          <View style={styles.radioGroup}>
+            <TouchableOpacity
+              style={[styles.radioBtn, formData.jenis === 'tetap' && styles.radioBtnActive]}
+              onPress={() => setFormData({ ...formData, jenis: 'tetap' })}
+            >
+              <Ionicons name="business" size={16} color={formData.jenis === 'tetap' ? '#fff' : '#666'} />
+              <Text style={[styles.radioText, formData.jenis === 'tetap' && styles.radioTextActive]}>Kantor Tetap</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.radioBtn, formData.jenis === 'dinas' && styles.radioBtnActive]}
+              onPress={() => setFormData({ ...formData, jenis: 'dinas' })}
+            >
+              <Ionicons name="airplane" size={16} color={formData.jenis === 'dinas' ? '#fff' : '#666'} />
+              <Text style={[styles.radioText, formData.jenis === 'dinas' && styles.radioTextActive]}>Lokasi Dinas</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -296,5 +317,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0',
     paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginTop: 8
   },
-  warningText: { fontSize: 11, color: '#E65100', marginLeft: 6 }
+  warningText: { fontSize: 11, color: '#E65100', marginLeft: 6 },
+  radioGroup: { flexDirection: 'row', gap: 8 },
+  radioBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10,
+    backgroundColor: '#fff', gap: 6, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1, shadowRadius: 2
+  },
+  radioBtnActive: { backgroundColor: '#004643', elevation: 3 },
+  radioText: { fontSize: 13, color: '#666', fontWeight: '500' },
+  radioTextActive: { color: '#fff' }
 });

@@ -4,7 +4,7 @@ import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 
 interface PresensiMapProps {
   userLocation: { latitude: number; longitude: number } | null;
-  officeLocation?: { latitude: number; longitude: number; radius: number; nama: string } | null;
+  officeLocation?: { latitude: number; longitude: number; radius: number; nama: string; isInRadius?: boolean } | null;
   locations?: Array<{ latitude: number; longitude: number; radius: number; nama: string; isInRadius?: boolean }>;
   style?: any;
 }

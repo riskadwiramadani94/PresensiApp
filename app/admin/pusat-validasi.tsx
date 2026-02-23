@@ -453,40 +453,34 @@ export default function PusatValidasiScreen() {
   const renderPengajuanItem = ({ item }: { item: PengajuanItem }) => (
     <View style={styles.itemCard}>
       <View style={styles.cardAccent} />
-      <View style={styles.itemHeader}>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.nama_lengkap}</Text>
-          <Text style={styles.userDetail}>NIP: {item.nip} • {item.jabatan}</Text>
-        </View>
-        <View style={styles.pengajuanBadge}>
-          <Text style={styles.pengajuanBadgeText}>{formatJenisPengajuan(item.jenis_pengajuan)}</Text>
-        </View>
-      </View>
       
       <View style={styles.itemContent}>
-        <View style={styles.infoRow}>
-          <Ionicons name="calendar-outline" size={16} color="#666" />
-          <Text style={styles.infoText}>
-            {formatDate(item.tanggal_mulai)}
-            {item.tanggal_selesai && item.tanggal_selesai !== item.tanggal_mulai && 
-              ` - ${formatDate(item.tanggal_selesai)}`}
-          </Text>
-        </View>
-        {(item.jam_mulai || item.jam_selesai) && (
-          <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={16} color="#666" />
-            <Text style={styles.infoText}>
-              {item.jam_mulai} {item.jam_selesai && `- ${item.jam_selesai}`}
-            </Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.userName}>{item.nama_lengkap}</Text>
+          <View style={styles.pengajuanBadge}>
+            <Text style={styles.pengajuanBadgeText}>{formatJenisPengajuan(item.jenis_pengajuan)}</Text>
           </View>
-        )}
-        <View style={styles.reasonBox}>
-          <Ionicons name="chatbox-ellipses-outline" size={16} color="#004643" style={styles.reasonIcon} />
-          <Text style={styles.reasonText}>{item.alasan_text}</Text>
         </View>
+        
+        <Text style={styles.userDetail}>NIP: {item.nip} • {item.jabatan}</Text>
+        
+        <Text style={styles.infoText}>
+          {formatDate(item.tanggal_mulai)}
+          {item.tanggal_selesai && item.tanggal_selesai !== item.tanggal_mulai && 
+            ` - ${formatDate(item.tanggal_selesai)}`}
+        </Text>
+        
+        {(item.jam_mulai || item.jam_selesai) && (
+          <Text style={styles.infoText}>
+            {item.jam_mulai} {item.jam_selesai && `- ${item.jam_selesai}`}
+          </Text>
+        )}
+        
+        <Text style={styles.reasonText} numberOfLines={2}>{item.alasan_text}</Text>
+        
         {item.dokumen_foto && (
           <TouchableOpacity style={styles.documentBtn}>
-            <Ionicons name="document-attach-outline" size={16} color="#004643" />
+            <Ionicons name="document-attach-outline" size={14} color="#004643" />
             <Text style={styles.documentBtnText}>Lihat Dokumen</Text>
           </TouchableOpacity>
         )}
@@ -616,6 +610,8 @@ export default function PusatValidasiScreen() {
       <AppHeader 
         title="Pusat Validasi"
         showBack={false}
+        showHistoryButton={true}
+        onHistoryPress={() => Alert.alert('History', 'Fitur history akan segera hadir')}
       />
 
       <View style={styles.contentWrapper}>
@@ -1000,28 +996,18 @@ const styles = StyleSheet.create({
   // Item Card
   itemCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 4,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 2,
     borderWidth: 0.5,
     borderColor: 'rgba(0, 0, 0, 0.05)',
     position: 'relative',
     overflow: 'hidden',
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-    position: 'relative',
   },
   cardAccent: {
     position: 'absolute',
@@ -1030,159 +1016,71 @@ const styles = StyleSheet.create({
     width: 4,
     height: '100%',
     backgroundColor: '#004643',
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
   },
-  userInfo: { 
-    flex: 1,
-    marginRight: 12,
+  itemContent: { 
+    marginBottom: 12,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   userName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
-    letterSpacing: 0.3,
-  },
-  userDetail: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '500',
-  },
-  timeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#004643',
-    backgroundColor: '#E8F5E8',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 70, 67, 0.2)',
+    color: '#1a1a1a',
+    flex: 1,
+    marginRight: 8,
+  },
+  userDetail: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 6,
   },
   pengajuanBadge: {
     backgroundColor: '#E3F2FD',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    maxWidth: 140,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(25, 118, 210, 0.2)',
   },
   pengajuanBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#1976D2',
-    textAlign: 'center',
-  },
-  
-  // Item Content
-  itemContent: { 
-    marginBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
   },
   infoText: {
-    fontSize: 14,
-    color: '#555',
-    flex: 1,
-    lineHeight: 20,
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
     fontWeight: '500',
-  },
-  reasonBox: {
-    backgroundColor: '#F8F9FA',
-    padding: 16,
-    borderRadius: 12,
-    marginVertical: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#004643',
-    position: 'relative',
-  },
-  reasonIcon: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    opacity: 0.3,
   },
   reasonText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 22,
-    fontStyle: 'italic',
-    fontWeight: '500',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-  },
-  photoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#E8F5E8',
-    borderRadius: 20,
-    gap: 6,
-    elevation: 1,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 70, 67, 0.2)',
-  },
-  photoBtnText: {
     fontSize: 12,
-    color: '#004643',
-    fontWeight: '600',
-  },
-  locationBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#E8F5E8',
-    borderRadius: 20,
-    gap: 6,
-    elevation: 1,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 70, 67, 0.2)',
-  },
-  locationBtnText: {
-    fontSize: 12,
-    color: '#004643',
-    fontWeight: '600',
+    color: '#999',
+    lineHeight: 16,
+    marginTop: 4,
+    marginBottom: 8,
   },
   documentBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: '#E8F5E8',
-    borderRadius: 20,
-    gap: 6,
+    borderRadius: 12,
+    gap: 4,
     alignSelf: 'flex-start',
-    marginTop: 12,
-    elevation: 1,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: 'rgba(0, 70, 67, 0.2)',
   },
   documentBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#004643',
     fontWeight: '600',
   },
@@ -1190,51 +1088,35 @@ const styles = StyleSheet.create({
   // Action Buttons
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-    paddingTop: 16,
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#F5F5F5',
   },
   approveBtn: {
     flex: 1,
     backgroundColor: '#4CAF50',
-    paddingVertical: 14,
-    borderRadius: 25,
+    paddingVertical: 10,
+    borderRadius: 8,
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    position: 'relative',
-    overflow: 'hidden',
   },
   approveBtnText: {
     color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: '600',
   },
   rejectBtn: {
     flex: 1,
     backgroundColor: '#F44336',
-    paddingVertical: 14,
-    borderRadius: 25,
+    paddingVertical: 10,
+    borderRadius: 8,
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#F44336',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    position: 'relative',
-    overflow: 'hidden',
   },
   rejectBtnText: {
     color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: '600',
   },
   
   // Loading & Empty States

@@ -235,7 +235,7 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <RNStatusBar 
-        barStyle="dark-content"
+        barStyle="light-content"
         backgroundColor="transparent"
         translucent={true}
       />

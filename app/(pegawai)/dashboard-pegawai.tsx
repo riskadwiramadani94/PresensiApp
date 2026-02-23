@@ -15,7 +15,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PegawaiAPI } from '../../constants/config';
+import * as Location from 'expo-location';
+import { PegawaiAPI, getApiUrl, API_CONFIG } from '../../constants/config';
 
 interface UserData {
   nama: string;
@@ -45,6 +46,7 @@ export default function BerandaScreen() {
   useEffect(() => {
     loadUserDataFirst();
     fetchUserData();
+    startLocationTracking();
     
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -135,6 +137,49 @@ export default function BerandaScreen() {
       console.log('Dashboard Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startLocationTracking = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+        return;
+      }
+
+      const userDataStr = await AsyncStorage.getItem('userData');
+      if (!userDataStr) return;
+      
+      const user = JSON.parse(userDataStr);
+      const userId = user.id_user || user.id;
+
+      // Send location every 5 minutes
+      const sendLocation = async () => {
+        try {
+          const location = await Location.getCurrentPositionAsync({});
+          const { latitude, longitude } = location.coords;
+
+          await fetch(getApiUrl(API_CONFIG.ENDPOINTS.UPDATE_LOCATION), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_user: userId, latitude, longitude })
+          });
+          
+          console.log('Location updated:', latitude, longitude);
+        } catch (error) {
+          console.log('Error sending location:', error);
+        }
+      };
+
+      // Send immediately
+      sendLocation();
+
+      // Then send every 5 minutes
+      const interval = setInterval(sendLocation, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    } catch (error) {
+      console.log('Location tracking error:', error);
     }
   };
 
@@ -234,10 +279,10 @@ export default function BerandaScreen() {
           <View style={styles.menuSection}>
             <View style={styles.mainMenuRow}>
               {[
-                { id: 1, name: 'Kegiatan', image: require('../../assets/images/icons/pegawai/kegiatan.png') },
-                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/pengajuan' },
-                { id: 3, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png') },
-                { id: 4, name: 'Bantuan', image: require('../../assets/images/icons/pegawai/bantuan.png') },
+                { id: 1, name: 'Kegiatan', image: require('../../assets/images/icons/pegawai/kegiatan.png'), route: '/menu-pegawai/kegiatan' },
+                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/menu-pegawai/pengajuan' },
+                { id: 3, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png'), route: '/menu-pegawai/lembur' },
+                { id: 4, name: 'Bantuan', image: require('../../assets/images/icons/pegawai/bantuan.png'), route: '/menu-pegawai/bantuan' },
               ].map((item) => (
                 <TouchableOpacity 
                   key={item.id} 

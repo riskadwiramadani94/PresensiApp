@@ -331,6 +331,7 @@ const getLaporan = async (req, res) => {
           p.foto_profil,
           peng.jenis_pengajuan,
           peng.tanggal_mulai,
+          peng.tanggal_selesai,
           peng.jam_mulai,
           peng.jam_selesai,
           peng.alasan_text,
@@ -349,6 +350,7 @@ const getLaporan = async (req, res) => {
         foto_profil: row.foto_profil,
         jenis_pengajuan: row.jenis_pengajuan,
         tanggal_mulai: row.tanggal_mulai,
+        tanggal_selesai: row.tanggal_selesai,
         jam_mulai: row.jam_mulai,
         jam_selesai: row.jam_selesai,
         alasan_text: row.alasan_text,
@@ -439,6 +441,25 @@ const getDetailAbsenPegawai = async (req, res) => {
       `, [user_id, dateStr]);
       const presensi = presensiRows[0];
       
+      // Cek pengajuan izin/cuti yang disetujui
+      const [pengajuanRows] = await db.execute(`
+        SELECT jenis_pengajuan, jam_mulai, jam_selesai, alasan_text
+        FROM pengajuan
+        WHERE id_user = ?
+          AND tanggal_mulai <= ?
+          AND (tanggal_selesai >= ? OR tanggal_selesai IS NULL)
+          AND status = 'disetujui'
+          AND jenis_pengajuan IN (
+            'izin_datang_terlambat', 
+            'izin_pulang_cepat', 
+            'cuti_sakit', 
+            'cuti_tahunan', 
+            'cuti_alasan_penting'
+          )
+        LIMIT 1
+      `, [user_id, dateStr, dateStr]);
+      const pengajuan = pengajuanRows[0];
+      
       // PRIORITY 1: Hari libur nasional
       if (isHoliday) {
         absenData.push({
@@ -459,15 +480,35 @@ const getDetailAbsenPegawai = async (req, res) => {
           keterangan: `Hari ${dayName}`
         });
       }
-      // PRIORITY 3: is_kerja = 1 (hari kerja)
+      // PRIORITY 3: Cuti yang disetujui
+      else if (pengajuan && pengajuan.jenis_pengajuan.includes('cuti')) {
+        const jenisLabel = pengajuan.jenis_pengajuan === 'cuti_sakit' ? 'Cuti Sakit' :
+                          pengajuan.jenis_pengajuan === 'cuti_tahunan' ? 'Cuti Tahunan' :
+                          'Cuti Alasan Penting';
+        absenData.push({
+          tanggal: dateStr,
+          status: 'Cuti',
+          jam_masuk: null,
+          jam_keluar: null,
+          keterangan: `${jenisLabel}: ${pengajuan.alasan_text}`
+        });
+      }
+      // PRIORITY 4: Ada presensi
       else if (presensi) {
-        // Ada absen kantor normal
+        let keterangan = presensi.keterangan || 'Absen normal';
+        
+        // Tambahkan info izin jika ada
+        if (pengajuan) {
+          const jenisLabel = pengajuan.jenis_pengajuan === 'izin_datang_terlambat' ? 'Izin Datang Terlambat' : 'Izin Pulang Cepat';
+          keterangan = `${jenisLabel}: ${pengajuan.alasan_text}`;
+        }
+        
         absenData.push({
           tanggal: presensi.tanggal,
           status: presensi.status,
           jam_masuk: presensi.jam_masuk,
           jam_keluar: presensi.jam_pulang,
-          keterangan: presensi.keterangan || 'Absen normal'
+          keterangan: keterangan
         });
       } else if (dinas) {
         // Sedang dinas - tampilkan status Dinas
@@ -698,7 +739,7 @@ const exportPDF = async (req, res) => {
         filename = `Laporan_Lembur_${new Date().toISOString().split('T')[0]}.pdf`;
         const [lemburRows] = await db.execute(`
           SELECT p.nama_lengkap, p.nip, pg.jenis_pengajuan, pg.tanggal_mulai, 
-                 pg.jam_mulai, pg.jam_selesai, pg.alasan_text, pg.status
+                 pg.tanggal_selesai, pg.jam_mulai, pg.jam_selesai, pg.alasan_text, pg.status
           FROM pengajuan pg
           JOIN pegawai p ON pg.id_pegawai = p.id_pegawai
           WHERE pg.tanggal_mulai BETWEEN ? AND ?

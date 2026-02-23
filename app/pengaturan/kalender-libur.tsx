@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, FlatList, Animated, PanResponder, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
 import { PengaturanAPI } from '../../constants/config';
 import { AppHeader, SkeletonLoader } from '../../components';
 
@@ -30,6 +31,54 @@ export default function KalenderLiburScreen() {
   const [formData, setFormData] = useState({
     namaLibur: '',
     jenis: 'nasional'
+  });
+  const translateY = useRef(new Animated.Value(500)).current;
+
+  const openModal = () => {
+    setShowModal(true);
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden');
+    }
+    Animated.timing(translateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeModal = () => {
+    Animated.timing(translateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowModal(false);
+      if (Platform.OS === 'android') {
+        NavigationBar.setVisibilityAsync('visible');
+      }
+    });
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return gestureState.dy > 5;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeModal();
+      } else {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
   });
 
   useFocusEffect(
@@ -138,7 +187,7 @@ export default function KalenderLiburScreen() {
     } else {
       setSelectedDate(date);
       setFormData({ namaLibur: '', jenis: 'nasional' });
-      setShowModal(true);
+      openModal();
     }
   };
 
@@ -175,7 +224,7 @@ export default function KalenderLiburScreen() {
         };
         
         setHariLibur(prev => [...prev, newHoliday]);
-        setShowModal(false);
+        closeModal();
         
         Alert.alert('Sukses', 'Hari libur berhasil ditambahkan');
         
@@ -334,62 +383,70 @@ export default function KalenderLiburScreen() {
         )}
       </ScrollView>
 
-      <Modal visible={showModal} transparent statusBarTranslucent={true}>
+      <Modal visible={showModal} transparent animationType="none" statusBarTranslucent={true} onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Hari Libur</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1}
+            onPress={closeModal}
+          />
+          <Animated.View style={[styles.bottomSheetModal, { transform: [{ translateY }] }]}>
+            {/* Handle Bar */}
+            <View {...panResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            {/* Content */}
+            <View style={styles.bottomSheetContent}>
+              <Text style={styles.modalTitle}>Tambah Hari Libur</Text>
+              
+              <Text style={styles.modalDate}>
+                {selectedDate?.toLocaleDateString('id-ID', { 
+                  weekday: 'long', 
+                  day: 'numeric', 
+                  month: 'long', 
+                  year: 'numeric' 
+                })}
+              </Text>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Nama Libur *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Contoh: Hari Raya Idul Fitri"
+                  value={formData.namaLibur}
+                  onChangeText={(text) => setFormData({ ...formData, namaLibur: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Jenis Libur</Text>
+                <View style={styles.radioGroup}>
+                  {['nasional', 'keagamaan', 'perusahaan'].map((jenis) => (
+                    <TouchableOpacity
+                      key={jenis}
+                      style={[styles.radioBtn, formData.jenis === jenis && styles.radioBtnActive]}
+                      onPress={() => setFormData({ ...formData, jenis })}
+                    >
+                      <Text style={[styles.radioText, formData.jenis === jenis && styles.radioTextActive]}>
+                        {jenis.charAt(0).toUpperCase() + jenis.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+                onPress={handleSaveHoliday}
+                disabled={loading}
+              >
+                <Text style={styles.saveBtnText}>
+                  {loading ? 'Menyimpan...' : 'Simpan'}
+                </Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.modalDate}>
-              {selectedDate?.toLocaleDateString('id-ID', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long', 
-                year: 'numeric' 
-              })}
-            </Text>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Nama Libur *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Contoh: Hari Raya Idul Fitri"
-                value={formData.namaLibur}
-                onChangeText={(text) => setFormData({ ...formData, namaLibur: text })}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Jenis Libur</Text>
-              <View style={styles.radioGroup}>
-                {['nasional', 'keagamaan', 'perusahaan'].map((jenis) => (
-                  <TouchableOpacity
-                    key={jenis}
-                    style={[styles.radioBtn, formData.jenis === jenis && styles.radioBtnActive]}
-                    onPress={() => setFormData({ ...formData, jenis })}
-                  >
-                    <Text style={[styles.radioText, formData.jenis === jenis && styles.radioTextActive]}>
-                      {jenis.charAt(0).toUpperCase() + jenis.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
-              onPress={handleSaveHoliday}
-              disabled={loading}
-            >
-              <Text style={styles.saveBtnText}>
-                {loading ? 'Menyimpan...' : 'Simpan'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>
@@ -595,27 +652,43 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingTop: Platform.OS === 'android' ? 0 : 50,
   },
-  modalContent: {
+  modalBackdrop: {
+    flex: 1,
+  },
+  bottomSheetModal: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 8,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  handleContainer: {
+    paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 15
+    width: '100%',
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  bottomSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333'
+    color: '#333',
+    marginBottom: 8
   },
   modalDate: {
     fontSize: 14,

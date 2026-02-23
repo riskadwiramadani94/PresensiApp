@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,11 +13,16 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Animated,
+  PanResponder,
+  Dimensions,
 } from "react-native";
 import { StatusBar } from 'expo-status-bar';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { PengaturanAPI, API_CONFIG, getApiUrl } from "../../constants/config";
 import { AppHeader, SkeletonLoader } from "../../components";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface JamKerjaHari {
   hari: string;
@@ -30,6 +35,7 @@ interface JamKerjaHari {
 export default function JamKerjaScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editIndex, setEditIndex] = useState(-1);
   const [editJamMasuk, setEditJamMasuk] = useState("");
@@ -38,6 +44,7 @@ export default function JamKerjaScreen() {
   const [showJamMasukPicker, setShowJamMasukPicker] = useState(false);
   const [showBatasAbsenPicker, setShowBatasAbsenPicker] = useState(false);
   const [showJamPulangPicker, setShowJamPulangPicker] = useState(false);
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [jamKerjaList, setJamKerjaList] = useState<JamKerjaHari[]>([
     {
       hari: "Senin",
@@ -108,10 +115,32 @@ export default function JamKerjaScreen() {
     }
   };
 
-  const toggleHariKerja = (index: number) => {
-    const updated = [...jamKerjaList];
-    updated[index].is_kerja = !updated[index].is_kerja;
-    setJamKerjaList(updated);
+  const toggleHariKerja = async (index: number) => {
+    try {
+      setSavingIndex(index);
+      const updated = [...jamKerjaList];
+      updated[index].is_kerja = !updated[index].is_kerja;
+      
+      const payload = { jam_kerja: updated };
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.JAM_KERJA), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setJamKerjaList(updated);
+      } else {
+        Alert.alert("Error", result.message || "Gagal menyimpan perubahan");
+      }
+    } catch (error) {
+      console.error('Toggle error:', error);
+      Alert.alert("Error", "Gagal menyimpan perubahan");
+    } finally {
+      setSavingIndex(null);
+    }
   };
 
   const handleEditJam = (item: JamKerjaHari, index: number) => {
@@ -119,20 +148,84 @@ export default function JamKerjaScreen() {
     setEditJamMasuk(item.jam_masuk);
     setEditBatasAbsen(item.batas_absen);
     setEditJamPulang(item.jam_pulang);
-    setShowEditModal(true);
+    openModal();
   };
 
-  const handleSaveEdit = () => {
+  const openModal = () => {
+    setShowEditModal(true);
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeModal = () => {
+    Animated.timing(translateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowEditModal(false);
+    });
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeModal();
+      } else {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const handleSaveEdit = async () => {
     if (!editJamMasuk || !editBatasAbsen || !editJamPulang) {
       Alert.alert("Error", "Semua jam harus diisi");
       return;
     }
-    const updated = [...jamKerjaList];
-    updated[editIndex].jam_masuk = editJamMasuk;
-    updated[editIndex].batas_absen = editBatasAbsen;
-    updated[editIndex].jam_pulang = editJamPulang;
-    setJamKerjaList(updated);
-    setShowEditModal(false);
+    
+    try {
+      setLoading(true);
+      const updated = [...jamKerjaList];
+      updated[editIndex].jam_masuk = editJamMasuk;
+      updated[editIndex].batas_absen = editBatasAbsen;
+      updated[editIndex].jam_pulang = editJamPulang;
+      
+      const payload = { jam_kerja: updated };
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.JAM_KERJA), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setJamKerjaList(updated);
+        closeModal();
+        Alert.alert("Sukses", "Jam kerja berhasil diperbarui");
+      } else {
+        Alert.alert("Error", result.message || "Gagal menyimpan perubahan");
+      }
+    } catch (error) {
+      console.error('Save edit error:', error);
+      Alert.alert("Error", "Gagal menyimpan perubahan");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatJam = (text: string) => {
@@ -167,71 +260,7 @@ export default function JamKerjaScreen() {
     setShowJamPulangPicker(false);
   };
 
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      
-      const payload = { jam_kerja: jamKerjaList };
-      console.log('Trying payload format:', JSON.stringify(payload, null, 2));
-      
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.JAM_KERJA), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-      
-      const responseText = await response.text();
-      console.log('Response status:', response.status);
-      console.log('Raw response:', responseText);
-      
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        setLoading(false);
-        Alert.alert("Error", `Server response error: ${responseText}`);
-        return;
-      }
 
-      if (response.ok && result.success) {
-        Alert.alert("Sukses", "Pengaturan jam kerja berhasil disimpan", [
-          {
-            text: "OK",
-            onPress: () => {
-              setLoading(false);
-              router.back();
-            },
-          },
-        ]);
-      } else {
-        setLoading(false);
-        
-        // Handle specific database error
-        if (result.message && result.message.includes('beginTransaction')) {
-          Alert.alert(
-            "Error Database", 
-            "Terjadi masalah pada server database. Silakan hubungi administrator sistem.\n\nDetail: " + result.message,
-            [
-              { text: "OK" },
-              { 
-                text: "Kembali", 
-                onPress: () => router.back() 
-              }
-            ]
-          );
-        } else {
-          Alert.alert("Error", result.message || `Server error: ${response.status}`);
-        }
-      }
-    } catch (error) {
-      setLoading(false);
-      console.error('Save error:', error);
-      Alert.alert("Error", `Network error: ${error.message}`);
-    }
-  };
 
   return (
     <KeyboardAvoidingView
@@ -281,7 +310,11 @@ export default function JamKerjaScreen() {
                         onValueChange={() => toggleHariKerja(index)}
                         trackColor={{ false: "#E0E0E0", true: "#A8D5BA" }}
                         thumbColor={item.is_kerja ? "#004643" : "#f4f3f4"}
+                        disabled={savingIndex === index}
                       />
+                      {savingIndex === index && (
+                        <Ionicons name="hourglass-outline" size={16} color="#004643" />
+                      )}
 
                       <TouchableOpacity
                         style={[
@@ -308,118 +341,87 @@ export default function JamKerjaScreen() {
         </ScrollView>
       </View>
 
-      {/* Button Footer - Fixed di bawah seperti header */}
-      <View style={styles.buttonFooter}>
-        <TouchableOpacity
-          style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
-          onPress={handleSave}
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <Ionicons name="hourglass-outline" size={20} color="#fff" />
-              <Text style={styles.saveBtnText}>Menyimpan...</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-              <Text style={styles.saveBtnText}>Simpan Jam Kerja</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Edit Modal */}
-      <Modal visible={showEditModal} animationType="none" transparent statusBarTranslucent={true}>
+      <Modal visible={showEditModal} transparent animationType="none" statusBarTranslucent onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>
-              Edit Jam Kerja{" "}
-              {editIndex >= 0 ? jamKerjaList[editIndex].hari : ""}
-            </Text>
-
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Jam Masuk</Text>
-              <View style={styles.modalInputWrapper}>
-                <Ionicons name="time-outline" size={20} color="#666" />
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="08:00"
-                  value={editJamMasuk}
-                  onChangeText={(text) => setEditJamMasuk(formatJam(text))}
-                  keyboardType="numeric"
-                  maxLength={5}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowJamMasukPicker(true)}
-                  style={styles.timeButton}
-                >
-                  <Ionicons name="time" size={20} color="#004643" />
-                </TouchableOpacity>
-              </View>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeModal} />
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY }] }]}>
+            <View {...panResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
+            
+            <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>
+                Edit Jam Kerja {editIndex >= 0 ? jamKerjaList[editIndex].hari : ""}
+              </Text>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Batas Absen</Text>
-              <View style={styles.modalInputWrapper}>
-                <Ionicons name="time-outline" size={20} color="#666" />
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="08:30"
-                  value={editBatasAbsen}
-                  onChangeText={(text) => setEditBatasAbsen(formatJam(text))}
-                  keyboardType="numeric"
-                  maxLength={5}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowBatasAbsenPicker(true)}
-                  style={styles.timeButton}
-                >
-                  <Ionicons name="time" size={20} color="#004643" />
-                </TouchableOpacity>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Jam Masuk</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="08:00"
+                    value={editJamMasuk}
+                    onChangeText={(text) => setEditJamMasuk(formatJam(text))}
+                    keyboardType="numeric"
+                    maxLength={5}
+                  />
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => setShowJamMasukPicker(true)}
+                  >
+                    <Ionicons name="time" size={20} color="#004643" />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Jam Pulang</Text>
-              <View style={styles.modalInputWrapper}>
-                <Ionicons name="time-outline" size={20} color="#666" />
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="17:00"
-                  value={editJamPulang}
-                  onChangeText={(text) => setEditJamPulang(formatJam(text))}
-                  keyboardType="numeric"
-                  maxLength={5}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowJamPulangPicker(true)}
-                  style={styles.timeButton}
-                >
-                  <Ionicons name="time" size={20} color="#004643" />
-                </TouchableOpacity>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Batas Absen</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="08:30"
+                    value={editBatasAbsen}
+                    onChangeText={(text) => setEditBatasAbsen(formatJam(text))}
+                    keyboardType="numeric"
+                    maxLength={5}
+                  />
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => setShowBatasAbsenPicker(true)}
+                  >
+                    <Ionicons name="time" size={20} color="#004643" />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalBtnCancel}
-                onPress={() => setShowEditModal(false)}
-              >
-                <Text style={styles.modalBtnCancelText}>Batal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalBtnSave}
-                onPress={handleSaveEdit}
-              >
-                <Text style={styles.modalBtnSaveText}>Simpan</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Jam Pulang</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="17:00"
+                    value={editJamPulang}
+                    onChangeText={(text) => setEditJamPulang(formatJam(text))}
+                    keyboardType="numeric"
+                    maxLength={5}
+                  />
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => setShowJamPulangPicker(true)}
+                  >
+                    <Ionicons name="time" size={20} color="#004643" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit}>
+                <Text style={styles.saveText}>Simpan</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      {/* Time Picker Modals */}
       <DateTimePickerModal
         isVisible={showJamMasukPicker}
         mode="time"
@@ -509,15 +511,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  hariBatas: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 2,
-  },
   hariRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 15,
+    gap: 8,
     minWidth: 100,
     justifyContent: "flex-end",
   },
@@ -533,114 +530,72 @@ const styles = StyleSheet.create({
   editBtnDisabled: {
     backgroundColor: "#F5F5F5",
   },
-  saveBtn: {
-    backgroundColor: "#004643",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    minHeight: 50
-  },
-  saveBtnDisabled: {
-    backgroundColor: "#999",
-  },
-  saveBtnText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
-    marginLeft: 6,
-    textAlign: "center"
-  },
-  buttonFooter: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.5)"
   },
-  modalContainer: {
+  modalBackdrop: { flex: 1 },
+  bottomSheet: {
     backgroundColor: "#fff",
-    borderRadius: 15,
-    padding: 20,
-    width: "85%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.8
   },
-  modalTitle: {
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: "center"
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#DDD",
+    borderRadius: 2
+  },
+  sheetContent: { paddingHorizontal: 20, paddingBottom: 16 },
+  sheetTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#004643",
-    marginBottom: 20,
-    textAlign: "center",
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 16
   },
-  modalInputGroup: {
-    marginBottom: 15,
-  },
-  modalLabel: {
+  formGroup: { marginBottom: 16 },
+  label: {
     fontSize: 14,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 8,
+    marginBottom: 8
   },
-  modalInputWrapper: {
+  inputWrapper: {
+    position: "relative",
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8FAFB",
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
+    alignItems: "center"
   },
-  modalInput: {
+  input: {
     flex: 1,
-    fontSize: 16,
-    color: "#333",
-    paddingVertical: 12,
-    marginLeft: 10,
-  },
-  timeButton: {
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: "#F0F8F0",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 20,
-  },
-  modalBtnCancel: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
     backgroundColor: "#F5F5F5",
-    alignItems: "center",
+    borderRadius: 10,
+    padding: 12,
+    paddingRight: 45,
+    fontSize: 14,
+    color: "#333"
   },
-  modalBtnCancelText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#666",
+  iconButton: {
+    position: "absolute",
+    right: 12,
+    padding: 4
   },
-  modalBtnSave: {
-    flex: 1,
-    paddingVertical: 12,
+  saveBtn: {
+    paddingVertical: 14,
     borderRadius: 10,
     backgroundColor: "#004643",
-    alignItems: "center",
+    alignItems: "center"
   },
-  modalBtnSaveText: {
-    fontSize: 16,
+  saveText: {
+    fontSize: 15,
     fontWeight: "600",
-    color: "#fff",
+    color: "#fff"
   },
 });

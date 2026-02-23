@@ -12,6 +12,7 @@ const dashboardRoutes = require('./src/routes/dashboard');
 const dashboardPegawaiRoutes = require('./src/routes/dashboard-pegawai');
 const laporanRoutes = require('./src/routes/laporan-admin');
 const pengaturanRoutes = require('./src/routes/pengaturan-admin');
+const trackingRoutes = require('./src/routes/tracking-admin');
 
 const approvalRoutes = require('./src/routes/approval-admin');
 const pengajuanRoutes = require('./src/routes/pengajuan');
@@ -19,6 +20,7 @@ const dinasRoutes = require('./src/routes/dinas-admin');
 const profileRoutes = require('./src/routes/profile');
 const akunRoutes = require('./src/routes/akun-admin');
 const pusatValidasiRoutes = require('./src/routes/pusat-validasi');
+const kegiatanPegawaiRoutes = require('./src/routes/kegiatan-pegawai');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,12 +42,14 @@ app.use('/pegawai/presensi/api', presensiRoutes);
 app.use('/pegawai', dashboardPegawaiRoutes);
 app.use('/admin/laporan/api', laporanRoutes);
 app.use('/admin/pengaturan/api', pengaturanRoutes);
+app.use('/admin/presensi/api', trackingRoutes);
 
 app.use('/admin/persetujuan/api', approvalRoutes);
 app.use('/pegawai/pengajuan/api', pengajuanRoutes);
 app.use('/admin/kelola-dinas/api', dinasRoutes);
 app.use('/pegawai/profil/api', profileRoutes);
 app.use('/admin/pusat-validasi/api', pusatValidasiRoutes);
+app.use('/pegawai/kegiatan', kegiatanPegawaiRoutes);
 
 // Health check
 app.get('/', (req, res) => {
@@ -122,6 +126,11 @@ const startServer = async () => {
       console.log(`   GET  /admin/pusat-validasi/api/statistik`);
       console.log(`   POST /admin/pusat-validasi/api/setujui`);
       console.log(`   POST /admin/pusat-validasi/api/tolak`);
+      console.log(`   GET  /pegawai/kegiatan/api/kegiatan`);
+      console.log(`   GET  /pegawai/kegiatan/api/kegiatan/:id`);
+      console.log(`   GET  /pegawai/pengajuan/api/pengajuan`);
+      console.log(`   POST /pegawai/pengajuan/api/pengajuan`);
+      console.log(`   GET  /pegawai/pengajuan/api/pengajuan/izin-hari-ini`);
       console.log(`\n🔄 Ready to serve HadirinApp mobile app\n`);
     });
   } catch (error) {

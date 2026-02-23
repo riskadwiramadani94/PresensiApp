@@ -234,24 +234,24 @@ export default function EditProfilPegawaiScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <AppHeader title="Edit Profil" showBack onBackPress={() => router.back()} />
+      <View style={styles.container}>
+        <AppHeader title="Edit Profil" showBack={true} fallbackRoute="/(pegawai)/profil" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#004643" />
           <Text style={styles.loadingText}>Memuat profil...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const photoUri = newPhoto || (profile.foto_profil ? getApiUrl(`/${profile.foto_profil}`) : null);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <AppHeader 
         title="Edit Profil" 
-        showBack
-        onBackPress={() => router.push('/(pegawai)/profil' as any)}
+        showBack={true}
+        fallbackRoute="/(pegawai)/profil"
       />
       
       <ScrollView 
@@ -413,12 +413,12 @@ export default function EditProfilPegawaiScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  container: { flex: 1, backgroundColor: '#fff' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 14, color: '#666' },
   scrollView: { flex: 1 },

@@ -168,8 +168,12 @@ export default function PengaturanKeamananScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <AppHeader title="Pengaturan Keamanan" showBack onBackPress={handleBack} />
+    <View style={styles.container}>
+      <AppHeader 
+        title="Pengaturan Keamanan" 
+        showBack={true}
+        fallbackRoute={userRole === 'admin' ? '/admin/profil-admin' : '/(pegawai)/profil'}
+      />
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
 
         {/* FORM UBAH EMAIL & PASSWORD */}
@@ -278,12 +282,12 @@ export default function PengaturanKeamananScreen() {
           <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5" },
+  container: { flex: 1, backgroundColor: "#fff" },
   scrollView: {
     flex: 1,
   },

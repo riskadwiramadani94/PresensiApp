@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '@/components/AppHeader';
 
 export default function InboxScreen() {
-  // Data dummy notifikasi
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -43,18 +42,20 @@ export default function InboxScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <AppHeader 
         title="Notifikasi" 
         showBack={false}
-        rightComponent={
-          <TouchableOpacity onPress={handleMarkAllRead}>
-            <Text style={styles.markRead}>Tandai dibaca</Text>
-          </TouchableOpacity>
-        }
       />
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={handleMarkAllRead} style={styles.markReadBtn}>
+            <Ionicons name="checkmark-done-outline" size={18} color="#004643" />
+            <Text style={styles.markRead}>Tandai Semua Dibaca</Text>
+          </TouchableOpacity>
+        </View>
+
         {notifications.map((item) => (
           <TouchableOpacity 
             key={item.id} 
@@ -78,7 +79,6 @@ export default function InboxScreen() {
           </TouchableOpacity>
         ))}
 
-        {/* FOOTER JIKA KOSONG (Optional) */}
         {notifications.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="mail-open-outline" size={80} color="#DDD" />
@@ -86,13 +86,28 @@ export default function InboxScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFB' },
-  markRead: { fontSize: 13, color: '#004643', fontWeight: '600' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  headerActions: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  markReadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#F0F8F7',
+    borderRadius: 8,
+  },
+  markRead: { fontSize: 13, color: '#004643', fontWeight: '600', marginLeft: 6 },
   notifCard: { 
     flexDirection: 'row', 
     padding: 18, 

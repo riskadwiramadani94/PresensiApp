@@ -399,7 +399,27 @@ const submitPresensi = async (req, res) => {
         [hari]
       );
       
-      if (jamKerjaRows.length > 0 && jam_sekarang > jamKerjaRows[0].batas_absen) {
+      // Cek apakah ada izin datang terlambat yang disetujui
+      const [izinTerlambatRows] = await db.execute(`
+        SELECT jam_mulai 
+        FROM pengajuan 
+        WHERE id_user = ? 
+          AND jenis_pengajuan = 'izin_datang_terlambat'
+          AND tanggal_mulai = ?
+          AND status = 'disetujui'
+        LIMIT 1
+      `, [user_id, tanggal_only]);
+      
+      if (izinTerlambatRows.length > 0) {
+        // Ada izin terlambat yang disetujui
+        const jam_izin = izinTerlambatRows[0].jam_mulai;
+        
+        if (jam_sekarang <= jam_izin) {
+          status = 'Hadir';
+        } else {
+          status = 'Terlambat';
+        }
+      } else if (jamKerjaRows.length > 0 && jam_sekarang > jamKerjaRows[0].batas_absen) {
         status = 'Terlambat';
       }
     }
@@ -453,6 +473,46 @@ const submitPresensi = async (req, res) => {
       }
 
     } else { // keluar
+      // Cek izin pulang cepat yang disetujui
+      const [izinPulangCepatRows] = await db.execute(`
+        SELECT jam_mulai 
+        FROM pengajuan 
+        WHERE id_user = ? 
+          AND jenis_pengajuan = 'izin_pulang_cepat'
+          AND tanggal_mulai = ?
+          AND status = 'disetujui'
+        LIMIT 1
+      `, [user_id, tanggal_only]);
+      
+      // Ambil jam pulang normal
+      const hari_ini = now.toLocaleDateString('en-US', { weekday: 'long' });
+      const hari_indonesia = {
+        'Monday': 'Senin',
+        'Tuesday': 'Selasa', 
+        'Wednesday': 'Rabu',
+        'Thursday': 'Kamis',
+        'Friday': 'Jumat',
+        'Saturday': 'Sabtu',
+        'Sunday': 'Minggu'
+      };
+      const hari = hari_indonesia[hari_ini] || 'Senin';
+      
+      const [jamKerjaRows] = await db.execute(
+        'SELECT jam_pulang FROM jam_kerja_hari WHERE hari = ?',
+        [hari]
+      );
+      
+      if (izinPulangCepatRows.length > 0 && jamKerjaRows.length > 0) {
+        // Ada izin pulang cepat yang disetujui
+        const jam_izin_pulang = izinPulangCepatRows[0].jam_mulai;
+        const jam_pulang_normal = jamKerjaRows[0].jam_pulang;
+        
+        // Jika pulang sebelum jam normal, tetap dianggap hadir karena ada izin
+        if (jam_sekarang < jam_pulang_normal) {
+          status = 'Hadir';
+        }
+      }
+      
       // Update existing record (cek dinas atau presensi)
       if (dinasCheckRows.length > 0) {
         // Update absen_dinas
@@ -527,9 +587,25 @@ const getRiwayatGabungan = async (req, res) => {
         'kantor' as jenis_presensi,
         p.status_validasi,
         lk.nama_lokasi as lokasi,
-        NULL as kegiatan_dinas
+        NULL as kegiatan_dinas,
+        CASE 
+          WHEN peng.jenis_pengajuan IS NOT NULL 
+          THEN CONCAT(
+            CASE peng.jenis_pengajuan
+              WHEN 'izin_datang_terlambat' THEN 'Izin Datang Terlambat'
+              WHEN 'izin_pulang_cepat' THEN 'Izin Pulang Cepat'
+              ELSE peng.jenis_pengajuan
+            END,
+            ': ', peng.alasan_text
+          )
+          ELSE NULL
+        END as keterangan_izin
       FROM presensi p
       LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
+      LEFT JOIN pengajuan peng ON peng.id_user = p.id_user
+        AND DATE(peng.tanggal_mulai) = DATE(p.tanggal)
+        AND peng.status = 'disetujui'
+        AND peng.jenis_pengajuan IN ('izin_datang_terlambat', 'izin_pulang_cepat')
       WHERE p.id_user = ?
         AND DATE(p.tanggal) BETWEEN ? AND ?
       ORDER BY p.tanggal DESC
@@ -610,3 +686,80 @@ const checkDinasAttendance = async (req, res) => {
 };
 
 module.exports = { getPresensi, submitPresensi, checkDinasStatus, getRiwayatGabungan, checkDinasAttendance };
+
+
+// Admin: Get all presensi today
+const getAllPresensiToday = async (req, res) => {
+  try {
+    const { tanggal } = req.query;
+    const targetDate = tanggal || new Date().toISOString().split('T')[0];
+    
+    const db = await getConnection();
+    
+    // Get all presensi for today
+    const [rows] = await db.execute(`
+      SELECT 
+        p.id_presensi,
+        p.id_user,
+        p.tanggal,
+        TIME_FORMAT(p.jam_masuk, '%H:%i:%s') as jam_masuk,
+        TIME_FORMAT(p.jam_pulang, '%H:%i:%s') as jam_pulang,
+        p.status,
+        pg.nama_lengkap,
+        pg.nip
+      FROM presensi p
+      JOIN users u ON p.id_user = u.id_user
+      JOIN pegawai pg ON u.id_user = pg.id_user
+      WHERE DATE(p.tanggal) = ?
+      ORDER BY p.jam_masuk DESC
+    `, [targetDate]);
+    
+    return res.json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    console.error('Get all presensi today error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Admin: Get all presensi (history)
+const getAllPresensi = async (req, res) => {
+  try {
+    const db = await getConnection();
+    
+    const [rows] = await db.execute(`
+      SELECT 
+        p.id_presensi,
+        p.id_user,
+        DATE_FORMAT(p.tanggal, '%Y-%m-%d') as tanggal,
+        TIME_FORMAT(p.jam_masuk, '%H:%i:%s') as jam_masuk,
+        TIME_FORMAT(p.jam_pulang, '%H:%i:%s') as jam_pulang,
+        p.status,
+        pg.nama_lengkap,
+        pg.nip
+      FROM presensi p
+      JOIN users u ON p.id_user = u.id_user
+      JOIN pegawai pg ON u.id_user = pg.id_user
+      ORDER BY p.tanggal DESC, p.jam_masuk DESC
+      LIMIT 100
+    `);
+    
+    return res.json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    console.error('Get all presensi error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+module.exports = { getPresensi, submitPresensi, checkDinasStatus, getRiwayatGabungan, checkDinasAttendance, getAllPresensiToday, getAllPresensi };

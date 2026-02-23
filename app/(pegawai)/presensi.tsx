@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, Dimensions, Animated, Platform } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Dimensions, Animated, Platform, PanResponder } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,7 @@ export default function PresensiScreen() {
   const [validationStatus, setValidationStatus] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lastCheckedDate, setLastCheckedDate] = useState<string>('');
+  const [izinHariIni, setIzinHariIni] = useState<any>(null);
   
   // State untuk collapsible panel
   const [panelHeight, setPanelHeight] = useState(screenHeight * 0.33);
@@ -39,6 +40,7 @@ export default function PresensiScreen() {
     
     fetchLocations();
     checkTodayAttendance();
+    fetchIzinHariIni();
     
     const timer = setInterval(() => {
       const now = new Date();
@@ -110,6 +112,30 @@ export default function PresensiScreen() {
       }
     } catch (error) {
       console.error('Error checking attendance:', error);
+    }
+  };
+
+  const fetchIzinHariIni = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (!userData) return;
+      
+      const user = JSON.parse(userData);
+      const userId = user.id_user || user.id;
+      const today = new Date().toISOString().split('T')[0];
+      
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`
+      );
+      const data = await response.json();
+      
+      if (data.success && Object.keys(data.data).length > 0) {
+        setIzinHariIni(data.data);
+      } else {
+        setIzinHariIni(null);
+      }
+    } catch (error) {
+      console.error('Error fetching izin hari ini:', error);
     }
   };
 
@@ -191,7 +217,6 @@ export default function PresensiScreen() {
       
       console.log('✅ Location permission granted, getting current position...');
       
-      // Coba dengan accuracy yang lebih rendah dan timeout
       let currLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
         timeInterval: 5000,
@@ -202,16 +227,16 @@ export default function PresensiScreen() {
       
       setLocation(currLocation.coords);
       
-      if (availableLocations.length > 0) {
+      // Jika tidak sedang dinas, gunakan API detect-location untuk auto-detect kantor terdekat
+      if (!isDinas) {
+        await detectNearestOffice(currLocation.coords);
+      } else if (availableLocations.length > 0) {
         console.log('🔄 Calculating distances to', availableLocations.length, 'locations');
         calculateDistances(currLocation.coords);
-      } else {
-        console.log('⚠️ No available locations to calculate distance');
       }
     } catch (error) {
       console.error('❌ Error getting location:', error);
       
-      // Coba dengan last known location sebagai fallback
       try {
         console.log('🔄 Trying to get last known location...');
         const lastLocation = await Location.getLastKnownPositionAsync();
@@ -220,7 +245,9 @@ export default function PresensiScreen() {
           console.log('📍 Using last known location:', lastLocation.coords);
           setLocation(lastLocation.coords);
           
-          if (availableLocations.length > 0) {
+          if (!isDinas) {
+            await detectNearestOffice(lastLocation.coords);
+          } else if (availableLocations.length > 0) {
             calculateDistances(lastLocation.coords);
           }
           
@@ -244,6 +271,70 @@ export default function PresensiScreen() {
           [{ text: 'Coba Lagi', onPress: getCurrentLocation }]
         );
       }
+    }
+  };
+
+  const detectNearestOffice = async (userLocation: any) => {
+    try {
+      console.log('🔍 Detecting nearest office...');
+      const result = await PegawaiAPI.detectNearestLocation(
+        userLocation.latitude,
+        userLocation.longitude
+      );
+      
+      if (result.success && result.data) {
+        const { nearest_office, all_offices } = result.data;
+        
+        console.log('✅ Nearest office:', nearest_office.nama_lokasi, 'Distance:', nearest_office.distance, 'm');
+        
+        // Ambil koordinat asli dari database untuk lokasi terdekat
+        const officeCoords = await fetch(
+          `${API_CONFIG.BASE_URL}/admin/pengaturan/api/lokasi-kantor`
+        );
+        const officeData = await officeCoords.json();
+        
+        if (officeData.success && officeData.data) {
+          const nearestOfficeData = officeData.data.find((loc: any) => loc.id === nearest_office.id);
+          
+          if (nearestOfficeData) {
+            // Set nearest location dengan koordinat asli dari database
+            setNearestLocation({
+              id: nearest_office.id,
+              nama_lokasi: nearest_office.nama_lokasi,
+              alamat: nearest_office.alamat,
+              latitude: parseFloat(nearestOfficeData.lintang),
+              longitude: parseFloat(nearestOfficeData.bujur),
+              radius: nearest_office.radius,
+              distance: nearest_office.distance,
+              isValid: nearest_office.is_within_radius
+            });
+            
+            setDistance(nearest_office.distance);
+            
+            // Set available locations dengan koordinat asli
+            const formattedLocations = all_offices.map((office: any) => {
+              const officeInfo = officeData.data.find((loc: any) => loc.id === office.id);
+              return {
+                id: office.id,
+                nama_lokasi: office.nama_lokasi,
+                alamat: office.alamat,
+                latitude: officeInfo ? parseFloat(officeInfo.lintang) : userLocation.latitude,
+                longitude: officeInfo ? parseFloat(officeInfo.bujur) : userLocation.longitude,
+                radius: office.radius,
+                distance: office.distance,
+                isValid: office.is_within_radius
+              };
+            });
+            
+            setAvailableLocations(formattedLocations);
+          }
+        }
+      } else {
+        console.log('❌ Failed to detect nearest office:', result.message);
+        Alert.alert('Error', result.message || 'Gagal mendeteksi lokasi kantor terdekat');
+      }
+    } catch (error) {
+      console.error('❌ Error detecting nearest office:', error);
     }
   };
 
@@ -332,19 +423,53 @@ export default function PresensiScreen() {
     return { valid: true, message: "Lokasi valid" };
   };
 
-  const togglePanel = () => {
-    const newHeight = isCollapsed ? screenHeight * 0.33 : minHeight;
-    setIsCollapsed(!isCollapsed);
-    
-    Animated.spring(panelAnimation, {
-      toValue: newHeight,
-      useNativeDriver: false,
-      tension: 100,
-      friction: 8,
-    }).start();
-    
-    setPanelHeight(newHeight);
-  };
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const newHeight = panelHeight - gestureState.dy;
+        if (newHeight >= minHeight && newHeight <= maxHeight) {
+          panelAnimation.setValue(newHeight);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const newHeight = panelHeight - gestureState.dy;
+        
+        if (gestureState.dy > 50) {
+          // Swipe down - collapse
+          Animated.spring(panelAnimation, {
+            toValue: minHeight,
+            useNativeDriver: false,
+            tension: 100,
+            friction: 10,
+          }).start();
+          setPanelHeight(minHeight);
+          setIsCollapsed(true);
+        } else if (gestureState.dy < -50) {
+          // Swipe up - expand
+          Animated.spring(panelAnimation, {
+            toValue: screenHeight * 0.4,
+            useNativeDriver: false,
+            tension: 100,
+            friction: 10,
+          }).start();
+          setPanelHeight(screenHeight * 0.4);
+          setIsCollapsed(false);
+        } else {
+          // Return to current state
+          Animated.spring(panelAnimation, {
+            toValue: panelHeight,
+            useNativeDriver: false,
+            tension: 100,
+            friction: 10,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   const handleAbsenMasuk = async () => {
     await takePhotoAndSubmit('masuk');
@@ -525,13 +650,12 @@ export default function PresensiScreen() {
         { height: panelAnimation },
         isCollapsed && styles.panelCollapsed
       ]}>
-        <TouchableOpacity 
+        <View 
+          {...panResponder.panHandlers}
           style={styles.handleContainer}
-          onPress={togglePanel}
-          activeOpacity={0.7}
         >
           <View style={styles.handle} />
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.panelContent}>
           {isCollapsed ? (
@@ -567,6 +691,36 @@ export default function PresensiScreen() {
 
               {/* Status Lokasi Compact */}
               <View style={styles.statusCompact}>
+                {/* Info Izin Hari Ini */}
+                {izinHariIni && (
+                  <View style={styles.izinInfoCard}>
+                    <View style={styles.izinInfoHeader}>
+                      <Ionicons name="information-circle" size={16} color="#004643" />
+                      <Text style={styles.izinInfoTitle}>Info Izin Hari Ini</Text>
+                    </View>
+                    {izinHariIni.izin_datang_terlambat && (
+                      <View style={styles.izinItem}>
+                        <Ionicons name="time-outline" size={16} color="#FF9800" />
+                        <View style={styles.izinItemContent}>
+                          <Text style={styles.izinItemLabel}>Izin Datang Terlambat</Text>
+                          <Text style={styles.izinItemJam}>Jam izin: {izinHariIni.izin_datang_terlambat.jam}</Text>
+                        </View>
+                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                      </View>
+                    )}
+                    {izinHariIni.izin_pulang_cepat && (
+                      <View style={styles.izinItem}>
+                        <Ionicons name="exit-outline" size={16} color="#2196F3" />
+                        <View style={styles.izinItemContent}>
+                          <Text style={styles.izinItemLabel}>Izin Pulang Cepat</Text>
+                          <Text style={styles.izinItemJam}>Jam izin: {izinHariIni.izin_pulang_cepat.jam}</Text>
+                        </View>
+                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                      </View>
+                    )}
+                  </View>
+                )}
+                
                 {isDinas && dinasLokasi.length > 0 ? (
                   <>
                     {(() => {
@@ -758,12 +912,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     justifyContent: 'center',
+    cursor: 'grab',
   },
   handle: {
-    width: 50,
-    height: 5,
-    backgroundColor: '#ddd',
-    borderRadius: 3,
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
   },
   panelContent: {
     flex: 1,
@@ -895,7 +1050,7 @@ const styles = StyleSheet.create({
   },
   mapWarningOverlay: {
     position: 'absolute',
-    top: 20,
+    top: 90,
     left: 16,
     right: 16,
     zIndex: 1000,
@@ -1050,5 +1205,43 @@ const styles = StyleSheet.create({
   statusRadiusText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  izinInfoCard: {
+    backgroundColor: '#E6F0EF',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#004643',
+  },
+  izinInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  izinInfoTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#004643',
+  },
+  izinItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+  },
+  izinItemContent: {
+    flex: 1,
+  },
+  izinItemLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+  },
+  izinItemJam: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
   },
 });

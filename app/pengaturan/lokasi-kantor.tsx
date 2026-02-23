@@ -1,60 +1,256 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
+/* ========================================
+   LOKASI KANTOR
+   • Tekan lama di peta untuk tambah lokasi
+   • Tap marker untuk lihat detail
+======================================== */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, Animated, PanResponder, Platform, Dimensions, ActivityIndicator, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { PengaturanAPI } from '../../constants/config';
-import { AppHeader, SkeletonLoader } from '../../components';
+import { AppHeader } from '../../components';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+interface LokasiData {
+  id: number;
+  nama_lokasi: string;
+  alamat: string;
+  lintang: number;
+  bujur: number;
+  radius: number;
+  jenis_lokasi: 'tetap' | 'dinas';
+}
 
 export default function LokasiKantorScreen() {
   const router = useRouter();
+  const mapRef = useRef<MapView>(null);
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  
   const [loading, setLoading] = useState(false);
-  const [lokasiKantor, setLokasiKantor] = useState<any[]>([]);
-  const [lokasiDinas, setLokasiDinas] = useState<any[]>([]);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingLokasi, setEditingLokasi] = useState<any>(null);
-  const [editNama, setEditNama] = useState('');
-  const [editAlamat, setEditAlamat] = useState('');
-  const [editLatitude, setEditLatitude] = useState<number | null>(null);
-  const [editLongitude, setEditLongitude] = useState<number | null>(null);
-  const [editRadius, setEditRadius] = useState('');
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [markerPosition, setMarkerPosition] = useState<{latitude: number, longitude: number} | null>(null);
-  const [showMenu, setShowMenu] = useState<number | null>(null);
+  const [locations, setLocations] = useState<LokasiData[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<LokasiData | null>(null);
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [isAddMode, setIsAddMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [tempMarker, setTempMarker] = useState<{latitude: number, longitude: number, address: string} | null>(null);
+  
+  const [formData, setFormData] = useState({
+    jenis: 'tetap' as 'tetap' | 'dinas',
+    nama: '',
+    radius: '100'
+  });
 
-  useEffect(() => {
-    fetchLokasiData();
-  }, []);
-
-  // Refresh data ketika kembali dari halaman tambah lokasi
   useFocusEffect(
     React.useCallback(() => {
-      fetchLokasiData();
+      fetchLocations();
     }, [])
   );
 
-  const fetchLokasiData = async () => {
+  const fetchLocations = async () => {
     try {
       setLoading(true);
       const response = await PengaturanAPI.getLokasiKantor();
       if (response.success && response.data) {
-        const kantor = response.data.filter((item: any) => item.jenis_lokasi === 'tetap');
-        const dinas = response.data.filter((item: any) => item.jenis_lokasi === 'dinas');
-        setLokasiKantor(kantor);
-        setLokasiDinas(dinas);
+        setLocations(response.data);
       }
     } catch (error) {
-      console.error('Error fetching lokasi:', error);
-      setLokasiKantor([
-        { id: 1, nama_lokasi: 'Kantor Pusat', alamat: 'Jl. Sudirman No. 1', jenis_lokasi: 'tetap' }
-      ]);
-      setLokasiDinas([]);
+      console.error('Error fetching locations:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteLokasi = async (id: number) => {
+  const openBottomSheet = () => {
+    setShowBottomSheet(true);
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeBottomSheet = () => {
+    Animated.timing(translateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowBottomSheet(false);
+      setIsAddMode(false);
+      setIsEditMode(false);
+      setTempMarker(null);
+      setSelectedLocation(null);
+      setFormData({ jenis: 'tetap', nama: '', radius: '100' });
+    });
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeBottomSheet();
+      } else {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  // Tekan lama di peta untuk tambah lokasi baru
+  const handleMapLongPress = async (e: any) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    
+    try {
+      const result = await Location.reverseGeocodeAsync({ latitude, longitude });
+      let address = 'Indonesia';
+      
+      if (result.length > 0) {
+        const addr = result[0];
+        const parts = [];
+        if (addr.street) parts.push(addr.street);
+        if (addr.district) parts.push(addr.district);
+        if (addr.city) parts.push(addr.city);
+        if (addr.region) parts.push(addr.region);
+        address = parts.join(', ') || 'Indonesia';
+      }
+
+      setTempMarker({ latitude, longitude, address });
+      
+      if (isEditMode) {
+        // Mode edit: buka bottom sheet lagi dengan koordinat baru
+        openBottomSheet();
+      } else {
+        // Mode tambah baru
+        setIsAddMode(true);
+        setFormData({ jenis: 'tetap', nama: '', radius: '100' });
+        openBottomSheet();
+      }
+    } catch (error) {
+      setTempMarker({ latitude, longitude, address: 'Indonesia' });
+      if (isEditMode) {
+        openBottomSheet();
+      } else {
+        setIsAddMode(true);
+        openBottomSheet();
+      }
+    }
+  };
+
+  // Tap marker untuk lihat detail lokasi
+  const handleMarkerPress = (location: LokasiData) => {
+    setSelectedLocation(location);
+    setIsAddMode(false);
+    openBottomSheet();
+  };
+
+  const handleSave = async () => {
+    if (!formData.nama.trim()) {
+      Alert.alert('Info', 'Nama lokasi wajib diisi');
+      return;
+    }
+
+    if (!tempMarker) {
+      Alert.alert('Info', 'Lokasi belum dipilih');
+      return;
+    }
+
+    if (!formData.radius || parseInt(formData.radius) < 10 || parseInt(formData.radius) > 1000) {
+      Alert.alert('Info', 'Radius harus antara 10-1000 meter');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      if (isEditMode && selectedLocation) {
+        // Update existing location
+        const response = await PengaturanAPI.updateLokasi(selectedLocation.id, {
+          nama_lokasi: formData.nama.trim(),
+          alamat: tempMarker.address,
+          lintang: tempMarker.latitude,
+          bujur: tempMarker.longitude,
+          radius: parseInt(formData.radius),
+          jenis_lokasi: formData.jenis
+        });
+
+        if (response.success) {
+          Alert.alert('Sukses', 'Lokasi berhasil diupdate');
+          closeBottomSheet();
+          fetchLocations();
+        } else {
+          Alert.alert('Info', response.message || 'Gagal mengupdate lokasi');
+        }
+      } else {
+        // Save new location
+        const response = await PengaturanAPI.saveLokasiKantor({
+          nama_lokasi: formData.nama.trim(),
+          alamat: tempMarker.address,
+          lintang: tempMarker.latitude,
+          bujur: tempMarker.longitude,
+          radius: parseInt(formData.radius),
+          jenis_lokasi: formData.jenis
+        });
+
+        if (response.success) {
+          Alert.alert('Sukses', 'Lokasi berhasil disimpan');
+          closeBottomSheet();
+          fetchLocations();
+        } else {
+          Alert.alert('Info', response.message || 'Gagal menyimpan lokasi');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Terjadi kesalahan saat menyimpan');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = () => {
+    if (!selectedLocation) return;
+    
+    setIsEditMode(true);
+    setIsAddMode(false);
+    setFormData({
+      jenis: selectedLocation.jenis_lokasi,
+      nama: selectedLocation.nama_lokasi,
+      radius: selectedLocation.radius.toString()
+    });
+    setTempMarker({
+      latitude: selectedLocation.lintang,
+      longitude: selectedLocation.bujur,
+      address: selectedLocation.alamat
+    });
+  };
+
+  const handleUbahLokasi = () => {
+    // Tutup bottom sheet, user akan tap di map untuk pilih lokasi baru
+    Animated.timing(translateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowBottomSheet(false);
+    });
+  };
+
+  const handleDelete = async () => {
+    if (!selectedLocation) return;
+
     Alert.alert(
       'Konfirmasi',
       'Yakin ingin menghapus lokasi ini?',
@@ -66,20 +262,16 @@ export default function LokasiKantorScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              const response = await PengaturanAPI.deleteLokasi(id);
+              const response = await PengaturanAPI.deleteLokasi(selectedLocation.id);
               if (response.success) {
-                // Update state langsung untuk menghapus dari tampilan
-                setLokasiKantor(prev => prev.filter(item => item.id !== id));
-                setLokasiDinas(prev => prev.filter(item => item.id !== id));
                 Alert.alert('Sukses', 'Lokasi berhasil dihapus');
-                // Refresh dari server untuk sinkronisasi
-                await fetchLokasiData();
+                closeBottomSheet();
+                fetchLocations();
               } else {
-                Alert.alert('Informasi', response.message || 'Gagal menghapus lokasi');
+                Alert.alert('Info', response.message || 'Gagal menghapus lokasi');
               }
             } catch (error) {
-              console.error('Error deleting lokasi:', error);
-              Alert.alert('Informasi', 'Terjadi kesalahan saat menghapus lokasi');
+              Alert.alert('Error', 'Terjadi kesalahan saat menghapus');
             } finally {
               setLoading(false);
             }
@@ -89,258 +281,212 @@ export default function LokasiKantorScreen() {
     );
   };
 
-  const editLokasi = (lokasi: any) => {
-    setEditingLokasi(lokasi);
-    setEditNama(lokasi.nama_lokasi);
-    setEditAlamat(lokasi.alamat);
-    setEditLatitude(lokasi.latitude);
-    setEditLongitude(lokasi.longitude);
-    setEditRadius(lokasi.radius?.toString() || '100');
-    setShowEditModal(true);
-  };
-
-  const saveEditLokasi = async () => {
-    if (!editNama.trim() || !editAlamat.trim()) {
-      Alert.alert('Error', 'Nama lokasi dan alamat harus diisi');
-      return;
-    }
-
-    if (!editLatitude || !editLongitude) {
-      Alert.alert('Error', 'Lokasi harus dipilih di peta');
-      return;
-    }
-
-    if (!editRadius || parseInt(editRadius) < 10 || parseInt(editRadius) > 1000) {
-      Alert.alert('Error', 'Radius harus antara 10-1000 meter');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      // Simulasi update - ganti dengan API call yang benar
-      Alert.alert('Sukses', 'Lokasi berhasil diupdate');
-      setShowEditModal(false);
-      fetchLokasiData();
-    } catch (error) {
-      Alert.alert('Error', 'Terjadi kesalahan saat mengupdate lokasi');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
-      
-      <AppHeader 
-        title="Lokasi Kantor"
-        showBack={true}
-        showAddButton={true}
-        onAddPress={() => router.push('/pengaturan/tambah-lokasi')}
-      />
+      <AppHeader title="Lokasi Kantor" showBack={true} />
 
-      <View style={styles.contentContainer}>
-        {loading ? (
-          <SkeletonLoader type="list" count={4} message="Memuat lokasi kantor..." />
-        ) : (
-          <ScrollView style={styles.content}>
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={20} color="#004643" />
-          <Text style={styles.infoText}>
-            Kelola lokasi kantor tetap dan lokasi untuk kegiatan dinas
+      {/* Info counter lokasi */}
+      <View style={styles.counterContainer}>
+        <View style={styles.counterItem}>
+          <Ionicons name="business" size={16} color="#004643" />
+          <Text style={styles.counterText}>
+            Kantor: <Text style={styles.counterValue}>{locations.filter(l => l.jenis_lokasi === 'tetap').length}</Text>
           </Text>
         </View>
-
-        {/* Lokasi Kantor Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionLeft}>
-              <Ionicons name="business" size={20} color="#004643" />
-              <Text style={styles.sectionTitle}>Lokasi Kantor</Text>
-            </View>
-          </View>
-          
-          {lokasiKantor.map((lokasi) => (
-            <View key={lokasi.id} style={styles.lokasiCard}>
-              <View style={styles.lokasiInfo}>
-                <Text style={styles.lokasiName}>{lokasi.nama_lokasi}</Text>
-                <Text style={styles.lokasiAddress}>{lokasi.alamat}</Text>
-                <View style={styles.lokasiType}>
-                  <Ionicons name="business-outline" size={12} color="#004643" />
-                  <Text style={styles.lokasiTypeText}>Kantor Tetap</Text>
-                </View>
-              </View>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                  style={styles.editBtn}
-                  onPress={() => router.push(`/pengaturan/edit-lokasi?id=${lokasi.id}`)}
-                >
-                  <Ionicons name="create-outline" size={15} color="#FF9800" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.deleteBtn}
-                  onPress={() => deleteLokasi(lokasi.id)}
-                >
-                  <Ionicons name="trash-outline" size={15} color="#F44336" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+        <View style={styles.counterDivider} />
+        <View style={styles.counterItem}>
+          <Ionicons name="briefcase" size={16} color="#FFC107" />
+          <Text style={styles.counterText}>
+            Dinas: <Text style={styles.counterValue}>{locations.filter(l => l.jenis_lokasi === 'dinas').length}</Text>
+          </Text>
         </View>
-
-        {/* Visual Separator */}
-        <View style={styles.separator} />
-
-        {/* Lokasi Dinas Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionLeft}>
-              <Ionicons name="location" size={20} color="#FF6B35" />
-              <Text style={styles.sectionTitle}>Lokasi Dinas</Text>
-            </View>
-          </View>
-          
-          {lokasiDinas.map((lokasi) => (
-            <View key={lokasi.id} style={styles.lokasiCard}>
-              <View style={styles.lokasiInfo}>
-                <Text style={styles.lokasiName}>{lokasi.nama_lokasi}</Text>
-                <Text style={styles.lokasiAddress}>{lokasi.alamat}</Text>
-                <View style={styles.lokasiType}>
-                  <Ionicons name="location-outline" size={12} color="#FF6B35" />
-                  <Text style={[styles.lokasiTypeText, {color: '#FF6B35'}]}>Lokasi Dinas</Text>
-                </View>
-              </View>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                  style={styles.editBtn}
-                  onPress={() => router.push(`/pengaturan/edit-lokasi?id=${lokasi.id}`)}
-                >
-                  <Ionicons name="create-outline" size={15} color="#FF9800" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.deleteBtn}
-                  onPress={() => deleteLokasi(lokasi.id)}
-                >
-                  <Ionicons name="trash-outline" size={15} color="#F44336" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          
-          {lokasiDinas.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons name="location-outline" size={40} color="#CCC" />
-              <Text style={styles.emptyText}>Belum ada lokasi dinas</Text>
-              <Text style={styles.emptySubtext}>Gunakan tombol di bawah untuk menambah lokasi</Text>
-            </View>
-          )}
-        </View>
-          </ScrollView>
-        )}
       </View>
-      
 
-
-      <Modal
-        visible={showEditModal}
-        transparent={true}
-        onRequestClose={() => setShowEditModal(false)}
+      <MapView
+        ref={mapRef}
+        provider={PROVIDER_GOOGLE}
+        style={styles.map}
+        initialRegion={{
+          latitude: locations[0]?.lintang || -6.2088,
+          longitude: locations[0]?.bujur || 106.8456,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05
+        }}
+        onLongPress={handleMapLongPress}  // Long press untuk tambah lokasi
+        showsUserLocation
+        showsMyLocationButton
       >
+        {/* Marker lokasi kantor/dinas */}
+        {locations.map((loc) => (
+          <Marker
+            key={loc.id}
+            coordinate={{ latitude: loc.lintang, longitude: loc.bujur }}
+            onPress={() => handleMarkerPress(loc)}  // Tap untuk detail
+            stopPropagation={true}  // Fix iOS tap detection
+          >
+            <View style={[styles.customMarker, loc.jenis_lokasi === 'tetap' ? styles.markerTetap : styles.markerDinas]}>
+              <Ionicons 
+                name={loc.jenis_lokasi === 'tetap' ? 'business' : 'briefcase'} 
+                size={20} 
+                color="#fff" 
+              />
+            </View>
+          </Marker>
+        ))}
+        
+        {tempMarker && (
+          <Marker coordinate={{ latitude: tempMarker.latitude, longitude: tempMarker.longitude }}>
+            <View style={[styles.tempMarker, isEditMode && styles.editMarker]}>
+              <Ionicons 
+                name={isEditMode ? "create" : "location"} 
+                size={24} 
+                color={isEditMode ? "#FFC107" : "#FF6B35"} 
+              />
+            </View>
+          </Marker>
+        )}
+      </MapView>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#004643" />
+        </View>
+      )}
+
+      <Modal visible={showBottomSheet} transparent animationType="none" statusBarTranslucent onRequestClose={closeBottomSheet}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Lokasi</Text>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeBottomSheet} />
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY }] }]}>
+            <View {...panResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            
-            <ScrollView style={styles.modalForm}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Nama Lokasi *</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="business-outline" size={20} color="#666" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Masukkan nama lokasi"
-                    value={editNama}
-                    onChangeText={setEditNama}
-                    placeholderTextColor="#999"
-                  />
-                </View>
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Alamat Lengkap *</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="location-outline" size={20} color="#666" />
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Masukkan alamat lengkap"
-                    value={editAlamat}
-                    onChangeText={setEditAlamat}
-                    placeholderTextColor="#999"
-                    multiline={true}
-                    numberOfLines={3}
-                  />
-                </View>
-              </View>
-              
-              <View style={styles.formGroup}>
-                <TouchableOpacity 
-                  style={styles.mapBtn} 
-                  onPress={() => setShowMapModal(true)}
-                >
-                  <Ionicons name="map-outline" size={20} color="#004643" />
-                  <Text style={styles.mapBtnText}>
-                    {editLatitude ? 'Lokasi Dipilih' : 'Pilih Lokasi di Peta'}
-                  </Text>
-                  {editLatitude && (
-                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+
+            <View style={styles.sheetContent}>
+              {(isAddMode || isEditMode) ? (
+                <>
+                  <Text style={styles.sheetTitle}>{isEditMode ? 'Edit Lokasi' : 'Tambah Lokasi'}</Text>
+                  
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Jenis Lokasi</Text>
+                    <View style={styles.radioGroup}>
+                      <TouchableOpacity
+                        style={[styles.radioBtn, formData.jenis === 'tetap' && styles.radioBtnActive]}
+                        onPress={() => setFormData({ ...formData, jenis: 'tetap' })}
+                      >
+                        <Ionicons name="business" size={16} color={formData.jenis === 'tetap' ? '#fff' : '#666'} />
+                        <Text style={[styles.radioText, formData.jenis === 'tetap' && styles.radioTextActive]}>Kantor Tetap</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.radioBtn, formData.jenis === 'dinas' && styles.radioBtnActive]}
+                        onPress={() => setFormData({ ...formData, jenis: 'dinas' })}
+                      >
+                        <Ionicons name="briefcase" size={16} color={formData.jenis === 'dinas' ? '#fff' : '#666'} />
+                        <Text style={[styles.radioText, formData.jenis === 'dinas' && styles.radioTextActive]}>Lokasi Dinas</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Nama Kantor *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Contoh: ITB Ganesha"
+                      value={formData.nama}
+                      onChangeText={(text) => setFormData({ ...formData, nama: text })}
+                    />
+                  </View>
+
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Radius (meter) *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="10-1000"
+                      value={formData.radius}
+                      onChangeText={(text) => {
+                        const num = text.replace(/[^0-9]/g, '');
+                        if (num === '' || num.length <= 4) {
+                          setFormData({ ...formData, radius: num });
+                        }
+                      }}
+                      keyboardType="numeric"
+                      maxLength={4}
+                    />
+                  </View>
+
+                  <View style={styles.autoInfo}>
+                    <Ionicons name="information-circle" size={16} color="#666" />
+                    <View style={styles.autoInfoText}>
+                      <Text style={styles.autoLabel}>{isEditMode ? 'Lokasi Saat Ini:' : 'Alamat (otomatis):'}</Text>
+                      <Text style={styles.autoValue}>{tempMarker?.address}</Text>
+                      <Text style={styles.autoLabel}>Koordinat:</Text>
+                      <Text style={styles.autoValue}>
+                        {tempMarker?.latitude.toFixed(6)}, {tempMarker?.longitude.toFixed(6)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {isEditMode && (
+                    <TouchableOpacity style={styles.ubahLokasiBtn} onPress={handleUbahLokasi}>
+                      <Ionicons name="map-outline" size={18} color="#004643" />
+                      <Text style={styles.ubahLokasiText}>Ubah Lokasi di Peta</Text>
+                    </TouchableOpacity>
                   )}
-                </TouchableOpacity>
-                {editLatitude && editLongitude && (
-                  <Text style={styles.coordText}>
-                    {editLatitude.toFixed(6)}, {editLongitude.toFixed(6)}
-                  </Text>
-                )}
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Radius Absensi (meter) *</Text>
-                <View style={styles.inputWrapper}>
-                  <Ionicons name="radio-outline" size={20} color="#666" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="10-1000"
-                    value={editRadius}
-                    onChangeText={(text) => {
-                      const numericValue = text.replace(/[^0-9]/g, '');
-                      if (numericValue === '' || numericValue.length <= 4) {
-                        setEditRadius(numericValue);
-                      }
-                    }}
-                    keyboardType="numeric"
-                    maxLength={4}
-                  />
-                  <Text style={styles.unitText}>m</Text>
-                </View>
-              </View>
-            </ScrollView>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={styles.cancelBtn}
-                onPress={() => setShowEditModal(false)}
-              >
-                <Text style={styles.cancelBtnText}>Batal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.saveBtn}
-                onPress={saveEditLokasi}
-                disabled={loading}
-              >
-                <Text style={styles.saveBtnText}>Simpan</Text>
-              </TouchableOpacity>
+
+                  <View style={styles.buttonGroup}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={closeBottomSheet}>
+                      <Text style={styles.cancelText}>Batal</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={loading}>
+                      <Text style={styles.saveText}>{loading ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Simpan')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.sheetTitle}>{selectedLocation?.nama_lokasi}</Text>
+                  
+                  <View style={styles.infoRow}>
+                    <Ionicons name={selectedLocation?.jenis_lokasi === 'tetap' ? 'business' : 'briefcase'} size={16} color="#004643" />
+                    <Text style={styles.infoText}>
+                      {selectedLocation?.jenis_lokasi === 'tetap' ? 'Kantor Tetap' : 'Lokasi Dinas'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="location" size={16} color="#004643" />
+                    <Text style={styles.infoText}>{selectedLocation?.alamat}</Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="radio-outline" size={16} color="#004643" />
+                    <Text style={styles.infoText}>Radius: {selectedLocation?.radius}m</Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="navigate" size={16} color="#004643" />
+                    <Text style={styles.infoText}>
+                      {selectedLocation?.lintang.toFixed(6)}, {selectedLocation?.bujur.toFixed(6)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.buttonGroup}>
+                    <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
+                      <Ionicons name="trash-outline" size={18} color="#fff" />
+                      <Text style={styles.deleteText}>Hapus</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.editBtn} 
+                      onPress={handleEdit}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#fff" />
+                      <Text style={styles.editText}>Edit</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>
@@ -349,264 +495,257 @@ export default function LokasiKantorScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFB' },
-  contentContainer: {
-    flex: 1
+  counterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    gap: 16,
   },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  counterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  counterText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  counterValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  counterDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E5E7EB',
+  },
+  map: { flex: 1 },
+  customMarker: {
+    width: 35,
+    height: 35,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    borderWidth: 3,
+    borderColor: '#fff',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    overflow: 'visible'
   },
-  modalContent: {
+  markerTetap: { backgroundColor: '#004643' },
+  markerDinas: { backgroundColor: '#FFC107' },
+  tempMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 0,
-    width: '90%',
-    maxHeight: '80%'
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    elevation: 3
   },
-  modalTitle: {
+  editMarker: {
+    borderWidth: 3,
+    borderColor: '#FFC107',
+    borderStyle: 'dashed',
+    shadowColor: '#FFC107',
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  modalBackdrop: { flex: 1 },
+  bottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.8
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2
+  },
+  sheetContent: { paddingHorizontal: 20, paddingBottom: 16 },
+  sheetTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#004643'
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16
   },
-  modalForm: {
-    maxHeight: 300,
-    paddingHorizontal: 20
-  },
-  formGroup: {
-    marginBottom: 20,
-    marginTop: 20
-  },
+  formGroup: { marginBottom: 16 },
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
     marginBottom: 8
   },
-  inputWrapper: {
+  radioGroup: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  radioBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0'
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    gap: 6
   },
+  radioBtnActive: { backgroundColor: '#004643' },
+  radioText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500'
+  },
+  radioTextActive: { color: '#fff' },
   input: {
-    flex: 1,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    padding: 12,
     fontSize: 14,
-    color: '#333',
-    paddingVertical: 12,
-    marginLeft: 10
+    color: '#333'
   },
-  textArea: {
-    textAlignVertical: 'top',
-    paddingTop: 12,
-    minHeight: 80
-  },
-  modalButtons: {
+  autoInfo: {
     flexDirection: 'row',
-    padding: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0'
+    backgroundColor: '#F0F8F7',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8
+  },
+  autoInfoText: { flex: 1 },
+  autoLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 4
+  },
+  autoValue: {
+    fontSize: 12,
+    color: '#004643',
+    fontWeight: '500'
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    gap: 12
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 10,
     backgroundColor: '#F5F5F5',
     alignItems: 'center'
   },
-  cancelBtnText: {
-    fontSize: 14,
+  cancelText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#666'
   },
   saveBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 10,
     backgroundColor: '#004643',
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6
+    alignItems: 'center'
   },
-  saveBtnText: {
-    fontSize: 14,
+  saveText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#fff'
   },
-  mapBtn: {
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F8F7',
-    padding: 15,
-    borderRadius: 10,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1
-  },
-  mapBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#004643',
-    marginLeft: 8,
-    flex: 1
-  },
-  coordText: {
-    fontSize: 11,
-    color: '#666',
-    marginTop: 5,
-    fontFamily: 'monospace'
-  },
-  unitText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-    marginLeft: 8
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 5,
-    paddingTop: 15
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#F0F8F7',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    marginHorizontal: 20,
     alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#D0E8E4',
+    marginBottom: 12,
+    gap: 8
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
-    color: '#004643',
-    marginLeft: 12,
-    lineHeight: 16
-  },
-  section: {
-    marginBottom: 16,
-    marginHorizontal: 20
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 4
-  },
-  sectionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F8F7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8
-  },
-  addBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#004643',
-    marginLeft: 4
-  },
-  lokasiCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
-  },
-  lokasiInfo: {
-    flex: 1
-  },
-  lokasiName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4
-  },
-  lokasiAddress: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
-    marginBottom: 6
-  },
-  lokasiType: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  lokasiTypeText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#004643',
-    marginLeft: 4
+    lineHeight: 20
   },
   deleteBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#FFF5F5'
-  },
-  actionButtons: { flexDirection: 'row', gap: 5 },
-  editBtn: { 
-    padding: 6, 
-    borderRadius: 6, 
-    backgroundColor: '#FFF3E0' 
-  },
-  emptyState: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 20
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#F44336',
+    gap: 6
   },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#999',
-    marginTop: 10
+  deleteText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff'
   },
-  emptySubtext: {
-    fontSize: 12,
-    color: '#CCC',
-    marginTop: 5,
-    textAlign: 'center'
+  editBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#FF9800',
+    gap: 6
   },
-  separator: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginVertical: 16,
-    marginHorizontal: 10
+  editText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff'
+  },
+  ubahLokasiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F8F7',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#004643',
+    borderStyle: 'dashed',
+    gap: 8
+  },
+  ubahLokasiText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#004643'
   }
 });

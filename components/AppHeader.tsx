@@ -18,6 +18,8 @@ interface AppHeaderProps {
   statsText?: string;
   showAddButton?: boolean;
   onAddPress?: () => void;
+  showHistoryButton?: boolean;
+  onHistoryPress?: () => void;
   rightComponent?: React.ReactNode;
   fallbackRoute?: string;
   primaryColor?: string;
@@ -34,6 +36,8 @@ export default function AppHeader({
   statsText,
   showAddButton = false,
   onAddPress,
+  showHistoryButton = false,
+  onHistoryPress,
   rightComponent,
   fallbackRoute,
   primaryColor = "#fff",
@@ -93,6 +97,12 @@ export default function AppHeader({
             </TouchableOpacity>
           )}
 
+          {showHistoryButton && (
+            <TouchableOpacity style={styles.addButton} onPress={onHistoryPress}>
+              <Ionicons name="time-outline" size={28} color={primaryColor} />
+            </TouchableOpacity>
+          )}
+
           {rightComponent}
         </View>
       </View>
@@ -102,8 +112,8 @@ export default function AppHeader({
 
 const styles = StyleSheet.create({
   headerSection: {
-    paddingTop: Platform.OS === "ios" ? 10 : 20,
-    paddingBottom: Platform.OS === "ios" ? 10 : 20,
+    paddingTop: Platform.OS === "ios" ? 0 : 20,
+    paddingBottom: Platform.OS === "ios" ? 15 : 20,
     paddingHorizontal: 20,
     borderBottomWidth: 0,
   },
@@ -112,6 +122,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingTop: Platform.OS === "ios" ? 0 : 15,
+    minHeight: 28,
   },
   headerLeft: {
     flexDirection: "row",
@@ -124,6 +135,9 @@ const styles = StyleSheet.create({
     left: 0,
     padding: 0,
     marginRight: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    height: 28,
   },
   headerTitle: {
     fontSize: 18,
@@ -144,6 +158,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     padding: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    height: 28,
+    top: 14
   },
   addButtonText: {
     display: "none",

@@ -224,24 +224,24 @@ export default function EditProfilAdminScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <AppHeader title="Edit Profil" showBack onBackPress={() => router.push('/admin/profil-admin' as any)} />
+      <View style={styles.container}>
+        <AppHeader title="Edit Profil" showBack={true} fallbackRoute="/admin/profil-admin" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#004643" />
           <Text style={styles.loadingText}>Memuat profil...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   const photoUri = newPhoto || (profile.foto_profil ? getApiUrl(`/${profile.foto_profil}`) : null);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <AppHeader 
         title="Edit Profil" 
-        showBack
-        onBackPress={() => router.push('/admin/profil-admin' as any)}
+        showBack={true}
+        fallbackRoute="/admin/profil-admin"
       />
       
       <ScrollView 
@@ -357,14 +357,14 @@ export default function EditProfilAdminScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#fff',
   },
   loadingContainer: {
     flex: 1,

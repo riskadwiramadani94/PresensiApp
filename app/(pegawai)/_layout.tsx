@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 
 export default function PegawaiTabLayout() {
   return (
@@ -11,8 +11,8 @@ export default function PegawaiTabLayout() {
         tabBarActiveTintColor: '#fff',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.6)',
         tabBarStyle: { 
-          height: 75, 
-          paddingBottom: 12,
+          height: Platform.OS === 'ios' ? 90 : 80, 
+          paddingBottom: Platform.OS === 'ios' ? 8 : 15,
           paddingTop: 8,
           backgroundColor: '#004643',
           borderTopWidth: 0,

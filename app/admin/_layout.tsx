@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { AuthStorage } from '../../utils/AuthStorage';
 
 export default function AdminTabLayout() {
@@ -53,8 +53,8 @@ export default function AdminTabLayout() {
         tabBarActiveTintColor: '#fff',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.6)',
         tabBarStyle: {
-          height: 75,
-          paddingBottom: 12,
+          height: Platform.OS === 'ios' ? 90 : 80,
+          paddingBottom: Platform.OS === 'ios' ? 8 : 15,
           paddingTop: 8,
           backgroundColor: '#004643',
           borderTopWidth: 0,
@@ -119,7 +119,7 @@ export default function AdminTabLayout() {
       <Tabs.Screen
         name="inbox-admin"
         options={{
-          title: 'Inbox',
+          title: 'Kotak Masuk',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "mail" : "mail-outline"} size={24} color={color} />
           ),

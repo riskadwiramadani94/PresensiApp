@@ -170,7 +170,7 @@ export default function AkunLoginAdminScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       
       {loading ? (
         <View style={styles.loadingContainer}>

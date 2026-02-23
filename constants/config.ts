@@ -1,7 +1,7 @@
 // Konfigurasi API untuk HadirinApp - Node.js Backend
 
 const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
-const BASE_URL = __DEV__ ? 'http://10.251.109.209:3000' : 'http://10.251.109.209:3000';
+const BASE_URL = __DEV__ ? 'http://10.251.109.118:3000' : 'http://10.251.109.118:3000';
 
 const debugLog = (message: string, data?: any) => {
   if (isDevelopment) {
@@ -44,6 +44,7 @@ export const API_CONFIG = {
     
     /* ================= PRESENSI (Admin) ================= */
     TRACKING: '/admin/presensi/api/tracking',
+    UPDATE_LOCATION: '/admin/presensi/api/update-location',
     
     /* ================= PERSETUJUAN (Admin) ================= */
     APPROVAL: '/admin/persetujuan/api/approval',
@@ -70,8 +71,10 @@ export const API_CONFIG = {
     /* ================= PEGAWAI ================= */
     PEGAWAI_DASHBOARD: '/pegawai/api/dashboard',
     PEGAWAI_PRESENSI: '/pegawai/presensi/api/presensi',
+    PEGAWAI_DETECT_LOCATION: '/pegawai/presensi/api/detect-location',
     PEGAWAI_PENGAJUAN: '/pegawai/pengajuan/api/pengajuan',
     PEGAWAI_PROFILE: '/pegawai/profil/api/profile',
+    PEGAWAI_KEGIATAN: '/pegawai/kegiatan/api/kegiatan',
   }
 };
 
@@ -255,6 +258,49 @@ export const PegawaiAPI = {
       return {
         success: false,
         message: (error as Error).message || 'Tidak dapat terhubung ke server'
+      };
+    }
+  },
+  
+  getKegiatan: async (user_id: string, status?: string) => {
+    try {
+      const params = new URLSearchParams({ user_id });
+      if (status) params.append('status', status);
+      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_KEGIATAN)}?${params.toString()}`);
+      return response.json();
+    } catch (error) {
+      return {
+        success: false,
+        message: (error as Error).message || 'Tidak dapat terhubung ke server',
+        data: []
+      };
+    }
+  },
+  
+  detectNearestLocation: async (latitude: number, longitude: number) => {
+    try {
+      const response = await fetchWithRetry(
+        `${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_DETECT_LOCATION)}?lat=${latitude}&lng=${longitude}`
+      );
+      return response.json();
+    } catch (error) {
+      return {
+        success: false,
+        message: (error as Error).message || 'Tidak dapat terhubung ke server',
+        data: null
+      };
+    }
+  },
+  
+  getDetailKegiatan: async (id: number) => {
+    try {
+      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_KEGIATAN)}/${id}`);
+      return response.json();
+    } catch (error) {
+      return {
+        success: false,
+        message: (error as Error).message || 'Tidak dapat terhubung ke server',
+        data: null
       };
     }
   },

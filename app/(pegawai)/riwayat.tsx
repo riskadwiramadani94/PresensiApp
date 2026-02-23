@@ -187,17 +187,17 @@ export default function RiwayatScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#004643" />
           <Text style={styles.loadingText}>Memuat riwayat...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <AppHeader title="Riwayat Presensi" showBack={false} />
       <ScrollView showsVerticalScrollIndicator={false}>
         
@@ -295,7 +295,7 @@ export default function RiwayatScreen() {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

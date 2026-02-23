@@ -222,7 +222,7 @@ export default function DataPegawaiAdminScreen() {
 
       {/* HEADER */}
       <AppHeader 
-        title="Data Pegawai"
+        title="Pegawai"
         showBack={true}
         showAddButton={true}
         onAddPress={() => router.push("/pegawai-akun/add-data-pegawai" as any)}
