@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Modal, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ScrollView, Modal, Image, Platform, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Calendar } from 'react-native-calendars';
+import * as NavigationBar from 'expo-navigation-bar';
 import { API_CONFIG, getApiUrl } from '../../constants/config';
 import { AppHeader } from '../../components';
 
@@ -30,36 +30,70 @@ export default function LaporanDetailDinasScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDateFilter, setSelectedDateFilter] = useState('bulan_ini');
-  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const filterTranslateY = useRef(new Animated.Value(300)).current;
+
+  const openFilterModal = () => {
+    setShowFilterModal(true);
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden');
+    }
+    Animated.timing(filterTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeFilterModal = () => {
+    Animated.timing(filterTranslateY, {
+      toValue: 300,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowFilterModal(false);
+      if (Platform.OS === 'android') {
+        NavigationBar.setVisibilityAsync('visible');
+      }
+    });
+  };
+
+  const filterPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return gestureState.dy > 5;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        filterTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeFilterModal();
+      } else {
+        Animated.spring(filterTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
 
   useEffect(() => {
     fetchData();
-  }, [selectedDateFilter, searchQuery, dateRange]);
+  }, [selectedDateFilter, searchQuery]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = `${getApiUrl(API_CONFIG.ENDPOINTS.LAPORAN)}?type=dinas`;
+      const params = new URLSearchParams({
+        type: 'dinas',
+        filter_date: selectedDateFilter,
+        search: searchQuery
+      });
       
-      if (selectedDateFilter === 'hari_ini') {
-        const today = new Date().toISOString().split('T')[0];
-        url += `&date=${today}`;
-      } else if (selectedDateFilter === 'tanggal_tertentu') {
-        const dateStr = selectedDate.toISOString().split('T')[0];
-        url += `&date=${dateStr}`;
-      }
-      // Untuk bulan_ini dan minggu_ini, tidak perlu filter tanggal (tampilkan semua)
-      
-      if (searchQuery) {
-        url += `&search=${encodeURIComponent(searchQuery)}`;
-      }
-      
-      const response = await fetch(url);
+      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.LAPORAN)}?${params.toString()}`);
       const result = await response.json();
       
       if (result.success && Array.isArray(result.data)) {
@@ -230,7 +264,7 @@ export default function LaporanDetailDinasScreen() {
       ) : (
         <View style={styles.contentContainer}>
           <View style={styles.content}>
-          {/* Search Bar */}
+          {/* Search Container with Filter Icon */}
           <View style={styles.searchContainer}>
             <View style={styles.searchInputWrapper}>
               <Ionicons name="search-outline" size={20} color="#666" />
@@ -247,60 +281,12 @@ export default function LaporanDetailDinasScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          </View>
-
-          {/* Date Filter */}
-          <View style={styles.filterCard}>
-            <View style={styles.filterHeader}>
-              <Ionicons name="calendar-outline" size={20} color="#004643" />
-              <Text style={styles.filterTitle}>Filter Periode</Text>
-            </View>
-            
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
-              {[
-                { key: 'hari_ini', label: 'Hari Ini' },
-                { key: 'minggu_ini', label: 'Minggu Ini' },
-                { key: 'bulan_ini', label: 'Bulan Ini' },
-                { key: 'pilih_tanggal', label: 'Pilih Tanggal' }
-              ].map((filter) => (
-                <TouchableOpacity
-                  key={filter.key}
-                  style={[
-                    styles.filterChip,
-                    selectedDateFilter === filter.key && styles.filterChipActive
-                  ]}
-                  onPress={() => {
-                    if (filter.key === 'pilih_tanggal') {
-                      setShowDateRangePicker(true);
-                    } else {
-                      setSelectedDateFilter(filter.key);
-                      setDateRange({ start: '', end: '' }); // Reset date range when switching to other filters
-                    }
-                  }}
-                >
-                  <Text style={[
-                    styles.filterChipText,
-                    selectedDateFilter === filter.key && styles.filterChipTextActive
-                  ]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {selectedDateFilter === 'pilih_tanggal' && dateRange.start && dateRange.end && (
-              <View style={styles.selectedDateInfo}>
-                <Text style={styles.selectedDateText}>
-                  Periode: {new Date(dateRange.start).toLocaleDateString('id-ID')} - {new Date(dateRange.end).toLocaleDateString('id-ID')}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.resultSummary}>
-              <Text style={styles.resultText}>
-                Menampilkan {data.length} data dinas
-              </Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.filterIconBtn}
+              onPress={openFilterModal}
+            >
+              <Ionicons name="options" size={20} color="#004643" />
+            </TouchableOpacity>
           </View>
           
           <FlatList
@@ -320,146 +306,65 @@ export default function LaporanDetailDinasScreen() {
         </View>
       )}
       
-      {/* Date Range Modals */}
-      <Modal visible={showDateRangePicker} transparent>
+      {/* Filter Modal - Bottom Sheet */}
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={closeFilterModal}
+      >
         <View style={styles.modalOverlay}>
-          <View style={styles.dateRangeModal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Pilih Periode Tanggal</Text>
-              <TouchableOpacity onPress={() => setShowDateRangePicker(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1}
+            onPress={closeFilterModal}
+          />
+          <Animated.View style={[styles.filterBottomSheetModal, {
+            transform: [{ translateY: filterTranslateY }]
+          }]}>
+            <View {...filterPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
             
-            <View style={styles.dateInputs}>
-              <View style={styles.dateInputGroup}>
-                <Text style={styles.dateLabel}>Tanggal Mulai</Text>
-                <TouchableOpacity 
-                  style={styles.dateInput}
-                  onPress={() => setShowStartDatePicker(true)}
-                >
-                  <Text style={styles.dateInputText}>
-                    {dateRange.start ? new Date(dateRange.start).toLocaleDateString('id-ID') : 'Pilih tanggal mulai'}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color="#004643" />
-                </TouchableOpacity>
-              </View>
+            <View style={styles.bottomSheetContent}>
+              <Text style={styles.modalTitle}>Filter Periode</Text>
               
-              <View style={styles.dateInputGroup}>
-                <Text style={styles.dateLabel}>Tanggal Selesai</Text>
-                <TouchableOpacity 
-                  style={styles.dateInput}
-                  onPress={() => setShowEndDatePicker(true)}
-                >
-                  <Text style={styles.dateInputText}>
-                    {dateRange.end ? new Date(dateRange.end).toLocaleDateString('id-ID') : 'Pilih tanggal selesai'}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color="#004643" />
-                </TouchableOpacity>
+              <View style={styles.filterGrid}>
+                {[
+                  { value: 'minggu_ini', label: 'Minggu Ini', icon: 'calendar' },
+                  { value: 'bulan_ini', label: 'Bulan Ini', icon: 'calendar-outline' },
+                  { value: 'semua', label: 'Semua', icon: 'apps' }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.filterChip,
+                      selectedDateFilter === option.value && styles.filterChipActive
+                    ]}
+                    onPress={() => {
+                      setSelectedDateFilter(option.value);
+                      closeFilterModal();
+                    }}
+                  >
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={18} 
+                      color={selectedDateFilter === option.value ? '#fff' : '#666'} 
+                    />
+                    <Text style={[
+                      styles.filterChipText,
+                      selectedDateFilter === option.value && styles.filterChipTextActive
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={styles.cancelBtn}
-                onPress={() => setShowDateRangePicker(false)}
-              >
-                <Text style={styles.cancelBtnText}>Batal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.confirmBtn}
-                onPress={() => {
-                  if (dateRange.start && dateRange.end) {
-                    setSelectedDateFilter('pilih_tanggal');
-                    setShowDateRangePicker(false);
-                  }
-                }}
-              >
-                <Text style={styles.confirmBtnText}>Terapkan</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
-      
-      {showStartDatePicker && (
-        <Modal visible={showStartDatePicker} transparent animationType="none" statusBarTranslucent={true}>
-          <View style={styles.modalOverlay}>
-            <TouchableOpacity 
-              style={styles.modalBackdrop} 
-              activeOpacity={1}
-              onPress={() => setShowStartDatePicker(false)}
-            />
-            <View style={styles.calendarModal}>
-              <View style={styles.calendarHeader}>
-                <Text style={styles.calendarTitle}>Pilih Tanggal Mulai</Text>
-                <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
-              </View>
-              <Calendar
-                onDayPress={(day) => {
-                  setDateRange({...dateRange, start: day.dateString});
-                  setShowStartDatePicker(false);
-                }}
-                maxDate={new Date().toISOString().split('T')[0]}
-                theme={{
-                  backgroundColor: '#ffffff',
-                  calendarBackground: '#ffffff',
-                  textSectionTitleColor: '#004643',
-                  selectedDayBackgroundColor: '#004643',
-                  selectedDayTextColor: '#ffffff',
-                  todayTextColor: '#004643',
-                  dayTextColor: '#2d4150',
-                  textDisabledColor: '#d9e1e8',
-                  arrowColor: '#004643',
-                  monthTextColor: '#004643'
-                }}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
-      
-      {showEndDatePicker && (
-        <Modal visible={showEndDatePicker} transparent animationType="none" statusBarTranslucent={true}>
-          <View style={styles.modalOverlay}>
-            <TouchableOpacity 
-              style={styles.modalBackdrop} 
-              activeOpacity={1}
-              onPress={() => setShowEndDatePicker(false)}
-            />
-            <View style={styles.calendarModal}>
-              <View style={styles.calendarHeader}>
-                <Text style={styles.calendarTitle}>Pilih Tanggal Selesai</Text>
-                <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
-              </View>
-              <Calendar
-                onDayPress={(day) => {
-                  setDateRange({...dateRange, end: day.dateString});
-                  setShowEndDatePicker(false);
-                }}
-                minDate={dateRange.start || undefined}
-                maxDate={new Date().toISOString().split('T')[0]}
-                theme={{
-                  backgroundColor: '#ffffff',
-                  calendarBackground: '#ffffff',
-                  textSectionTitleColor: '#004643',
-                  selectedDayBackgroundColor: '#004643',
-                  selectedDayTextColor: '#ffffff',
-                  todayTextColor: '#004643',
-                  dayTextColor: '#2d4150',
-                  textDisabledColor: '#d9e1e8',
-                  arrowColor: '#004643',
-                  monthTextColor: '#004643'
-                }}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
     </View>
   );
 }
@@ -471,11 +376,17 @@ const styles = StyleSheet.create({
   },
   content: { flex: 1 },
   searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6'
   },
   searchInputWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -485,81 +396,80 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     gap: 12
   },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#333',
     paddingVertical: 12
   },
-  filterCard: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 20,
-    marginVertical: 5,
-    borderRadius: 16,
-    padding: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+  filterBottomSheetModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 8,
   },
-  filterHeader: {
-    flexDirection: 'row',
+  bottomSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  handleContainer: {
+    paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 12
+    width: '100%',
   },
-  filterTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#333',
-    marginLeft: 8
+    marginBottom: 20,
   },
-  filterChips: {
-    marginBottom: 10
+  filterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#E0E0E0'
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
   },
   filterChipActive: {
     backgroundColor: '#004643',
     borderColor: '#004643'
   },
   filterChipText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#666',
-    fontWeight: '500'
+    fontWeight: '600',
   },
   filterChipTextActive: {
-    color: '#ffffff'
-  },
-  selectedDateInfo: {
-    backgroundColor: '#ffffff',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E0E0E0'
-  },
-  selectedDateText: {
-    fontSize: 12,
-    color: '#004643',
-    fontWeight: '500'
-  },
-  resultSummary: {
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0'
-  },
-  resultText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500'
+    color: '#fff',
   },
   summaryCard: {
     backgroundColor: '#2196F3',
@@ -669,108 +579,11 @@ const styles = StyleSheet.create({
   // Calendar Modal Styles
   modalOverlay: {
     flex: 1,
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center'
+    paddingTop: Platform.OS === 'android' ? 0 : 50,
   },
   modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  calendarModal: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    width: '90%',
-    maxWidth: 400
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
-  },
-  calendarTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#004643'
-  },
-  dateRangeModal: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    width: '90%',
-    maxWidth: 400,
-    padding: 20
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#004643'
-  },
-  dateInputs: {
-    marginBottom: 20
-  },
-  dateInputGroup: {
-    marginBottom: 15
-  },
-  dateLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8
-  },
-  dateInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0'
-  },
-  dateInputText: {
-    fontSize: 14,
-    color: '#333'
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 10
-  },
-  cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center'
-  },
-  cancelBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666'
-  },
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#004643',
-    alignItems: 'center'
-  },
-  confirmBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff'
   },
 });

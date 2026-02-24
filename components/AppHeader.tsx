@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     height: 28,
-    top: 14
+    top: Platform.OS === "ios" ? 4 : 15
   },
   addButtonText: {
     display: "none",

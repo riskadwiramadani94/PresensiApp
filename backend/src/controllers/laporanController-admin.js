@@ -91,29 +91,30 @@ const getLaporan = async (req, res) => {
       `);
       const totalAbsen = totalAbsenRows[0].total;
 
-      // Hitung total dinas (semua status)
+      // Hitung total dinas (dari tabel dinas_pegawai)
       const [totalDinasRows] = await db.execute(`
-        SELECT COUNT(*) as total 
-        FROM pengajuan 
-        WHERE jenis_pengajuan IN ('dinas_luar_kota', 'dinas_lokal', 'dinas_luar_negeri')
+        SELECT COUNT(DISTINCT dp.id) as total 
+        FROM dinas_pegawai dp
+        INNER JOIN dinas d ON dp.id_dinas = d.id_dinas
+        WHERE dp.status_konfirmasi = 'konfirmasi'
       `);
       const totalDinas = totalDinasRows[0].total;
 
-      // Hitung total izin/cuti yang approved
+      // Hitung total izin/cuti yang disetujui
       const [totalIzinRows] = await db.execute(`
         SELECT COUNT(*) as total 
         FROM pengajuan 
         WHERE jenis_pengajuan IN ('izin_pribadi', 'cuti_sakit', 'cuti_tahunan') 
-        AND status = 'approved'
+        AND status = 'disetujui'
       `);
       const totalIzin = totalIzinRows[0].total;
 
-      // Hitung total lembur yang approved
+      // Hitung total lembur yang disetujui
       const [totalLemburRows] = await db.execute(`
         SELECT COUNT(*) as total 
         FROM pengajuan 
-        WHERE jenis_pengajuan IN ('lembur_weekday', 'lembur_weekend', 'lembur_holiday') 
-        AND status = 'approved'
+        WHERE jenis_pengajuan = 'lembur' 
+        AND status = 'disetujui'
       `);
       const totalLembur = totalLemburRows[0].total;
 

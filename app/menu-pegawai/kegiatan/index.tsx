@@ -345,33 +345,36 @@ export default function KegiatanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    gap: 8,
+    gap: 10,
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 40,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    gap: 12,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 0,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#1F2937',
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 12,
   },
   filterButton: {
     width: 40,

@@ -470,7 +470,7 @@ export default function PengajuanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   content: {
     flex: 1,
     padding: 16,

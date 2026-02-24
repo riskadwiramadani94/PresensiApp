@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 22, 2026 at 01:04 PM
+-- Generation Time: Feb 24, 2026 at 07:42 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -49,17 +49,32 @@ CREATE TABLE `absen_dinas` (
   `lokasi_id` int(11) DEFAULT NULL COMMENT 'ID lokasi dinas tempat absen'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `absen_dinas`
+-- Table structure for table `absen_lembur`
 --
 
-INSERT INTO `absen_dinas` (`id`, `id_dinas`, `id_user`, `tanggal_absen`, `jam_masuk`, `jam_pulang`, `lintang_masuk`, `bujur_masuk`, `lintang_pulang`, `bujur_pulang`, `foto_masuk`, `foto_pulang`, `status`, `keterangan`, `status_validasi`, `divalidasi_oleh`, `catatan_validasi`, `waktu_validasi`, `lokasi_id`) VALUES
-(1, 11, 4, '2026-02-12', '08:15:00', '17:05:00', -6.8915, 107.6107, -6.8915, 107.6107, 'contoh-masuk.jpeg', 'contoh-pulang.jpeg', 'hadir', 'Absen dinas di ITB Ganesha', 'disetujui', 10, NULL, '2026-02-12 13:38:42', 6),
-(2, 14, 14, '2026-02-15', '23:48:21', NULL, -6.9246033, 107.73872, NULL, NULL, 'presensi-1771174101064-652895280.jpeg', NULL, 'terlambat', NULL, 'disetujui', 10, NULL, '2026-02-15 16:53:54', 9),
-(3, 14, 14, '2026-02-17', '09:54:19', NULL, -6.9245236, 107.7386592, NULL, NULL, 'presensi-1771296858799-478538382.jpg', NULL, 'terlambat', NULL, 'disetujui', 10, NULL, '2026-02-17 02:57:55', 9),
-(4, 14, 12, '2026-02-17', '09:56:55', NULL, -6.9245236, 107.7386592, NULL, NULL, 'presensi-1771297015814-339250204.jpg', NULL, 'terlambat', NULL, 'disetujui', 10, NULL, '2026-02-17 02:57:55', 9),
-(5, 15, 2, '2026-02-17', '10:04:27', NULL, -6.9245236, 107.7386592, NULL, NULL, 'presensi-1771297466912-507699700.jpg', NULL, 'terlambat', NULL, 'disetujui', 10, NULL, '2026-02-18 07:33:08', 9),
-(6, 15, 5, '2026-02-17', '10:06:27', NULL, -6.9245236, 107.7386592, NULL, NULL, 'presensi-1771297586135-423020720.jpg', NULL, 'terlambat', NULL, 'menunggu', NULL, NULL, NULL, 9);
+CREATE TABLE `absen_lembur` (
+  `id_absen_lembur` int(11) NOT NULL,
+  `id_pengajuan` int(11) NOT NULL COMMENT 'Link ke pengajuan lembur',
+  `id_user` int(11) NOT NULL,
+  `tanggal` date NOT NULL,
+  `jam_masuk` time DEFAULT NULL,
+  `jam_pulang` time DEFAULT NULL,
+  `lintang_masuk` double DEFAULT NULL,
+  `bujur_masuk` double DEFAULT NULL,
+  `lintang_pulang` double DEFAULT NULL,
+  `bujur_pulang` double DEFAULT NULL,
+  `foto_masuk` varchar(255) DEFAULT NULL,
+  `foto_pulang` varchar(255) DEFAULT NULL,
+  `total_jam` decimal(5,2) DEFAULT NULL COMMENT 'Otomatis dihitung',
+  `lokasi_lembur` enum('kantor','dinas') DEFAULT 'kantor',
+  `lokasi_id` int(11) DEFAULT NULL COMMENT 'ID lokasi kantor/dinas',
+  `dinas_id` int(11) DEFAULT NULL COMMENT 'ID dinas jika lembur dinas',
+  `status` enum('masuk','selesai') DEFAULT 'masuk',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -86,17 +101,6 @@ CREATE TABLE `dinas` (
   `created_by` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `dinas`
---
-
-INSERT INTO `dinas` (`id_dinas`, `nama_kegiatan`, `nomor_spt`, `jenis_dinas`, `tanggal_mulai`, `tanggal_selesai`, `alamat_lengkap`, `lintang`, `bujur`, `radius_absen`, `jam_mulai`, `jam_selesai`, `deskripsi`, `dokumen_spt`, `status`, `created_by`, `created_at`) VALUES
-(10, 'Rapat', 'STP 002', 'lokal', '2026-01-20', '2026-01-22', 'Lokasi Dinas', -6.89150000, 107.61070000, 100, NULL, NULL, '', NULL, 'aktif', 10, '2026-01-20 04:00:49'),
-(11, 'rapat', 'Spt/001', 'luar_kota', '2026-02-03', '2026-02-13', 'Lokasi Dinas', -6.89150000, 107.61070000, 100, NULL, NULL, '', NULL, 'aktif', 10, '2026-02-02 06:57:04'),
-(12, 'Tes', 'Tes', 'luar_kota', '2026-02-15', '2026-02-27', 'Lokasi Dinas', -6.89150000, 107.61070000, 100, NULL, NULL, 'Tes', 'SPT-1771164972005-362882441.pdf', 'aktif', 10, '2026-02-04 02:40:14'),
-(14, 'RAPAT', 'SPT/002/2026', 'lokal', '2026-02-15', '2026-02-17', '', 0.00000000, 0.00000000, 100, NULL, NULL, 'RAPAT DEWAN', 'SPT-1771170330169-97597411.pdf', 'aktif', 10, '2026-02-15 15:45:33'),
-(15, 'Rapat koordinasi', 'SPT/003/2026', 'lokal', '2026-02-17', '2026-02-19', '', 0.00000000, 0.00000000, 100, NULL, NULL, 'Rapat', 'SPT-1771297421427-74713260.pdf', 'aktif', 10, '2026-02-17 03:03:42');
 
 -- --------------------------------------------------------
 
@@ -125,7 +129,9 @@ INSERT INTO `dinas_lokasi` (`id`, `id_dinas`, `id_lokasi_kantor`, `urutan`, `is_
 (9, 12, 6, 1, 1, '2026-02-15 15:02:07', 6),
 (10, 14, 6, 1, 1, '2026-02-15 15:45:33', 6),
 (11, 14, 9, 2, 0, '2026-02-15 15:45:33', 9),
-(12, 15, 9, 1, 1, '2026-02-17 03:03:42', 9);
+(12, 15, 9, 1, 1, '2026-02-17 03:03:42', 9),
+(13, 17, 6, 1, 1, '2026-02-24 02:03:24', 6),
+(14, 18, 1, 1, 1, '2026-02-24 02:05:22', 1);
 
 -- --------------------------------------------------------
 
@@ -141,23 +147,6 @@ CREATE TABLE `dinas_pegawai` (
   `tanggal_konfirmasi` timestamp NULL DEFAULT NULL,
   `catatan` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `dinas_pegawai`
---
-
-INSERT INTO `dinas_pegawai` (`id`, `id_dinas`, `id_user`, `status_konfirmasi`, `tanggal_konfirmasi`, `catatan`) VALUES
-(8, 10, 4, 'konfirmasi', '2026-01-20 04:00:49', NULL),
-(9, 10, 2, 'konfirmasi', '2026-01-20 04:00:49', NULL),
-(10, 10, 5, 'konfirmasi', '2026-01-20 04:00:49', NULL),
-(11, 11, 4, 'konfirmasi', '2026-02-02 06:57:04', NULL),
-(12, 11, 2, 'konfirmasi', '2026-02-02 06:57:04', NULL),
-(20, 12, 4, 'konfirmasi', '2026-02-15 15:02:08', NULL),
-(21, 12, 13, 'konfirmasi', '2026-02-15 15:02:08', NULL),
-(22, 14, 14, 'konfirmasi', '2026-02-15 15:45:33', NULL),
-(23, 14, 12, 'konfirmasi', '2026-02-15 15:45:33', NULL),
-(24, 15, 2, 'konfirmasi', '2026-02-17 03:03:42', NULL),
-(25, 15, 5, 'konfirmasi', '2026-02-17 03:03:42', NULL);
 
 -- --------------------------------------------------------
 
@@ -192,7 +181,8 @@ INSERT INTO `hari_libur` (`id`, `tanggal`, `nama_libur`, `jenis`, `is_active`) V
 (12, '2026-02-11', 'idul fitri', 'nasional', 0),
 (13, '2026-02-13', 'Libur', 'nasional', 0),
 (14, '2026-02-13', 'Libur', 'nasional', 0),
-(15, '2026-02-13', 'Libur', 'nasional', 1);
+(15, '2026-02-13', 'Libur', 'nasional', 1),
+(16, '2026-02-27', 'Tes', 'perusahaan', 1);
 
 -- --------------------------------------------------------
 
@@ -255,7 +245,8 @@ INSERT INTO `lokasi_kantor` (`id`, `nama_lokasi`, `alamat`, `lintang`, `bujur`, 
 (10, 'Kantor Cabang', 'Jalan Jakarta, Kebonwaru, Kecamatan Batununggal, Jawa Barat', -6.91558281, 107.63843782, 100, 'aktif', 'tetap', 0, NULL, NULL, NULL),
 (11, 'Kiara Artha', 'Kebonwaru, Kecamatan Batununggal, Jawa Barat', -6.91655802, 107.64228109, 100, 'aktif', 'tetap', 1, NULL, NULL, NULL),
 (12, 'Tes', 'Cimenyan, Bandung, West Java', -6.86441171, 107.67373938, 100, 'aktif', 'dinas', 1, NULL, NULL, NULL),
-(13, 'Tes', 'Cibeunying, Kecamatan Cimenyan, Jawa Barat', -6.88636649, 107.63615761, 100, 'aktif', 'tetap', 0, NULL, NULL, NULL);
+(13, 'Tes', 'Cibeunying, Kecamatan Cimenyan, Jawa Barat', -6.88636649, 107.63615761, 100, 'aktif', 'tetap', 0, NULL, NULL, NULL),
+(14, 'Itb dkst', 'Jalan Tamansari, Lebak Siliwangi, Kecamatan Coblong, Jawa Barat', -6.89411335, 107.60900594, 100, 'aktif', 'tetap', 1, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -276,11 +267,11 @@ CREATE TABLE `lokasi_realtime` (
 --
 
 INSERT INTO `lokasi_realtime` (`id`, `id_user`, `lintang`, `bujur`, `last_update`) VALUES
-(1, 6, -6.9535981, 107.6963557, '2026-02-18 05:54:02'),
+(1, 6, -6.894127, 107.6089701, '2026-02-24 02:26:23'),
 (2, 5, -6.9535981, 107.6963557, '2026-02-18 05:54:23'),
-(3, 4, -6.9245255, 107.7386685, '2026-02-22 06:28:25'),
-(29, 14, -6.9535364, 107.6963279, '2026-02-20 05:27:35'),
-(40, 2, -6.9245183, 107.7386678, '2026-02-22 07:40:50');
+(3, 4, -6.894136, 107.6089837, '2026-02-24 06:34:47'),
+(29, 14, -6.9534807, 107.6963987, '2026-02-23 07:49:59'),
+(40, 2, -6.894127, 107.6089701, '2026-02-24 02:27:35');
 
 -- --------------------------------------------------------
 
@@ -331,7 +322,7 @@ CREATE TABLE `pengajuan` (
   `id_pengajuan` int(11) NOT NULL,
   `id_user` int(11) NOT NULL,
   `id_pegawai` int(11) DEFAULT NULL,
-  `jenis_pengajuan` enum('izin_datang_terlambat', 'izin_pulang_cepat', 'cuti_sakit', 'cuti_alasan_penting', 'cuti_tahunan', 'lembur') NOT NULL,
+  `jenis_pengajuan` enum('izin_datang_terlambat','izin_pulang_cepat','cuti_sakit','cuti_alasan_penting','cuti_tahunan','lembur') NOT NULL,
   `tanggal_mulai` date NOT NULL,
   `tanggal_selesai` date DEFAULT NULL,
   `jam_mulai` time DEFAULT NULL,
@@ -345,6 +336,18 @@ CREATE TABLE `pengajuan` (
   `waktu_persetujuan` timestamp NULL DEFAULT NULL,
   `catatan_persetujuan` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `pengajuan`
+--
+
+INSERT INTO `pengajuan` (`id_pengajuan`, `id_user`, `id_pegawai`, `jenis_pengajuan`, `tanggal_mulai`, `tanggal_selesai`, `jam_mulai`, `jam_selesai`, `alasan_text`, `dokumen_foto`, `status`, `is_retrospektif`, `disetujui_oleh`, `tanggal_pengajuan`, `waktu_persetujuan`, `catatan_persetujuan`) VALUES
+(1, 4, 3, 'izin_datang_terlambat', '2026-02-23', NULL, '08:30:00', NULL, 'Ada acara ', NULL, 'disetujui', 0, 10, '2026-02-22 13:13:33', '2026-02-22 13:21:07', NULL),
+(2, 4, 3, 'izin_datang_terlambat', '2026-02-23', NULL, '08:40:00', NULL, 'Macet', NULL, 'disetujui', 0, 10, '2026-02-23 01:36:34', '2026-02-23 01:37:01', NULL),
+(3, 4, 3, 'izin_datang_terlambat', '2026-02-23', NULL, '09:30:00', NULL, 'Macet', NULL, 'disetujui', 0, 10, '2026-02-23 01:40:39', '2026-02-23 01:40:54', NULL),
+(4, 4, 3, 'lembur', '2026-02-24', '2026-02-24', '11:44:00', '09:32:00', 'lembur\n\n', NULL, 'disetujui', 0, 10, '2026-02-24 02:34:15', '2026-02-24 05:05:25', NULL),
+(5, 4, 3, 'izin_datang_terlambat', '2015-12-24', NULL, '09:36:00', NULL, 'tes', NULL, 'menunggu', 0, NULL, '2026-02-24 02:39:37', NULL, NULL),
+(6, 4, 3, 'lembur', '2026-02-24', '2026-02-24', '00:09:00', '09:43:00', 'tes\n', NULL, 'disetujui', NULL, 12, '2026-02-24 02:46:17', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -393,7 +396,8 @@ CREATE TABLE `presensi` (
 --
 
 INSERT INTO `presensi` (`id_presensi`, `id_user`, `tanggal`, `jam_masuk`, `lintang_masuk`, `bujur_masuk`, `foto_masuk`, `status`, `alasan_luar_lokasi`, `jam_pulang`, `lintang_pulang`, `bujur_pulang`, `foto_pulang`, `status_validasi`, `divalidasi_oleh`, `catatan_validasi`, `waktu_validasi`, `lokasi_id`, `jenis_presensi`, `dinas_id`) VALUES
-(42, 6, '2026-02-17', '10:28:36', -6.9245228, 107.7386607, 'presensi-1771298912200-807782190.jpeg', 'Terlambat', NULL, NULL, NULL, NULL, NULL, 'disetujui', NULL, NULL, NULL, 9, 'kantor', NULL);
+(42, 6, '2026-02-17', '10:28:36', -6.9245228, 107.7386607, 'presensi-1771298912200-807782190.jpeg', 'Terlambat', NULL, NULL, NULL, NULL, NULL, 'disetujui', NULL, NULL, NULL, 9, 'kantor', NULL),
+(43, 6, '2026-02-24', '09:11:27', -6.8940433, 107.6089633, 'presensi-1771899087360-439894972.jpeg', 'Terlambat', NULL, NULL, NULL, NULL, NULL, 'disetujui', NULL, NULL, NULL, 14, 'kantor', NULL);
 
 -- --------------------------------------------------------
 
@@ -441,6 +445,16 @@ ALTER TABLE `absen_dinas`
   ADD KEY `id_dinas` (`id_dinas`),
   ADD KEY `id_user` (`id_user`),
   ADD KEY `fk_absen_dinas_lokasi` (`lokasi_id`);
+
+--
+-- Indexes for table `absen_lembur`
+--
+ALTER TABLE `absen_lembur`
+  ADD PRIMARY KEY (`id_absen_lembur`),
+  ADD KEY `fk_absen_lembur_pengajuan` (`id_pengajuan`),
+  ADD KEY `fk_absen_lembur_user` (`id_user`),
+  ADD KEY `fk_absen_lembur_lokasi` (`lokasi_id`),
+  ADD KEY `fk_absen_lembur_dinas` (`dinas_id`);
 
 --
 -- Indexes for table `dinas`
@@ -546,28 +560,34 @@ ALTER TABLE `absen_dinas`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
+-- AUTO_INCREMENT for table `absen_lembur`
+--
+ALTER TABLE `absen_lembur`
+  MODIFY `id_absen_lembur` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `dinas`
 --
 ALTER TABLE `dinas`
-  MODIFY `id_dinas` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id_dinas` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `dinas_lokasi`
 --
 ALTER TABLE `dinas_lokasi`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `dinas_pegawai`
 --
 ALTER TABLE `dinas_pegawai`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
 
 --
 -- AUTO_INCREMENT for table `hari_libur`
 --
 ALTER TABLE `hari_libur`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `jam_kerja_hari`
@@ -579,13 +599,13 @@ ALTER TABLE `jam_kerja_hari`
 -- AUTO_INCREMENT for table `lokasi_kantor`
 --
 ALTER TABLE `lokasi_kantor`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `lokasi_realtime`
 --
 ALTER TABLE `lokasi_realtime`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=204;
 
 --
 -- AUTO_INCREMENT for table `pegawai`
@@ -597,7 +617,7 @@ ALTER TABLE `pegawai`
 -- AUTO_INCREMENT for table `pengajuan`
 --
 ALTER TABLE `pengajuan`
-  MODIFY `id_pengajuan` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_pengajuan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `pengaturan_sistem`
@@ -609,7 +629,7 @@ ALTER TABLE `pengaturan_sistem`
 -- AUTO_INCREMENT for table `presensi`
 --
 ALTER TABLE `presensi`
-  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
+  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
 
 --
 -- AUTO_INCREMENT for table `users`
@@ -628,6 +648,15 @@ ALTER TABLE `absen_dinas`
   ADD CONSTRAINT `absen_dinas_ibfk_1` FOREIGN KEY (`id_dinas`) REFERENCES `dinas` (`id_dinas`) ON DELETE CASCADE,
   ADD CONSTRAINT `absen_dinas_ibfk_2` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_absen_dinas_lokasi` FOREIGN KEY (`lokasi_id`) REFERENCES `lokasi_kantor` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `absen_lembur`
+--
+ALTER TABLE `absen_lembur`
+  ADD CONSTRAINT `fk_absen_lembur_dinas` FOREIGN KEY (`dinas_id`) REFERENCES `dinas` (`id_dinas`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_absen_lembur_lokasi` FOREIGN KEY (`lokasi_id`) REFERENCES `lokasi_kantor` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_absen_lembur_pengajuan` FOREIGN KEY (`id_pengajuan`) REFERENCES `pengajuan` (`id_pengajuan`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_absen_lembur_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `dinas`

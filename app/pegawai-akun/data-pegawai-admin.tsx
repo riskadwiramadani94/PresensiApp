@@ -522,9 +522,11 @@ const styles = StyleSheet.create({
     flex: 1 
   },
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff'
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   searchInputWrapper: {
     flexDirection: 'row',

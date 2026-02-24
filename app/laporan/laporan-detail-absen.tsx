@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, TextInput, ScrollView, Modal, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, TextInput, ScrollView, Modal, Image, Platform, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Calendar } from 'react-native-calendars';
+import * as NavigationBar from 'expo-navigation-bar';
 import { AppHeader } from '../../components';
 import CustomCalendar from '../../components/CustomCalendar';
 
@@ -47,38 +47,59 @@ export default function LaporanDetailAbsenScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDateFilter, setSelectedDateFilter] = useState('hari_ini');
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [jamKerja, setJamKerja] = useState({ jam_masuk: '08:30', jam_pulang: '17:00' });
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const filterTranslateY = useRef(new Animated.Value(300)).current;
+
+  const openFilterModal = () => {
+    setShowFilterModal(true);
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden');
+    }
+    Animated.timing(filterTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeFilterModal = () => {
+    Animated.timing(filterTranslateY, {
+      toValue: 300,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowFilterModal(false);
+      if (Platform.OS === 'android') {
+        NavigationBar.setVisibilityAsync('visible');
+      }
+    });
+  };
+
+  const filterPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return gestureState.dy > 5;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        filterTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeFilterModal();
+      } else {
+        Animated.spring(filterTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
 
   useEffect(() => {
-    fetchJamKerja();
     fetchData();
-    
-    // Auto-refresh every 60 seconds to update dynamic status
-    const interval = setInterval(() => {
-      fetchData();
-    }, 60000);
-    
-    return () => clearInterval(interval);
-  }, [selectedDateFilter, searchQuery, dateRange]);
-
-  const fetchJamKerja = async () => {
-    try {
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.JAM_KERJA));
-      const result = await response.json();
-      if (result.success && result.data && result.data.length > 0) {
-        const jamKerjaData = result.data[0]; // Ambil data pertama
-        setJamKerja({
-          jam_masuk: (jamKerjaData.batas_absen || jamKerjaData.jam_masuk || '08:30').substring(0, 5),
-          jam_pulang: (jamKerjaData.jam_pulang || '17:00').substring(0, 5)
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching jam kerja:', error);
-    }
-  };
+  }, [selectedDateFilter, searchQuery]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -87,11 +108,10 @@ export default function LaporanDetailAbsenScreen() {
       const params = new URLSearchParams({
         type: 'absen',
         filter_date: selectedDateFilter,
-        start_date: selectedDateFilter === 'pilih_tanggal' ? dateRange.start : '',
-        end_date: selectedDateFilter === 'pilih_tanggal' ? dateRange.end : '',
         search: searchQuery
       });
       
+      console.log('Fetching with filter:', selectedDateFilter);
       const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.LAPORAN)}?${params.toString()}`);
       const result = await response.json();
       
@@ -99,7 +119,7 @@ export default function LaporanDetailAbsenScreen() {
         const sortedData = result.data.sort((a: PegawaiAbsen, b: PegawaiAbsen) => 
           a.nama_lengkap.localeCompare(b.nama_lengkap)
         );
-        console.log('API Response:', result.data[0]); // Debug log
+        console.log('Filtered data count:', sortedData.length);
         setData(sortedData);
       } else {
         console.error('Error:', result.message);
@@ -139,44 +159,28 @@ export default function LaporanDetailAbsenScreen() {
   };
 
   const renderAbsentStatus = (item: PegawaiAbsen) => {
-    // Calculate total working days based on filter period
     let expectedWorkingDays = 1;
     const today = new Date();
     
-    // Calculate expected working days for each filter
     if (selectedDateFilter === 'minggu_ini') {
-      // Count working days in current week based on jam_kerja_hari
       const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+      startOfWeek.setDate(today.getDate() - today.getDay() + 1);
       expectedWorkingDays = 0;
       for (let i = 0; i < 7; i++) {
         const checkDate = new Date(startOfWeek);
         checkDate.setDate(startOfWeek.getDate() + i);
         if (checkDate <= today) {
-          // Check jam_kerja_hari for this day (will be checked by backend)
           expectedWorkingDays++;
         }
       }
     } else if (selectedDateFilter === 'bulan_ini') {
-      // Count working days in current month based on jam_kerja_hari
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       expectedWorkingDays = 0;
       for (let d = new Date(startOfMonth); d <= today; d.setDate(d.getDate() + 1)) {
-        // All days counted, backend will filter based on jam_kerja_hari
-        expectedWorkingDays++;
-      }
-    } else if (selectedDateFilter === 'pilih_tanggal' && dateRange.start && dateRange.end) {
-      // Count working days in selected range based on jam_kerja_hari
-      const start = new Date(dateRange.start);
-      const end = new Date(dateRange.end);
-      expectedWorkingDays = 0;
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        // All days counted, backend will filter based on jam_kerja_hari
         expectedWorkingDays++;
       }
     }
     
-    // Calculate actual attendance
     const totalAttendance = item.summary['Hadir'] + 
                            item.summary['Terlambat'] + 
                            item.summary['Izin'] + 
@@ -188,51 +192,6 @@ export default function LaporanDetailAbsenScreen() {
     
     const absentDays = expectedWorkingDays - totalAttendance;
     
-    // For today filter, check against jam kerja setting
-    if (selectedDateFilter === 'hari_ini' && absentDays > 0) {
-      const now = new Date();
-      const [jamMasukHour, jamMasukMinute] = jamKerja.jam_masuk.split(':').map(Number);
-      const [jamPulangHour, jamPulangMinute] = jamKerja.jam_pulang.split(':').map(Number);
-      
-      const batasAbsen = new Date();
-      batasAbsen.setHours(jamMasukHour, jamMasukMinute, 0, 0);
-      
-      const jamPulang = new Date();
-      jamPulang.setHours(jamPulangHour, jamPulangMinute, 0, 0);
-      
-      // If current time is before batas absen, show "Belum Absen"
-      if (now < batasAbsen) {
-        return (
-          <View key="belum-absen" style={[styles.statusBadge, { backgroundColor: statusConfig['Belum Absen'].color + '15' }]}>
-            <Text style={[styles.statusText, { color: statusConfig['Belum Absen'].color }]}>
-              Belum Absen ({absentDays})
-            </Text>
-          </View>
-        );
-      }
-      // If current time is after batas absen but before jam pulang, show "Tidak Hadir"
-      else if (now >= batasAbsen && now < jamPulang) {
-        return (
-          <View key="tidak-hadir" style={[styles.statusBadge, { backgroundColor: statusConfig['Tidak Hadir'].color + '15' }]}>
-            <Text style={[styles.statusText, { color: statusConfig['Tidak Hadir'].color }]}>
-              Tidak Hadir ({absentDays})
-            </Text>
-          </View>
-        );
-      }
-      // If after jam pulang, definitely "Tidak Hadir"
-      else {
-        return (
-          <View key="tidak-hadir" style={[styles.statusBadge, { backgroundColor: statusConfig['Tidak Hadir'].color + '15' }]}>
-            <Text style={[styles.statusText, { color: statusConfig['Tidak Hadir'].color }]}>
-              Tidak Hadir ({absentDays})
-            </Text>
-          </View>
-        );
-      }
-    }
-    
-    // For all other periods, show "Tidak Hadir" if there are absent days
     if (absentDays > 0) {
       return (
         <View key="tidak-hadir" style={[styles.statusBadge, { backgroundColor: statusConfig['Tidak Hadir'].color + '15' }]}>
@@ -250,11 +209,8 @@ export default function LaporanDetailAbsenScreen() {
     <TouchableOpacity 
       style={styles.pegawaiCard}
       onPress={() => {
-        // Pass filter parameters to detail page
         const params = new URLSearchParams({
-          filter: selectedDateFilter,
-          start_date: selectedDateFilter === 'pilih_tanggal' ? dateRange.start : '',
-          end_date: selectedDateFilter === 'pilih_tanggal' ? dateRange.end : ''
+          filter: selectedDateFilter
         });
         router.push(`/laporan/detail-absen/${item.id_pegawai}?${params.toString()}` as any);
       }}
@@ -307,7 +263,7 @@ export default function LaporanDetailAbsenScreen() {
       ) : (
         <View style={styles.contentContainer}>
           <View style={styles.content}>
-          {/* Search Bar */}
+          {/* Search Container with Filter Icon */}
           <View style={styles.searchContainer}>
             <View style={styles.searchInputWrapper}>
               <Ionicons name="search-outline" size={20} color="#666" />
@@ -324,60 +280,12 @@ export default function LaporanDetailAbsenScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          </View>
-
-          {/* Date Filter */}
-          <View style={styles.filterCard}>
-            <View style={styles.filterHeader}>
-              <Ionicons name="calendar-outline" size={20} color="#004643" />
-              <Text style={styles.filterTitle}>Filter Periode</Text>
-            </View>
-            
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
-              {[
-                { key: 'hari_ini', label: 'Hari Ini' },
-                { key: 'minggu_ini', label: 'Minggu Ini' },
-                { key: 'bulan_ini', label: 'Bulan Ini' },
-                { key: 'pilih_tanggal', label: 'Pilih Tanggal' }
-              ].map((filter) => (
-                <TouchableOpacity
-                  key={filter.key}
-                  style={[
-                    styles.filterChip,
-                    selectedDateFilter === filter.key && styles.filterChipActive
-                  ]}
-                  onPress={() => {
-                    if (filter.key === 'pilih_tanggal') {
-                      setShowStartDatePicker(true);
-                    } else {
-                      setSelectedDateFilter(filter.key);
-                      setDateRange({ start: '', end: '' });
-                    }
-                  }}
-                >
-                  <Text style={[
-                    styles.filterChipText,
-                    selectedDateFilter === filter.key && styles.filterChipTextActive
-                  ]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {selectedDateFilter === 'pilih_tanggal' && dateRange.start && dateRange.end && (
-              <View style={styles.selectedDateInfo}>
-                <Text style={styles.selectedDateText}>
-                  Periode: {new Date(dateRange.start).toLocaleDateString('id-ID')} - {new Date(dateRange.end).toLocaleDateString('id-ID')}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.resultSummary}>
-              <Text style={styles.resultText}>
-                Menampilkan {data.length} pegawai
-              </Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.filterIconBtn}
+              onPress={openFilterModal}
+            >
+              <Ionicons name="options" size={20} color="#004643" />
+            </TouchableOpacity>
           </View>
           
           <FlatList
@@ -391,50 +299,64 @@ export default function LaporanDetailAbsenScreen() {
         </View>
       )}
       
-      <Modal 
-        visible={showStartDatePicker || showEndDatePicker} 
-        transparent 
-        animationType="none" 
+      {/* Filter Modal - Bottom Sheet */}
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="none"
         statusBarTranslucent={true}
+        onRequestClose={closeFilterModal}
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity 
             style={styles.modalBackdrop} 
             activeOpacity={1}
-            onPress={() => {
-              setShowStartDatePicker(false);
-              setShowEndDatePicker(false);
-            }}
+            onPress={closeFilterModal}
           />
-          <View style={styles.calendarModal}>
-            <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>
-                {showStartDatePicker ? 'Pilih Tanggal Mulai' : 'Pilih Tanggal Selesai'}
-              </Text>
-              <TouchableOpacity onPress={() => {
-                setShowStartDatePicker(false);
-                setShowEndDatePicker(false);
-              }}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <Animated.View style={[styles.filterBottomSheetModal, {
+            transform: [{ translateY: filterTranslateY }]
+          }]}>
+            <View {...filterPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            <CustomCalendar
-              showWeekends={false}
-              weekendDays={[]}
-              onDatePress={(date) => {
-                const dateString = date.toISOString().split('T')[0];
-                if (showStartDatePicker) {
-                  setDateRange({...dateRange, start: dateString});
-                  setShowStartDatePicker(false);
-                  setShowEndDatePicker(true);
-                } else {
-                  setDateRange({...dateRange, end: dateString});
-                  setSelectedDateFilter('pilih_tanggal');
-                  setShowEndDatePicker(false);
-                }
-              }}
-            />
-          </View>
+            
+            <View style={styles.bottomSheetContent}>
+              <Text style={styles.modalTitle}>Filter Periode</Text>
+              
+              <View style={styles.filterGrid}>
+                {[
+                  { value: 'hari_ini', label: 'Hari Ini', icon: 'today' },
+                  { value: 'minggu_ini', label: 'Minggu Ini', icon: 'calendar' },
+                  { value: 'bulan_ini', label: 'Bulan Ini', icon: 'calendar-outline' },
+                  { value: 'semua', label: 'Semua', icon: 'apps' }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.filterChip,
+                      selectedDateFilter === option.value && styles.filterChipActive
+                    ]}
+                    onPress={() => {
+                      setSelectedDateFilter(option.value);
+                      closeFilterModal();
+                    }}
+                  >
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={18} 
+                      color={selectedDateFilter === option.value ? '#fff' : '#666'} 
+                    />
+                    <Text style={[
+                      styles.filterChipText,
+                      selectedDateFilter === option.value && styles.filterChipTextActive
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>
@@ -449,11 +371,17 @@ const styles = StyleSheet.create({
 
   content: { flex: 1 },
   searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#fff'
+    backgroundColor: '#fff',
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6'
   },
   searchInputWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8F9FA',
@@ -463,79 +391,80 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     gap: 12
   },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#333',
     paddingVertical: 12
   },
-  filterCard: {
+  filterBottomSheetModal: {
     backgroundColor: '#fff',
-    marginHorizontal: 20,
-    marginVertical: 5,
-    borderRadius: 16,
-    padding: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 8,
   },
-  filterHeader: {
-    flexDirection: 'row',
+  bottomSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  handleContainer: {
+    paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 12
+    width: '100%',
   },
-  filterTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#333',
-    marginLeft: 8
+    marginBottom: 20,
   },
-  filterChips: {
-    marginBottom: 10
+  filterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#E0E0E0'
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
   },
   filterChipActive: {
     backgroundColor: '#004643',
     borderColor: '#004643'
   },
   filterChipText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#666',
-    fontWeight: '500'
+    fontWeight: '600',
   },
   filterChipTextActive: {
-    color: '#fff'
-  },
-  selectedDateInfo: {
-    backgroundColor: '#F0F8F7',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 10
-  },
-  selectedDateText: {
-    fontSize: 12,
-    color: '#004643',
-    fontWeight: '500'
-  },
-  resultSummary: {
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0'
-  },
-  resultText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500'
+    color: '#fff',
   },
 
   listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
@@ -608,35 +537,11 @@ const styles = StyleSheet.create({
   // Calendar Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingTop: Platform.OS === 'android' ? 0 : 50,
   },
   modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  calendarModal: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    width: '90%',
-    maxWidth: 400
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
-  },
-  calendarTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#004643'
+    flex: 1,
   },
 });

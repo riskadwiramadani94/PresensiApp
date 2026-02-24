@@ -60,6 +60,7 @@ const pusatValidasiController = {
   getPengajuan: async (req, res) => {
     try {
       const db = await getConnection();
+      
       const query = `
         SELECT 
           p.id_pengajuan,
@@ -70,18 +71,17 @@ const pusatValidasiController = {
           p.jam_mulai,
           p.jam_selesai,
           p.alasan_text,
-          p.lokasi_dinas,
           p.dokumen_foto,
           p.status,
           p.is_retrospektif,
           p.tanggal_pengajuan,
           pg.nama_lengkap,
           pg.nip,
-          pg.jabatan,
-          pg.divisi
+          COALESCE(pg.jabatan, '-') as jabatan,
+          COALESCE(pg.divisi, '-') as divisi
         FROM pengajuan p
         JOIN users u ON p.id_user = u.id_user
-        JOIN pegawai pg ON u.id_user = pg.id_user
+        LEFT JOIN pegawai pg ON p.id_pegawai = pg.id_pegawai
         WHERE p.status = 'menunggu'
         ORDER BY p.tanggal_pengajuan DESC
       `;
@@ -94,9 +94,10 @@ const pusatValidasiController = {
       });
     } catch (error) {
       console.error('Error getting pengajuan:', error);
+      console.error('Error details:', error.message);
       res.status(500).json({
         success: false,
-        message: 'Gagal mengambil data pengajuan'
+        message: 'Gagal mengambil data pengajuan: ' + error.message
       });
     }
   },

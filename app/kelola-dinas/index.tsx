@@ -35,9 +35,58 @@ export default function KelolaDinasScreen() {
   const [selectedDinas, setSelectedDinas] = useState<DinasAktif | null>(null);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const translateY = useRef(new Animated.Value(300)).current;
+  const filterTranslateY = useRef(new Animated.Value(300)).current;
   const deleteModalScale = useRef(new Animated.Value(0)).current;
   const itemsPerPage = 10;
+  
+  const openFilterModal = () => {
+    setShowFilterModal(true);
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden');
+    }
+    Animated.timing(filterTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeFilterModal = () => {
+    Animated.timing(filterTranslateY, {
+      toValue: 300,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowFilterModal(false);
+      if (Platform.OS === 'android') {
+        NavigationBar.setVisibilityAsync('visible');
+      }
+    });
+  };
+
+  const filterPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return gestureState.dy > 5;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        filterTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeFilterModal();
+      } else {
+        Animated.spring(filterTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
   
   const openModal = () => {
     setShowActionModal(true);
@@ -207,6 +256,19 @@ export default function KelolaDinasScreen() {
     const totalPegawai = pegawaiArray.length;
     const dinasStatusInfo = getDinasStatus(item.tanggal_mulai, item.tanggal_selesai);
     const isBelumDimulai = dinasStatusInfo.status === 'Belum Dimulai';
+    
+    // Cek apakah dinas berlangsung dan masih dalam 1 jam pertama
+    const canEditBerlangsung = () => {
+      if (dinasStatusInfo.status !== 'Sedang Berlangsung') return false;
+      
+      const now = new Date();
+      const dinasStart = new Date(item.tanggal_mulai + ' ' + (item.jam_mulai || '08:00:00'));
+      const hoursDiff = (now.getTime() - dinasStart.getTime()) / (1000 * 60 * 60);
+      
+      return hoursDiff <= 1; // Batas 1 jam
+    };
+    
+    const showActionButton = isBelumDimulai || canEditBerlangsung();
 
     return (
       <TouchableOpacity 
@@ -226,7 +288,7 @@ export default function KelolaDinasScreen() {
                  dinasStatusInfo.status === 'Belum Dimulai' ? 'Belum Mulai' : 'Selesai'}
               </Text>
             </View>
-            {isBelumDimulai && (
+            {showActionButton && (
               <TouchableOpacity
                 style={styles.moreBtn}
                 onPress={(e) => {
@@ -285,7 +347,7 @@ export default function KelolaDinasScreen() {
       <View style={styles.contentWrapper}>
         {/* Fixed Search and Date */}
         <View style={styles.fixedControls}>
-          {/* Search Container */}
+          {/* Search Container with Filter Icon */}
           <View style={styles.searchContainer}>
             <View style={styles.searchInputWrapper}>
               <Ionicons name="search-outline" size={20} color="#666" />
@@ -302,49 +364,12 @@ export default function KelolaDinasScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          </View>
-
-          {/* Summary dengan Filter Status */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.filterHeader}>
-                <Ionicons name="funnel-outline" size={16} color="#004643" />
-                <Text style={styles.filterLabel}>Filter</Text>
-              </View>
-            </View>
-            
-            {/* Filter Status Dinas - Horizontal Scroll */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterScrollContent}
-              style={styles.filterScrollContainer}
+            <TouchableOpacity 
+              style={styles.filterIconBtn}
+              onPress={openFilterModal}
             >
-              {[
-                { key: 'semua', label: 'Semua' },
-                { key: 'berlangsung', label: 'Berlangsung' },
-                { key: 'selesai', label: 'Selesai' },
-                { key: 'belum_dimulai', label: 'Belum Dimulai' }
-              ].map((filter) => (
-                <TouchableOpacity
-                  key={filter.key}
-                  style={[
-                    styles.filterChip,
-                    selectedFilter === filter.key && styles.filterChipActive,
-                  ]}
-                  onPress={() => setSelectedFilter(filter.key)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      selectedFilter === filter.key && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+              <Ionicons name="options" size={20} color="#004643" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -406,6 +431,67 @@ export default function KelolaDinasScreen() {
           }}
         />
       </View>
+
+      {/* Filter Modal - Bottom Sheet */}
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={closeFilterModal}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1}
+            onPress={closeFilterModal}
+          />
+          <Animated.View style={[styles.filterBottomSheetModal, {
+            transform: [{ translateY: filterTranslateY }]
+          }]}>
+            <View {...filterPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetContent}>
+              <Text style={styles.modalTitle}>Filter Status Dinas</Text>
+              
+              <View style={styles.filterGrid}>
+                {[
+                  { value: 'semua', label: 'Semua', icon: 'apps' },
+                  { value: 'berlangsung', label: 'Berlangsung', icon: 'radio-button-on' },
+                  { value: 'selesai', label: 'Selesai', icon: 'checkmark-circle' },
+                  { value: 'belum_dimulai', label: 'Belum Dimulai', icon: 'time' }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.filterChip,
+                      selectedFilter === option.value && styles.filterChipActive
+                    ]}
+                    onPress={() => {
+                      setSelectedFilter(option.value);
+                      closeFilterModal();
+                    }}
+                  >
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={18} 
+                      color={selectedFilter === option.value ? '#fff' : '#666'} 
+                    />
+                    <Text style={[
+                      styles.filterChipText,
+                      selectedFilter === option.value && styles.filterChipTextActive
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Action Modal */}
       <Modal
@@ -535,11 +621,15 @@ const styles = StyleSheet.create({
   },
 
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff'
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: '#fff',
+    gap: 10
   },
   searchInputWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8F9FA',
@@ -548,6 +638,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
     gap: 12
+  },
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchInput: {
     flex: 1,
@@ -667,46 +765,52 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
 
-  filterHeader: {
+  filterBottomSheetModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 8,
+  },
+  bottomSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+  },
+  filterGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#004643'
-  },
-  filterScrollContainer: {
-    marginHorizontal: -4
-  },
-  filterScrollContent: {
-    paddingHorizontal: 4,
-    paddingRight: 20
+    flexWrap: 'wrap',
+    gap: 10,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
     borderColor: '#E0E0E0',
-    minWidth: 80,
-    alignItems: 'center'
   },
   filterChipActive: {
     backgroundColor: '#004643',
     borderColor: '#004643'
   },
   filterChipText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#666',
-    fontWeight: '500'
+    fontWeight: '600',
   },
   filterChipTextActive: {
     color: '#fff',
-    fontWeight: '600'
   },
   summaryCard: {
     backgroundColor: '#fff',

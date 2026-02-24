@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as NavigationBar from 'expo-navigation-bar';
 import { AppHeader } from "../../components";
 import { PusatValidasiAPI, KelolaDinasAPI } from '../../constants/config';
@@ -41,7 +41,6 @@ interface PengajuanItem {
   jam_mulai: string;
   jam_selesai: string;
   alasan_text: string;
-  lokasi_dinas: string;
   dokumen_foto: string;
   is_retrospektif: boolean;
   tanggal_pengajuan: string;
@@ -69,6 +68,7 @@ interface Statistics {
 
 export default function PusatValidasiScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [activeTab, setActiveTab] = useState('absen_dinas');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -140,12 +140,16 @@ export default function PusatValidasiScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Set initial tab dari params jika ada
+      if (params.initialTab) {
+        setActiveTab(params.initialTab as string);
+      }
       fetchAllData();
       // Set navigation bar translucent
       if (Platform.OS === 'android') {
         NavigationBar.setBackgroundColorAsync('transparent');
       }
-    }, [])
+    }, [params.initialTab])
   );
 
   const fetchAllData = async () => {
@@ -197,10 +201,14 @@ export default function PusatValidasiScreen() {
     try {
       const result = await PusatValidasiAPI.getPengajuan();
       if (result.success) {
-        setPengajuanData(result.data);
+        setPengajuanData(result.data || []);
+      } else {
+        console.error('Failed to fetch pengajuan:', result.message);
+        setPengajuanData([]);
       }
     } catch (error) {
       console.error('Error fetching pengajuan:', error);
+      setPengajuanData([]);
     }
   };
 
@@ -396,7 +404,7 @@ export default function PusatValidasiScreen() {
             <Text style={styles.dinasSptNumber}>{item.nomorSpt}</Text>
           </View>
           
-          {/* Badge Status di Pojok Kanan Atas */}
+          {/* Badge Status di Pojok Kanan Atas - Hanya tampilkan jika ada */}
           <View style={styles.badgeContainer}>
             {sudahValidasi > 0 && (
               <View style={[styles.statusBadgeSmall, styles.statusBadgeGreen]}>
@@ -965,7 +973,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   badge: {
-    backgroundColor: '#FF5722',
+    backgroundColor: '#FF9800',
     borderRadius: 12,
     minWidth: 22,
     height: 22,
@@ -973,7 +981,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
     elevation: 2,
-    shadowColor: '#FF5722',
+    shadowColor: '#FF9800',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -1071,17 +1079,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#E8F5E8',
+    backgroundColor: '#F5F5F5',
     borderRadius: 12,
     gap: 4,
     alignSelf: 'flex-start',
     marginTop: 4,
     borderWidth: 1,
-    borderColor: 'rgba(0, 70, 67, 0.2)',
+    borderColor: '#E0E0E0',
   },
   documentBtnText: {
     fontSize: 11,
-    color: '#004643',
+    color: '#666',
     fontWeight: '600',
   },
   

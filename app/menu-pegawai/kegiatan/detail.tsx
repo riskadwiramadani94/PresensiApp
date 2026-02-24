@@ -144,7 +144,7 @@ export default function DetailKegiatanScreen() {
             <View style={styles.sectionIconBox}>
               <Ionicons name="information-circle" size={18} color="#004643" />
             </View>
-            <Text style={styles.sectionTitle}>Informasi Dasar</Text>
+            <Text style={styles.sectionTitle}>Informasi Kegiatan</Text>
           </View>
           
           <View style={styles.infoCard}>
@@ -332,7 +332,7 @@ export default function DetailKegiatanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   content: { flex: 1, paddingTop: 15, paddingBottom: 30 },
   loadingContainer: {
     flex: 1,

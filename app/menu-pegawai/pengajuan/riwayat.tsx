@@ -505,7 +505,7 @@ export default function RiwayatPengajuanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   filterContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,

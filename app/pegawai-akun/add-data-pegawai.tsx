@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, View, Text, TextInput, TouchableOpacity, 
-  Alert, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, Modal 
+  Alert, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, Modal, Animated, PanResponder, Dimensions 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getApiUrl, API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader, CustomCalendar } from '../../components';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function AddDataPegawaiForm() {
   const router = useRouter();
@@ -33,6 +35,9 @@ export default function AddDataPegawaiForm() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
+  
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const calendarTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   const generateEmail = (nama: string) => {
     if (!nama.trim()) return '';
@@ -268,12 +273,48 @@ export default function AddDataPegawaiForm() {
   const handleDateSelect = (date: Date) => {
     const formattedDate = formatDate(date);
     setFormData({...formData, tanggal_lahir: formattedDate});
-    setShowCalendar(false);
+    closeCalendarModal();
   };
 
   const showCalendarModal = () => {
     setShowCalendar(true);
+    Animated.spring(calendarTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
   };
+
+  const closeCalendarModal = () => {
+    Animated.timing(calendarTranslateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowCalendar(false);
+    });
+  };
+
+  const calendarPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        calendarTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeCalendarModal();
+      } else {
+        Animated.spring(calendarTranslateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
 
   const formatTanggal = (text: string) => {
     const cleaned = text.replace(/\D/g, '');
@@ -310,7 +351,47 @@ export default function AddDataPegawaiForm() {
     
     // Show confirmation modal if all data is valid
     setShowConfirmModal(true);
+    openBottomSheet();
   };
+
+  const openBottomSheet = () => {
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeBottomSheet = () => {
+    Animated.timing(translateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowConfirmModal(false);
+    });
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeBottomSheet();
+      } else {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
 
   const confirmSubmit = async () => {
     // Validate field penting yang wajib
@@ -334,7 +415,7 @@ export default function AddDataPegawaiForm() {
     const dataToSend = formData;
 
     setLoading(true);
-    setShowConfirmModal(false);
+    closeBottomSheet();
     
     try {
       const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.DATA_PEGAWAI), {
@@ -442,22 +523,14 @@ export default function AddDataPegawaiForm() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Tanggal Lahir</Text>
-                <View style={styles.dateInputContainer}>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="DD/MM/YYYY"
-                    value={formData.tanggal_lahir}
-                    onChangeText={(text) => {
-                      const formatted = formatTanggal(text);
-                      setFormData({...formData, tanggal_lahir: formatted});
-                    }}
-                    keyboardType="numeric"
-                    maxLength={10}
-                  />
-                  <TouchableOpacity onPress={showCalendarModal} style={styles.calendarButton}>
+                <TouchableOpacity onPress={showCalendarModal} style={styles.datePickerButton}>
+                  <Text style={[styles.datePickerText, !formData.tanggal_lahir && styles.datePickerPlaceholder]}>
+                    {formData.tanggal_lahir || 'DD/MM/YYYY'}
+                  </Text>
+                  <View style={styles.calendarIconButton}>
                     <Ionicons name="calendar" size={20} color="#004643" />
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
@@ -606,125 +679,159 @@ export default function AddDataPegawaiForm() {
           </TouchableOpacity>
         </View>
 
-        {/* Calendar Modal */}
+        {/* Calendar Modal - Bottom Sheet */}
         <Modal 
           visible={showCalendar} 
           transparent
           animationType="none"
           statusBarTranslucent={true}
-          onRequestClose={() => setShowCalendar(false)}
+          onRequestClose={closeCalendarModal}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.calendarModalContainer}>
-              <View style={styles.calendarModalHeader}>
-                <Text style={styles.calendarModalTitle}>Pilih Tanggal Lahir</Text>
-                <TouchableOpacity onPress={() => setShowCalendar(false)}>
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
+            <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeCalendarModal} />
+            <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: calendarTranslateY }] }]}>
+              <View {...calendarPanResponder.panHandlers} style={styles.handleContainer}>
+                <View style={styles.handleBar} />
               </View>
-              <CustomCalendar 
-                onDatePress={(date) => handleDateSelect(date)}
-                weekendDays={[0, 6]}
-                showWeekends={false}
-              />
-            </View>
+              <View style={styles.calendarSheetContent}>
+                <Text style={styles.calendarSheetTitle}>Pilih Tanggal Lahir</Text>
+                <CustomCalendar 
+                  onDatePress={(date) => handleDateSelect(date)}
+                  weekendDays={[0, 6]}
+                  showWeekends={false}
+                />
+              </View>
+            </Animated.View>
           </View>
         </Modal>
 
-        {/* Confirmation Modal */}
+        {/* Confirmation Modal - Bottom Sheet */}
         <Modal 
           visible={showConfirmModal} 
           transparent
-          accessible={false}
-          accessibilityViewIsModal={false}
+          animationType="none"
+          statusBarTranslucent
+          onRequestClose={closeBottomSheet}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.confirmModalContainer}>
-              <View style={styles.confirmModalHeader}>
-                <Text style={styles.confirmModalTitle}>Konfirmasi Data Pegawai</Text>
-                <TouchableOpacity onPress={() => setShowConfirmModal(false)}>
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
+            <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeBottomSheet} />
+            <Animated.View style={[styles.bottomSheet, { transform: [{ translateY }] }]}>
+              <View {...panResponder.panHandlers} style={styles.handleContainer}>
+                <View style={styles.handleBar} />
               </View>
-              
-              <ScrollView style={styles.confirmModalContent}>
-                <View style={styles.confirmItem}>
-                  <Text style={styles.confirmLabel}>Nama Lengkap:</Text>
-                  <Text style={styles.confirmValue}>{formData.nama_lengkap}</Text>
+
+              <View style={styles.sheetContent}>
+                <Text style={styles.sheetTitle}>Konfirmasi Data Pegawai</Text>
+                
+                <ScrollView style={styles.confirmScrollView} showsVerticalScrollIndicator={false}>
+                  {/* Informasi Pribadi */}
+                  <View style={styles.sectionHeaderConfirm}>
+                    <Ionicons name="person-outline" size={18} color="#004643" />
+                    <Text style={styles.sectionTitleConfirm}>Informasi Pribadi</Text>
+                  </View>
+                  <View style={styles.sectionDivider} />
+
+                  <View style={styles.confirmRow}>
+                    <View style={styles.confirmItemHalf}>
+                      <Text style={styles.confirmLabel}>Nama Lengkap</Text>
+                      <Text style={styles.confirmValue}>{formData.nama_lengkap}</Text>
+                    </View>
+                    <View style={styles.confirmItemHalf}>
+                      <Text style={styles.confirmLabel}>NIP</Text>
+                      <Text style={styles.confirmValue}>{formData.nip}</Text>
+                    </View>
+                  </View>
+
+                  {formData.jenis_kelamin && (
+                    <View style={styles.confirmRow}>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Jenis Kelamin</Text>
+                        <Text style={styles.confirmValue}>{formData.jenis_kelamin}</Text>
+                      </View>
+                      {formData.no_telepon && (
+                        <View style={styles.confirmItemHalf}>
+                          <Text style={styles.confirmLabel}>No. Telepon</Text>
+                          <Text style={styles.confirmValue}>{formData.no_telepon}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {formData.tanggal_lahir && (
+                    <View style={styles.confirmRow}>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Tanggal Lahir</Text>
+                        <Text style={styles.confirmValue}>{formData.tanggal_lahir}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {formData.alamat && (
+                    <View style={styles.confirmItemFull}>
+                      <Text style={styles.confirmLabel}>Alamat Lengkap</Text>
+                      <Text style={styles.confirmValue}>{formData.alamat}</Text>
+                    </View>
+                  )}
+
+                  {/* Informasi Kepegawaian */}
+                  {(formData.jabatan || formData.divisi) && (
+                    <>
+                      <View style={styles.sectionHeaderConfirm}>
+                        <Ionicons name="briefcase-outline" size={18} color="#004643" />
+                        <Text style={styles.sectionTitleConfirm}>Informasi Kepegawaian</Text>
+                      </View>
+                      <View style={styles.sectionDivider} />
+
+                      <View style={styles.confirmRow}>
+                        {formData.jabatan && (
+                          <View style={styles.confirmItemHalf}>
+                            <Text style={styles.confirmLabel}>Jabatan</Text>
+                            <Text style={styles.confirmValue}>{formData.jabatan}</Text>
+                          </View>
+                        )}
+                        {formData.divisi && (
+                          <View style={styles.confirmItemHalf}>
+                            <Text style={styles.confirmLabel}>Divisi</Text>
+                            <Text style={styles.confirmValue}>{formData.divisi}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </>
+                  )}
+
+                  {/* Informasi Akun */}
+                  <View style={styles.sectionHeaderConfirm}>
+                    <Ionicons name="lock-closed-outline" size={18} color="#004643" />
+                    <Text style={styles.sectionTitleConfirm}>Informasi Akun</Text>
+                  </View>
+                  <View style={styles.sectionDivider} />
+
+                  <View style={styles.confirmItemFull}>
+                    <Text style={styles.confirmLabel}>Email</Text>
+                    <Text style={styles.confirmValue}>{formData.email}</Text>
+                  </View>
+                </ScrollView>
+                
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity 
+                    style={styles.cancelBtn}
+                    onPress={closeBottomSheet}
+                  >
+                    <Text style={styles.cancelText}>Batal</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.saveBtn}
+                    onPress={confirmSubmit}
+                    disabled={loading}
+                  >
+                    <Text style={styles.saveText}>
+                      {loading ? 'Menyimpan...' : 'Simpan Data'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                
-                <View style={styles.confirmItem}>
-                  <Text style={styles.confirmLabel}>NIP:</Text>
-                  <Text style={styles.confirmValue}>{formData.nip}</Text>
-                </View>
-                
-                <View style={styles.confirmItem}>
-                  <Text style={styles.confirmLabel}>Email:</Text>
-                  <Text style={styles.confirmValue}>{formData.email}</Text>
-                </View>
-                
-                {formData.jenis_kelamin && (
-                  <View style={styles.confirmItem}>
-                    <Text style={styles.confirmLabel}>Jenis Kelamin:</Text>
-                    <Text style={styles.confirmValue}>{formData.jenis_kelamin}</Text>
-                  </View>
-                )}
-                
-                {formData.jabatan && (
-                  <View style={styles.confirmItem}>
-                    <Text style={styles.confirmLabel}>Jabatan:</Text>
-                    <Text style={styles.confirmValue}>{formData.jabatan}</Text>
-                  </View>
-                )}
-                
-                {formData.divisi && (
-                  <View style={styles.confirmItem}>
-                    <Text style={styles.confirmLabel}>Divisi:</Text>
-                    <Text style={styles.confirmValue}>{formData.divisi}</Text>
-                  </View>
-                )}
-                
-                {formData.no_telepon && (
-                  <View style={styles.confirmItem}>
-                    <Text style={styles.confirmLabel}>No. Telepon:</Text>
-                    <Text style={styles.confirmValue}>{formData.no_telepon}</Text>
-                  </View>
-                )}
-                
-                {formData.alamat && (
-                  <View style={styles.confirmItem}>
-                    <Text style={styles.confirmLabel}>Alamat:</Text>
-                    <Text style={styles.confirmValue}>{formData.alamat}</Text>
-                  </View>
-                )}
-                
-                {formData.tanggal_lahir && (
-                  <View style={styles.confirmItem}>
-                    <Text style={styles.confirmLabel}>Tanggal Lahir:</Text>
-                    <Text style={styles.confirmValue}>{formData.tanggal_lahir}</Text>
-                  </View>
-                )}
-              </ScrollView>
-              
-              <View style={styles.confirmModalFooter}>
-                <TouchableOpacity 
-                  style={styles.cancelConfirmBtn}
-                  onPress={() => setShowConfirmModal(false)}
-                >
-                  <Text style={styles.cancelConfirmText}>Batal</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.saveConfirmBtn}
-                  onPress={confirmSubmit}
-                  disabled={loading}
-                >
-                  <Text style={styles.saveConfirmText}>
-                    {loading ? 'Menyimpan...' : 'Simpan Data'}
-                  </Text>
-                </TouchableOpacity>
               </View>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
 
@@ -815,14 +922,31 @@ const styles = StyleSheet.create({
   dateInputContainer: {
     position: 'relative'
   },
-  calendarButton: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
+  datePickerButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1
+  },
+  datePickerPlaceholder: {
+    color: '#999'
+  },
+  calendarIconButton: {
     padding: 4,
     borderRadius: 4,
     backgroundColor: '#F0F8F0'
   },
+
   submitBtn: {
     backgroundColor: '#004643',
     flexDirection: 'row',
@@ -868,78 +992,155 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  calendarBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20
+  },
+  calendarSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16
+  },
+  calendarSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center'
+  },
+  modalBackdrop: { 
+    flex: 1 
+  },
+  bottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20
+  },
+  handleContainer: {
+    paddingVertical: 12,
     alignItems: 'center'
   },
-  confirmModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    width: '90%',
-    maxHeight: '80%'
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2
   },
-  confirmModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
+  sheetContent: { 
+    paddingHorizontal: 20, 
+    paddingBottom: 16 
   },
-  confirmModalTitle: {
+  sheetTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333'
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16
   },
-  confirmModalContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    maxHeight: 400
+  confirmScrollView: {
+    maxHeight: SCREEN_HEIGHT * 0.5,
+    marginBottom: 16
   },
-  confirmItem: {
-    marginBottom: 15
+  sectionHeaderConfirm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8
+  },
+  sectionTitleConfirm: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#004643'
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 12
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16
+  },
+  confirmItemHalf: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
+  },
+  confirmItemFull: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12
   },
   confirmLabel: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#666',
-    marginBottom: 4
+    color: '#6B7280',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3
   },
   confirmValue: {
     fontSize: 14,
-    color: '#333',
-    lineHeight: 20
+    color: '#1F2937',
+    fontWeight: '600',
+    lineHeight: 18
   },
-  confirmModalFooter: {
+  buttonGroup: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    gap: 10
+    gap: 12
   },
-  cancelConfirmBtn: {
+  cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     backgroundColor: '#F5F5F5',
-    alignItems: 'center'
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
   },
-  cancelConfirmText: {
-    fontSize: 14,
+  cancelText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#666'
   },
-  saveConfirmBtn: {
+  saveBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     backgroundColor: '#004643',
-    alignItems: 'center'
+    alignItems: 'center',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4
   },
-  saveConfirmText: {
-    fontSize: 14,
+  saveText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#fff'
   },
@@ -950,31 +1151,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     paddingHorizontal: 20,
   },
-  calendarModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: '90%',
-    maxWidth: 350,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  calendarModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
-  },
-  calendarModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
+
   monthBtn: {
     padding: 8,
     borderRadius: 8,

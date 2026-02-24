@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Dimensions, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,12 +13,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader, CustomCalendar } from '../../components';
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 export default function TambahDinasScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPegawaiModal, setShowPegawaiModal] = useState(false);
   const [pegawaiList, setPegawaiList] = useState<any[]>([]);
   const [selectedPegawai, setSelectedPegawai] = useState<any[]>([]);
+  const [tempSelectedPegawai, setTempSelectedPegawai] = useState<any[]>([]);
   const [mapRegion, setMapRegion] = useState({
     latitude: -6.2088,
     longitude: 106.8456,
@@ -41,8 +44,11 @@ export default function TambahDinasScreen() {
   const [selectedFile, setSelectedFile] = useState<any>(null);
 
   const [showJenisDinasDropdown, setShowJenisDinasDropdown] = useState(false);
+  const translateYJenisDinas = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [showDateMulaiPicker, setShowDateMulaiPicker] = useState(false);
   const [showDateSelesaiPicker, setShowDateSelesaiPicker] = useState(false);
+  const translateYDateMulai = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const translateYDateSelesai = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [showJamMulaiPicker, setShowJamMulaiPicker] = useState(false);
   const [showJamSelesaiPicker, setShowJamSelesaiPicker] = useState(false);
   const [useDefaultJam, setUseDefaultJam] = useState(true);
@@ -51,6 +57,7 @@ export default function TambahDinasScreen() {
   const [currentStep, setCurrentStep] = useState(1);
 
   const totalSteps = 5;
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   const pickDocument = async () => {
     try {
@@ -85,8 +92,11 @@ export default function TambahDinasScreen() {
     pegawaiIds: [] as number[]
   });
   const [selectedLokasi, setSelectedLokasi] = useState<any[]>([]);
+  const [tempSelectedLokasi, setTempSelectedLokasi] = useState<any[]>([]);
   const [availableLokasi, setAvailableLokasi] = useState<any[]>([]);
   const [showLokasiModal, setShowLokasiModal] = useState(false);
+  const translateYLokasi = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const translateYPegawai = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   const getCurrentLocation = async () => {
     try {
@@ -432,41 +442,20 @@ export default function TambahDinasScreen() {
   };
 
   const togglePegawai = (pegawai: any) => {
-    console.log('Toggling pegawai:', pegawai); // Debug log
-    
-    // Gunakan id yang paling reliable
     const pegawaiId = pegawai.id_user || pegawai.id_pegawai || pegawai.id;
-    const isSelected = selectedPegawai.find((p: any) => {
+    const isSelected = tempSelectedPegawai.find((p: any) => {
       const selectedId = p.id_user || p.id_pegawai || p.id;
       return selectedId === pegawaiId;
     });
     
-    let updatedPegawai;
     if (isSelected) {
-      // Remove pegawai
-      updatedPegawai = selectedPegawai.filter((p: any) => {
+      setTempSelectedPegawai(tempSelectedPegawai.filter((p: any) => {
         const selectedId = p.id_user || p.id_pegawai || p.id;
         return selectedId !== pegawaiId;
-      });
+      }));
     } else {
-      // Add pegawai
-      updatedPegawai = [...selectedPegawai, pegawai];
+      setTempSelectedPegawai([...tempSelectedPegawai, pegawai]);
     }
-    
-    setSelectedPegawai(updatedPegawai);
-    
-    // Update pegawaiIds di formData
-    const validIds = updatedPegawai
-      .map((p: any) => p.id_user || p.id_pegawai || p.id)
-      .filter(id => id != null && !isNaN(parseInt(id)))
-      .map(id => parseInt(id));
-    
-    console.log('Valid pegawai IDs:', validIds); // Debug log
-    
-    setFormData({
-      ...formData,
-      pegawaiIds: validIds
-    });
   };
 
   const formatDate = (date: Date) => {
@@ -480,15 +469,91 @@ export default function TambahDinasScreen() {
     const formattedDate = formatDate(date);
     setFormData({...formData, tanggalMulai: formattedDate});
     validateField('tanggalMulai', formattedDate);
-    setShowDateMulaiPicker(false);
+    closeDateMulaiPicker();
   };
 
   const handleDateSelesaiSelect = (date: Date) => {
     const formattedDate = formatDate(date);
     setFormData({...formData, tanggalSelesai: formattedDate});
     validateField('tanggalSelesai', formattedDate);
-    setShowDateSelesaiPicker(false);
+    closeDateSelesaiPicker();
   };
+
+  const openDateMulaiPicker = () => {
+    setShowDateMulaiPicker(true);
+    Animated.spring(translateYDateMulai, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeDateMulaiPicker = () => {
+    Animated.timing(translateYDateMulai, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => setShowDateMulaiPicker(false));
+  };
+
+  const openDateSelesaiPicker = () => {
+    setShowDateSelesaiPicker(true);
+    Animated.spring(translateYDateSelesai, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeDateSelesaiPicker = () => {
+    Animated.timing(translateYDateSelesai, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => setShowDateSelesaiPicker(false));
+  };
+
+  const panResponderDateMulai = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYDateMulai.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeDateMulaiPicker();
+      } else {
+        Animated.spring(translateYDateMulai, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const panResponderDateSelesai = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYDateSelesai.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeDateSelesaiPicker();
+      } else {
+        Animated.spring(translateYDateSelesai, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
 
   const handleJamMulaiSelect = (time: Date) => {
     const formattedTime = formatTime(time);
@@ -556,7 +621,119 @@ export default function TambahDinasScreen() {
     
     // Show confirmation modal if all data is valid
     setShowConfirmModal(true);
+    openBottomSheet();
   };
+
+  const openBottomSheet = () => {
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeBottomSheet = () => {
+    Animated.timing(translateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowConfirmModal(false);
+    });
+  };
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeBottomSheet();
+      } else {
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const panResponderJenisDinas = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYJenisDinas.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        Animated.timing(translateYJenisDinas, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true
+        }).start(() => setShowJenisDinasDropdown(false));
+      } else {
+        Animated.spring(translateYJenisDinas, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const panResponderLokasi = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYLokasi.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        Animated.timing(translateYLokasi, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true
+        }).start(() => setShowLokasiModal(false));
+      } else {
+        Animated.spring(translateYLokasi, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const panResponderPegawai = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYPegawai.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        Animated.timing(translateYPegawai, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true
+        }).start(() => setShowPegawaiModal(false));
+      } else {
+        Animated.spring(translateYPegawai, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
 
   const confirmSubmit = async () => {
     // Validate all fields
@@ -577,7 +754,7 @@ export default function TambahDinasScreen() {
     }
 
     setLoading(true);
-    setShowConfirmModal(false);
+    closeBottomSheet();
     
     try {
       // Gunakan FormData untuk kirim file + data
@@ -697,42 +874,22 @@ export default function TambahDinasScreen() {
                 <Text style={styles.inputLabel}>Jenis Dinas *</Text>
                 <TouchableOpacity 
                   style={styles.dropdownBtn}
-                  onPress={() => setShowJenisDinasDropdown(!showJenisDinasDropdown)}
+                  onPress={() => {
+                    setShowJenisDinasDropdown(true);
+                    Animated.spring(translateYJenisDinas, {
+                      toValue: 0,
+                      useNativeDriver: true,
+                      tension: 65,
+                      friction: 11
+                    }).start();
+                  }}
                 >
                   <Text style={styles.dropdownBtnText}>
                     {formData.jenisDinas === 'lokal' ? 'Dinas Lokal' : 
                      formData.jenisDinas === 'luar_kota' ? 'Dinas Luar Kota' : 'Dinas Luar Negeri'}
                   </Text>
-                  <Ionicons 
-                    name={showJenisDinasDropdown ? "chevron-up" : "chevron-down"} 
-                    size={16} 
-                    color="#666" 
-                  />
+                  <Ionicons name="chevron-down" size={16} color="#666" />
                 </TouchableOpacity>
-                
-                {showJenisDinasDropdown && (
-                  <View style={styles.dropdownContainer}>
-                    {[
-                      { key: 'lokal', label: 'Dinas Lokal' },
-                      { key: 'luar_kota', label: 'Dinas Luar Kota' },
-                      { key: 'luar_negeri', label: 'Dinas Luar Negeri' }
-                    ].map((item) => (
-                      <TouchableOpacity
-                        key={item.key}
-                        style={[styles.dropdownItem, formData.jenisDinas === item.key && styles.dropdownItemSelected]}
-                        onPress={() => {
-                          setFormData({...formData, jenisDinas: item.key});
-                          setShowJenisDinasDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>{item.label}</Text>
-                        {formData.jenisDinas === item.key && (
-                          <Ionicons name="checkmark-circle" size={20} color="#004643" />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -758,23 +915,14 @@ export default function TambahDinasScreen() {
           <View style={styles.formContent}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Tanggal Mulai *</Text>
-                <View style={styles.dateInputContainer}>
-                  <TextInput
-                    style={[styles.textInput, validationErrors.tanggalMulai && styles.inputError]}
-                    placeholder="DD/MM/YYYY"
-                    value={formData.tanggalMulai}
-                    onChangeText={(text) => {
-                      const formatted = formatTanggal(text);
-                      setFormData({...formData, tanggalMulai: formatted});
-                      validateField('tanggalMulai', formatted);
-                    }}
-                    keyboardType="numeric"
-                    maxLength={10}
-                  />
-                  <TouchableOpacity onPress={() => setShowDateMulaiPicker(true)} style={styles.calendarButton}>
+                <TouchableOpacity onPress={openDateMulaiPicker} style={styles.datePickerButton}>
+                  <Text style={[styles.datePickerText, !formData.tanggalMulai && styles.datePickerPlaceholder]}>
+                    {formData.tanggalMulai || 'DD/MM/YYYY'}
+                  </Text>
+                  <View style={styles.calendarIconButton}>
                     <Ionicons name="calendar" size={20} color="#004643" />
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                </TouchableOpacity>
                 {validationErrors.tanggalMulai && (
                   <Text style={styles.errorText}>{validationErrors.tanggalMulai}</Text>
                 )}
@@ -782,23 +930,14 @@ export default function TambahDinasScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Tanggal Selesai *</Text>
-                <View style={styles.dateInputContainer}>
-                  <TextInput
-                    style={[styles.textInput, validationErrors.tanggalSelesai && styles.inputError]}
-                    placeholder="DD/MM/YYYY"
-                    value={formData.tanggalSelesai}
-                    onChangeText={(text) => {
-                      const formatted = formatTanggal(text);
-                      setFormData({...formData, tanggalSelesai: formatted});
-                      validateField('tanggalSelesai', formatted);
-                    }}
-                    keyboardType="numeric"
-                    maxLength={10}
-                  />
-                  <TouchableOpacity onPress={() => setShowDateSelesaiPicker(true)} style={styles.calendarButton}>
+                <TouchableOpacity onPress={openDateSelesaiPicker} style={styles.datePickerButton}>
+                  <Text style={[styles.datePickerText, !formData.tanggalSelesai && styles.datePickerPlaceholder]}>
+                    {formData.tanggalSelesai || 'DD/MM/YYYY'}
+                  </Text>
+                  <View style={styles.calendarIconButton}>
                     <Ionicons name="calendar" size={20} color="#004643" />
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                </TouchableOpacity>
                 {validationErrors.tanggalSelesai && (
                   <Text style={styles.errorText}>{validationErrors.tanggalSelesai}</Text>
                 )}
@@ -806,73 +945,55 @@ export default function TambahDinasScreen() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Pengaturan Jam Kerja</Text>
-                <View style={styles.radioGroup}>
+                <View style={styles.jamKerjaContainer}>
                   <TouchableOpacity 
-                    style={styles.radioOption}
+                    style={[styles.jamKerjaBtn, useDefaultJam && styles.jamKerjaBtnActive]}
                     onPress={() => {
                       setUseDefaultJam(true);
                       setFormData({...formData, jamMulai: '', jamSelesai: ''});
                     }}
                   >
-                    <Ionicons 
-                      name={useDefaultJam ? "radio-button-on" : "radio-button-off"} 
-                      size={20} 
-                      color="#004643" 
-                    />
-                    <Text style={styles.radioText}>Gunakan Jam Kantor Default</Text>
+                    <Text style={[styles.jamKerjaText, useDefaultJam && styles.jamKerjaTextActive]}>
+                      Jam Kantor Default
+                    </Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                    style={styles.radioOption}
+                    style={[styles.jamKerjaBtn, !useDefaultJam && styles.jamKerjaBtnActive]}
                     onPress={() => setUseDefaultJam(false)}
                   >
-                    <Ionicons 
-                      name={!useDefaultJam ? "radio-button-on" : "radio-button-off"} 
-                      size={20} 
-                      color="#004643" 
-                    />
-                    <Text style={styles.radioText}>Atur Jam Khusus</Text>
+                    <Text style={[styles.jamKerjaText, !useDefaultJam && styles.jamKerjaTextActive]}>
+                      Atur Jam Khusus
+                    </Text>
                   </TouchableOpacity>
                 </View>
                 
                 {!useDefaultJam && (
                   <View style={styles.jamKhususContainer}>
-                    <View style={styles.jamInputGroup}>
-                      <Text style={styles.jamLabel}>Jam Mulai</Text>
-                      <View style={styles.dateInputContainer}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="08:00"
-                          value={formData.jamMulai}
-                          onChangeText={(text) => setFormData({...formData, jamMulai: formatJam(text)})}
-                          keyboardType="numeric"
-                          maxLength={5}
-                        />
-                        <TouchableOpacity onPress={() => setShowJamMulaiPicker(true)} style={styles.calendarButton}>
-                          <Ionicons name="time" size={20} color="#004643" />
+                    <View style={styles.jamRow}>
+                      <View style={styles.jamInputGroup}>
+                        <Text style={styles.jamLabel}>Jam Mulai</Text>
+                        <TouchableOpacity onPress={() => setShowJamMulaiPicker(true)} style={styles.jamPickerButton}>
+                          <Text style={[styles.jamPickerText, !formData.jamMulai && styles.jamPickerPlaceholder]}>
+                            {formData.jamMulai || '08:00'}
+                          </Text>
+                          <Ionicons name="time" size={18} color="#004643" />
                         </TouchableOpacity>
                       </View>
-                    </View>
-                    
-                    <View style={styles.jamInputGroup}>
-                      <Text style={styles.jamLabel}>Jam Selesai</Text>
-                      <View style={styles.dateInputContainer}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="17:00"
-                          value={formData.jamSelesai}
-                          onChangeText={(text) => setFormData({...formData, jamSelesai: formatJam(text)})}
-                          keyboardType="numeric"
-                          maxLength={5}
-                        />
-                        <TouchableOpacity onPress={() => setShowJamSelesaiPicker(true)} style={styles.calendarButton}>
-                          <Ionicons name="time" size={20} color="#004643" />
+                      
+                      <View style={styles.jamInputGroup}>
+                        <Text style={styles.jamLabel}>Jam Selesai</Text>
+                        <TouchableOpacity onPress={() => setShowJamSelesaiPicker(true)} style={styles.jamPickerButton}>
+                          <Text style={[styles.jamPickerText, !formData.jamSelesai && styles.jamPickerPlaceholder]}>
+                            {formData.jamSelesai || '17:00'}
+                          </Text>
+                          <Ionicons name="time" size={18} color="#004643" />
                         </TouchableOpacity>
                       </View>
                     </View>
                     
                     <View style={styles.infoBox}>
-                      <Ionicons name="information-circle" size={16} color="#004643" />
+                      <Ionicons name="information-circle" size={14} color="#004643" />
                       <Text style={styles.infoText}>Jam ini berlaku untuk semua hari dinas</Text>
                     </View>
                   </View>
@@ -892,7 +1013,16 @@ export default function TambahDinasScreen() {
                 <Text style={styles.inputLabel}>Lokasi Dinas *</Text>
                 <TouchableOpacity 
                   style={styles.dropdownBtn}
-                  onPress={() => setShowLokasiModal(!showLokasiModal)}
+                  onPress={() => {
+                    setTempSelectedLokasi([...selectedLokasi]);
+                    setShowLokasiModal(true);
+                    Animated.spring(translateYLokasi, {
+                      toValue: 0,
+                      useNativeDriver: true,
+                      tension: 65,
+                      friction: 11
+                    }).start();
+                  }}
                 >
                   <Text style={styles.dropdownBtnText}>
                     {selectedLokasi.length > 0 
@@ -900,55 +1030,8 @@ export default function TambahDinasScreen() {
                       : 'Pilih Lokasi Dinas'
                     }
                   </Text>
-                  <Ionicons 
-                    name={showLokasiModal ? "chevron-up" : "chevron-down"} 
-                    size={16} 
-                    color="#666" 
-                  />
+                  <Ionicons name="chevron-down" size={16} color="#666" />
                 </TouchableOpacity>
-                
-                {showLokasiModal && (
-                  <View style={styles.dropdownContainer}>
-                    <View style={styles.searchWrapper}>
-                      <Ionicons name="search-outline" size={16} color="#666" />
-                      <TextInput
-                        style={styles.searchInput}
-                        placeholder="Cari nama lokasi..."
-                        value={lokasiSearchQuery}
-                        onChangeText={filterLokasi}
-                      />
-                    </View>
-                    
-                    <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                      {filteredLokasi.map((lokasi) => {
-                        const isSelected = selectedLokasi.find(l => l.id === lokasi.id);
-                        return (
-                          <TouchableOpacity
-                            key={lokasi.id}
-                            style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
-                            onPress={() => {
-                              if (isSelected) {
-                                setSelectedLokasi(selectedLokasi.filter(l => l.id !== lokasi.id));
-                              } else {
-                                setSelectedLokasi([...selectedLokasi, lokasi]);
-                              }
-                            }}
-                          >
-                            <View style={styles.itemInfo}>
-                              <Text style={styles.itemName}>{lokasi.nama_lokasi}</Text>
-                              <Text style={styles.itemSubtext}>
-                                {lokasi.jenis_lokasi === 'tetap' ? 'Kantor Tetap' : 'Lokasi Dinas'}
-                              </Text>
-                            </View>
-                            {isSelected && (
-                              <Ionicons name="checkmark-circle" size={20} color="#004643" />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                )}
                 
                 {validationErrors.lokasi && (
                   <Text style={styles.errorText}>{validationErrors.lokasi}</Text>
@@ -977,7 +1060,16 @@ export default function TambahDinasScreen() {
                 <Text style={styles.inputLabel}>Pegawai Dinas * ({selectedPegawai.length} dipilih)</Text>
                 <TouchableOpacity 
                   style={styles.dropdownBtn}
-                  onPress={() => setShowPegawaiDropdown(!showPegawaiDropdown)}
+                  onPress={() => {
+                    setTempSelectedPegawai([...selectedPegawai]);
+                    setShowPegawaiModal(true);
+                    Animated.spring(translateYPegawai, {
+                      toValue: 0,
+                      useNativeDriver: true,
+                      tension: 65,
+                      friction: 11
+                    }).start();
+                  }}
                 >
                   <Text style={styles.dropdownBtnText}>
                     {selectedPegawai.length > 0 
@@ -985,51 +1077,8 @@ export default function TambahDinasScreen() {
                       : 'Pilih Pegawai Dinas'
                     }
                   </Text>
-                  <Ionicons 
-                    name={showPegawaiDropdown ? "chevron-up" : "chevron-down"} 
-                    size={16} 
-                    color="#666" 
-                  />
+                  <Ionicons name="chevron-down" size={16} color="#666" />
                 </TouchableOpacity>
-                
-                {showPegawaiDropdown && (
-                  <View style={styles.dropdownContainer}>
-                    <View style={styles.searchWrapper}>
-                      <Ionicons name="search-outline" size={16} color="#666" />
-                      <TextInput
-                        style={styles.searchInput}
-                        placeholder="Cari nama atau NIP pegawai..."
-                        value={pegawaiSearchQuery}
-                        onChangeText={filterPegawai}
-                      />
-                    </View>
-                    
-                    <ScrollView style={styles.dropdownList} nestedScrollEnabled>
-                      {filteredPegawai.map((pegawai: any, index) => {
-                        const pegawaiId = pegawai.id_user || pegawai.id_pegawai || pegawai.id;
-                        const isSelected = selectedPegawai.find((p: any) => {
-                          const selectedId = p.id_user || p.id_pegawai || p.id;
-                          return selectedId === pegawaiId;
-                        });
-                        return (
-                          <TouchableOpacity
-                            key={pegawaiId || index}
-                            style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
-                            onPress={() => togglePegawai(pegawai)}
-                          >
-                            <View style={styles.itemInfo}>
-                              <Text style={styles.itemName}>{pegawai.nama_lengkap}</Text>
-                              <Text style={styles.itemSubtext}>NIP: {pegawai.nip}</Text>
-                            </View>
-                            {isSelected && (
-                              <Ionicons name="checkmark-circle" size={20} color="#004643" />
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                )}
                 
                 {validationErrors.pegawai && (
                   <Text style={styles.errorText}>{validationErrors.pegawai}</Text>
@@ -1073,50 +1122,42 @@ export default function TambahDinasScreen() {
 
         </ScrollView>
 
-      {/* Calendar Modals */}
-      <Modal visible={showDateMulaiPicker} transparent animationType="none" statusBarTranslucent={true}>
+      {/* Calendar Modals - Bottom Sheet */}
+      <Modal visible={showDateMulaiPicker} transparent animationType="none" statusBarTranslucent={true} onRequestClose={closeDateMulaiPicker}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={styles.modalBackdrop} 
-            activeOpacity={1}
-            onPress={() => setShowDateMulaiPicker(false)}
-          />
-          <View style={styles.calendarModalContainer}>
-            <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>Pilih Tanggal Mulai</Text>
-              <TouchableOpacity onPress={() => setShowDateMulaiPicker(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeDateMulaiPicker} />
+          <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: translateYDateMulai }] }]}>
+            <View {...panResponderDateMulai.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            <CustomCalendar 
-              onDatePress={(date) => handleDateMulaiSelect(date)}
-              weekendDays={[0, 6]}
-              showWeekends={false}
-            />
-          </View>
+            <View style={styles.calendarSheetContent}>
+              <Text style={styles.calendarSheetTitle}>Pilih Tanggal Mulai</Text>
+              <CustomCalendar 
+                onDatePress={(date) => handleDateMulaiSelect(date)}
+                weekendDays={[0, 6]}
+                showWeekends={false}
+              />
+            </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal visible={showDateSelesaiPicker} transparent animationType="none" statusBarTranslucent={true}>
+      <Modal visible={showDateSelesaiPicker} transparent animationType="none" statusBarTranslucent={true} onRequestClose={closeDateSelesaiPicker}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={styles.modalBackdrop} 
-            activeOpacity={1}
-            onPress={() => setShowDateSelesaiPicker(false)}
-          />
-          <View style={styles.calendarModalContainer}>
-            <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>Pilih Tanggal Selesai</Text>
-              <TouchableOpacity onPress={() => setShowDateSelesaiPicker(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeDateSelesaiPicker} />
+          <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: translateYDateSelesai }] }]}>
+            <View {...panResponderDateSelesai.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            <CustomCalendar 
-              onDatePress={(date) => handleDateSelesaiSelect(date)}
-              weekendDays={[0, 6]}
-              showWeekends={false}
-            />
-          </View>
+            <View style={styles.calendarSheetContent}>
+              <Text style={styles.calendarSheetTitle}>Pilih Tanggal Selesai</Text>
+              <CustomCalendar 
+                onDatePress={(date) => handleDateSelesaiSelect(date)}
+                weekendDays={[0, 6]}
+                showWeekends={false}
+              />
+            </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -1137,6 +1178,365 @@ export default function TambahDinasScreen() {
         is24Hour={true}
         display="default"
       />
+
+      {/* Jenis Dinas Modal - Bottom Sheet */}
+      <Modal
+        visible={showJenisDinasDropdown}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => {
+          Animated.timing(translateYJenisDinas, {
+            toValue: SCREEN_HEIGHT,
+            duration: 250,
+            useNativeDriver: true
+          }).start(() => setShowJenisDinasDropdown(false));
+        }}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity 
+            style={styles.bottomSheetBackdrop} 
+            activeOpacity={1}
+            onPress={() => {
+              Animated.timing(translateYJenisDinas, {
+                toValue: SCREEN_HEIGHT,
+                duration: 250,
+                useNativeDriver: true
+              }).start(() => setShowJenisDinasDropdown(false));
+            }}
+          />
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: translateYJenisDinas }] }]}>
+            <View {...panResponderJenisDinas.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Jenis Dinas</Text>
+            </View>
+            
+            <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
+              {[
+                { key: 'lokal', label: 'Dinas Lokal', icon: 'business' },
+                { key: 'luar_kota', label: 'Dinas Luar Kota', icon: 'car' },
+                { key: 'luar_negeri', label: 'Dinas Luar Negeri', icon: 'airplane' }
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.bottomSheetItem,
+                    formData.jenisDinas === item.key && styles.bottomSheetItemActive
+                  ]}
+                  onPress={() => {
+                    setFormData({...formData, jenisDinas: item.key});
+                    Animated.timing(translateYJenisDinas, {
+                      toValue: SCREEN_HEIGHT,
+                      duration: 250,
+                      useNativeDriver: true
+                    }).start(() => setShowJenisDinasDropdown(false));
+                  }}
+                >
+                  <View style={styles.bottomSheetItemLeft}>
+                    <View style={[
+                      styles.bottomSheetIcon,
+                      formData.jenisDinas === item.key && styles.bottomSheetIconActive
+                    ]}>
+                      <Ionicons 
+                        name={item.icon as any} 
+                        size={20} 
+                        color={formData.jenisDinas === item.key ? '#fff' : '#004643'} 
+                      />
+                    </View>
+                    <Text style={[
+                      styles.bottomSheetItemText,
+                      formData.jenisDinas === item.key && styles.bottomSheetItemTextActive
+                    ]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  {formData.jenisDinas === item.key && (
+                    <Ionicons name="checkmark-circle" size={24} color="#004643" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Lokasi Modal - Bottom Sheet */}
+      <Modal
+        visible={showLokasiModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => {
+          Animated.timing(translateYLokasi, {
+            toValue: SCREEN_HEIGHT,
+            duration: 250,
+            useNativeDriver: true
+          }).start(() => setShowLokasiModal(false));
+        }}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity 
+            style={styles.bottomSheetBackdrop} 
+            activeOpacity={1}
+            onPress={() => {
+              Animated.timing(translateYLokasi, {
+                toValue: SCREEN_HEIGHT,
+                duration: 250,
+                useNativeDriver: true
+              }).start(() => setShowLokasiModal(false));
+            }}
+          />
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: translateYLokasi }] }]}>
+            <View {...panResponderLokasi.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Lokasi Dinas</Text>
+            </View>
+            
+            <View style={styles.searchWrapper}>
+              <View style={styles.searchInputContainer}>
+                <Ionicons name="search-outline" size={18} color="#666" />
+                <TextInput
+                  style={styles.searchInputField}
+                  placeholder="Cari nama lokasi..."
+                  value={lokasiSearchQuery}
+                  onChangeText={filterLokasi}
+                  placeholderTextColor="#999"
+                />
+                {lokasiSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => {
+                    setLokasiSearchQuery('');
+                    setFilteredLokasi(availableLokasi);
+                  }}>
+                    <Ionicons name="close-circle" size={18} color="#999" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            
+            <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
+              {filteredLokasi.map((lokasi) => {
+                const isSelected = tempSelectedLokasi.find(l => l.id === lokasi.id);
+                return (
+                  <TouchableOpacity
+                    key={lokasi.id}
+                    style={[
+                      styles.bottomSheetItem,
+                      isSelected && styles.bottomSheetItemActive
+                    ]}
+                    onPress={() => {
+                      if (isSelected) {
+                        setTempSelectedLokasi(tempSelectedLokasi.filter(l => l.id !== lokasi.id));
+                      } else {
+                        setTempSelectedLokasi([...tempSelectedLokasi, lokasi]);
+                      }
+                    }}
+                  >
+                    <View style={styles.bottomSheetItemLeft}>
+                      <View style={[
+                        styles.bottomSheetIcon,
+                        isSelected && styles.bottomSheetIconActive
+                      ]}>
+                        <Ionicons 
+                          name="location" 
+                          size={20} 
+                          color={isSelected ? '#fff' : '#004643'} 
+                        />
+                      </View>
+                      <View style={styles.itemInfo}>
+                        <Text style={[
+                          styles.bottomSheetItemText,
+                          isSelected && styles.bottomSheetItemTextActive
+                        ]}>
+                          {lokasi.nama_lokasi}
+                        </Text>
+                        <Text style={styles.itemSubtext}>
+                          {lokasi.jenis_lokasi === 'tetap' ? 'Kantor Tetap' : 'Lokasi Dinas'}
+                        </Text>
+                      </View>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={24} color="#004643" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            
+            <View style={styles.modalButtonGroup}>
+              <TouchableOpacity 
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  Animated.timing(translateYLokasi, {
+                    toValue: SCREEN_HEIGHT,
+                    duration: 250,
+                    useNativeDriver: true
+                  }).start(() => setShowLokasiModal(false));
+                }}
+              >
+                <Text style={styles.modalCancelText}>Batal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalConfirmBtn}
+                onPress={() => {
+                  setSelectedLokasi(tempSelectedLokasi);
+                  Animated.timing(translateYLokasi, {
+                    toValue: SCREEN_HEIGHT,
+                    duration: 250,
+                    useNativeDriver: true
+                  }).start(() => setShowLokasiModal(false));
+                }}
+              >
+                <Text style={styles.modalConfirmText}>Pilih ({tempSelectedLokasi.length})</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Pegawai Modal - Bottom Sheet */}
+      <Modal
+        visible={showPegawaiModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => {
+          Animated.timing(translateYPegawai, {
+            toValue: SCREEN_HEIGHT,
+            duration: 250,
+            useNativeDriver: true
+          }).start(() => setShowPegawaiModal(false));
+        }}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity 
+            style={styles.bottomSheetBackdrop} 
+            activeOpacity={1}
+            onPress={() => {
+              Animated.timing(translateYPegawai, {
+                toValue: SCREEN_HEIGHT,
+                duration: 250,
+                useNativeDriver: true
+              }).start(() => setShowPegawaiModal(false));
+            }}
+          />
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: translateYPegawai }] }]}>
+            <View {...panResponderPegawai.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Pegawai Dinas</Text>
+            </View>
+            
+            <View style={styles.searchWrapper}>
+              <View style={styles.searchInputContainer}>
+                <Ionicons name="search-outline" size={18} color="#666" />
+                <TextInput
+                  style={styles.searchInputField}
+                  placeholder="Cari nama atau NIP pegawai..."
+                  value={pegawaiSearchQuery}
+                  onChangeText={filterPegawai}
+                  placeholderTextColor="#999"
+                />
+                {pegawaiSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => {
+                    setPegawaiSearchQuery('');
+                    setFilteredPegawai(pegawaiList);
+                  }}>
+                    <Ionicons name="close-circle" size={18} color="#999" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            
+            <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
+              {filteredPegawai.map((pegawai: any, index) => {
+                const pegawaiId = pegawai.id_user || pegawai.id_pegawai || pegawai.id;
+                const isSelected = tempSelectedPegawai.find((p: any) => {
+                  const selectedId = p.id_user || p.id_pegawai || p.id;
+                  return selectedId === pegawaiId;
+                });
+                return (
+                  <TouchableOpacity
+                    key={pegawaiId || index}
+                    style={[
+                      styles.bottomSheetItem,
+                      isSelected && styles.bottomSheetItemActive
+                    ]}
+                    onPress={() => togglePegawai(pegawai)}
+                  >
+                    <View style={styles.bottomSheetItemLeft}>
+                      <View style={[
+                        styles.bottomSheetIcon,
+                        isSelected && styles.bottomSheetIconActive
+                      ]}>
+                        <Ionicons 
+                          name="person" 
+                          size={20} 
+                          color={isSelected ? '#fff' : '#004643'} 
+                        />
+                      </View>
+                      <View style={styles.itemInfo}>
+                        <Text style={[
+                          styles.bottomSheetItemText,
+                          isSelected && styles.bottomSheetItemTextActive
+                        ]}>
+                          {pegawai.nama_lengkap}
+                        </Text>
+                        <Text style={styles.itemSubtext}>NIP: {pegawai.nip}</Text>
+                      </View>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={24} color="#004643" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            
+            <View style={styles.modalButtonGroup}>
+              <TouchableOpacity 
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  Animated.timing(translateYPegawai, {
+                    toValue: SCREEN_HEIGHT,
+                    duration: 250,
+                    useNativeDriver: true
+                  }).start(() => setShowPegawaiModal(false));
+                }}
+              >
+                <Text style={styles.modalCancelText}>Batal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalConfirmBtn}
+                onPress={() => {
+                  setSelectedPegawai(tempSelectedPegawai);
+                  const validIds = tempSelectedPegawai
+                    .map((p: any) => p.id_user || p.id_pegawai || p.id)
+                    .filter(id => id != null && !isNaN(parseInt(id)))
+                    .map(id => parseInt(id));
+                  setFormData({...formData, pegawaiIds: validIds});
+                  Animated.timing(translateYPegawai, {
+                    toValue: SCREEN_HEIGHT,
+                    duration: 250,
+                    useNativeDriver: true
+                  }).start(() => setShowPegawaiModal(false));
+                }}
+              >
+                <Text style={styles.modalConfirmText}>Pilih ({tempSelectedPegawai.length})</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Button Footer - Fixed di bawah seperti header */}
       <View style={styles.buttonFooter}>
@@ -1159,84 +1559,133 @@ export default function TambahDinasScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Confirmation Modal */}
-      <Modal visible={showConfirmModal} transparent>
+      {/* Confirmation Modal - Bottom Sheet */}
+      <Modal 
+        visible={showConfirmModal} 
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeBottomSheet}
+      >
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmModalContainer}>
-            <View style={styles.confirmModalHeader}>
-              <Text style={styles.confirmModalTitle}>Konfirmasi Data Dinas</Text>
-              <TouchableOpacity onPress={() => setShowConfirmModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeBottomSheet} />
+          <Animated.View style={[styles.bottomSheetConfirm, { transform: [{ translateY }] }]}>
+            <View {...panResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            
-            <ScrollView style={styles.confirmModalContent}>
-              <View style={styles.confirmItem}>
-                <Text style={styles.confirmLabel}>Nama Kegiatan:</Text>
-                <Text style={styles.confirmValue}>{formData.namaKegiatan}</Text>
-              </View>
+
+            <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>Konfirmasi Data Dinas</Text>
               
-              <View style={styles.confirmItem}>
-                <Text style={styles.confirmLabel}>Nomor SPT:</Text>
-                <Text style={styles.confirmValue}>{formData.nomorSpt}</Text>
-              </View>
-              
-              <View style={styles.confirmItem}>
-                <Text style={styles.confirmLabel}>Jenis Dinas:</Text>
-                <Text style={styles.confirmValue}>
-                  {formData.jenisDinas === 'lokal' ? 'Dinas Lokal' : 
-                   formData.jenisDinas === 'luar_kota' ? 'Dinas Luar Kota' : 'Dinas Luar Negeri'}
-                </Text>
-              </View>
-              
-              <View style={styles.confirmItem}>
-                <Text style={styles.confirmLabel}>Periode:</Text>
-                <Text style={styles.confirmValue}>
-                  {formData.tanggalMulai} - {formData.tanggalSelesai}
-                </Text>
-              </View>
-              
-              <View style={styles.confirmItem}>
-                <Text style={styles.confirmLabel}>Lokasi ({selectedLokasi.length}):</Text>
-                {selectedLokasi.map((lokasi, index) => (
-                  <Text key={index} style={styles.confirmValue}>• {lokasi.nama_lokasi}</Text>
-                ))}
-              </View>
-              
-              <View style={styles.confirmItem}>
-                <Text style={styles.confirmLabel}>Pegawai ({selectedPegawai.length}):</Text>
-                {selectedPegawai.map((pegawai, index) => (
-                  <Text key={index} style={styles.confirmValue}>• {pegawai.nama_lengkap}</Text>
-                ))}
-              </View>
-              
-              {formData.deskripsi && (
-                <View style={styles.confirmItem}>
-                  <Text style={styles.confirmLabel}>Deskripsi:</Text>
-                  <Text style={styles.confirmValue}>{formData.deskripsi}</Text>
+              <ScrollView style={styles.confirmScrollView} showsVerticalScrollIndicator={false}>
+                {/* Informasi Dasar */}
+                <View style={styles.sectionHeaderConfirm}>
+                  <Ionicons name="information-circle-outline" size={18} color="#004643" />
+                  <Text style={styles.sectionTitleConfirm}>Informasi Dasar Dinas</Text>
                 </View>
-              )}
-            </ScrollView>
-            
-            <View style={styles.confirmModalFooter}>
-              <TouchableOpacity 
-                style={styles.cancelConfirmBtn}
-                onPress={() => setShowConfirmModal(false)}
-              >
-                <Text style={styles.cancelConfirmText}>Batal</Text>
-              </TouchableOpacity>
+                <View style={styles.sectionDivider} />
+
+                <View style={styles.confirmRow}>
+                  <View style={styles.confirmItemHalf}>
+                    <Text style={styles.confirmLabel}>Nama Kegiatan</Text>
+                    <Text style={styles.confirmValue}>{formData.namaKegiatan}</Text>
+                  </View>
+                  <View style={styles.confirmItemHalf}>
+                    <Text style={styles.confirmLabel}>Nomor SPT</Text>
+                    <Text style={styles.confirmValue}>{formData.nomorSpt}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.confirmRow}>
+                  <View style={styles.confirmItemHalf}>
+                    <Text style={styles.confirmLabel}>Jenis Dinas</Text>
+                    <Text style={styles.confirmValue}>
+                      {formData.jenisDinas === 'lokal' ? 'Dinas Lokal' : 
+                       formData.jenisDinas === 'luar_kota' ? 'Dinas Luar Kota' : 'Dinas Luar Negeri'}
+                    </Text>
+                  </View>
+                </View>
+
+                {formData.deskripsi && (
+                  <View style={styles.confirmItemFull}>
+                    <Text style={styles.confirmLabel}>Deskripsi</Text>
+                    <Text style={styles.confirmValue}>{formData.deskripsi}</Text>
+                  </View>
+                )}
+
+                {/* Waktu & Jadwal */}
+                <View style={styles.sectionHeaderConfirm}>
+                  <Ionicons name="time-outline" size={18} color="#004643" />
+                  <Text style={styles.sectionTitleConfirm}>Waktu & Jadwal Dinas</Text>
+                </View>
+                <View style={styles.sectionDivider} />
+
+                <View style={styles.confirmRow}>
+                  <View style={styles.confirmItemHalf}>
+                    <Text style={styles.confirmLabel}>Tanggal Mulai</Text>
+                    <Text style={styles.confirmValue}>{formData.tanggalMulai}</Text>
+                  </View>
+                  <View style={styles.confirmItemHalf}>
+                    <Text style={styles.confirmLabel}>Tanggal Selesai</Text>
+                    <Text style={styles.confirmValue}>{formData.tanggalSelesai}</Text>
+                  </View>
+                </View>
+
+                {!useDefaultJam && formData.jamMulai && formData.jamSelesai && (
+                  <View style={styles.confirmRow}>
+                    <View style={styles.confirmItemHalf}>
+                      <Text style={styles.confirmLabel}>Jam Mulai</Text>
+                      <Text style={styles.confirmValue}>{formData.jamMulai}</Text>
+                    </View>
+                    <View style={styles.confirmItemHalf}>
+                      <Text style={styles.confirmLabel}>Jam Selesai</Text>
+                      <Text style={styles.confirmValue}>{formData.jamSelesai}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Lokasi & Pegawai */}
+                <View style={styles.sectionHeaderConfirm}>
+                  <Ionicons name="location-outline" size={18} color="#004643" />
+                  <Text style={styles.sectionTitleConfirm}>Lokasi & Pegawai Dinas</Text>
+                </View>
+                <View style={styles.sectionDivider} />
+
+                <View style={styles.confirmItemFull}>
+                  <Text style={styles.confirmLabel}>Lokasi ({selectedLokasi.length})</Text>
+                  {selectedLokasi.map((lokasi, index) => (
+                    <Text key={index} style={styles.confirmValueList}>• {lokasi.nama_lokasi}</Text>
+                  ))}
+                </View>
+
+                <View style={styles.confirmItemFull}>
+                  <Text style={styles.confirmLabel}>Pegawai ({selectedPegawai.length})</Text>
+                  {selectedPegawai.map((pegawai, index) => (
+                    <Text key={index} style={styles.confirmValueList}>• {pegawai.nama_lengkap}</Text>
+                  ))}
+                </View>
+              </ScrollView>
               
-              <TouchableOpacity 
-                style={styles.saveConfirmBtn}
-                onPress={confirmSubmit}
-                disabled={loading}
-              >
-                <Text style={styles.saveConfirmText}>
-                  {loading ? 'Menyimpan...' : 'Simpan Data'}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.buttonGroup}>
+                <TouchableOpacity 
+                  style={styles.cancelBtn}
+                  onPress={closeBottomSheet}
+                >
+                  <Text style={styles.cancelText}>Batal</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.saveBtn}
+                  onPress={confirmSubmit}
+                  disabled={loading}
+                >
+                  <Text style={styles.saveText}>
+                    {loading ? 'Menyimpan...' : 'Simpan Data'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -1342,14 +1791,31 @@ const styles = StyleSheet.create({
   dateInputContainer: {
     position: 'relative'
   },
-  calendarButton: {
-    position: 'absolute',
-    right: 12,
-    top: 12,
+  datePickerButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1
+  },
+  datePickerPlaceholder: {
+    color: '#999'
+  },
+  calendarIconButton: {
     padding: 4,
     borderRadius: 4,
     backgroundColor: '#F0F8F0'
   },
+
   dropdownBtn: {
     backgroundColor: '#F8F9FA',
     borderRadius: 8,
@@ -1390,21 +1856,99 @@ const styles = StyleSheet.create({
     flex: 1
   },
   searchWrapper: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    backgroundColor: '#fff'
+  },
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    gap: 12
   },
-  searchInput: {
+  searchInputField: {
     flex: 1,
-    marginLeft: 8,
     fontSize: 14,
-    color: '#333'
+    color: '#333',
+    paddingVertical: 10
   },
   dropdownList: {
     maxHeight: 150
+  },
+  bottomSheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  bottomSheetBackdrop: {
+    flex: 1,
+  },
+  bottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '70%',
+  },
+  bottomSheetHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  bottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  bottomSheetContent: {
+    maxHeight: 400,
+    marginBottom: 16
+  },
+  bottomSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  bottomSheetItemActive: {
+    backgroundColor: '#E6F0EF',
+  },
+  bottomSheetItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bottomSheetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E6F0EF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bottomSheetIconActive: {
+    backgroundColor: '#004643',
+  },
+  bottomSheetItemText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+    flex: 1,
+  },
+  bottomSheetItemTextActive: {
+    color: '#004643',
+    fontWeight: '600',
   },
   itemInfo: {
     flex: 1
@@ -1418,6 +1962,40 @@ const styles = StyleSheet.create({
   itemSubtext: {
     fontSize: 12,
     color: '#666'
+  },
+  modalButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0'
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666'
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#004643',
+    alignItems: 'center'
+  },
+  modalConfirmText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff'
   },
   selectedContainer: {
     flexDirection: 'row',
@@ -1512,9 +2090,115 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  calendarBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20
+  },
+  calendarSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16
+  },
+  calendarSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center'
+  },
+  modalBackdrop: { 
+    flex: 1 
+  },
+  bottomSheetConfirm: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20
+  },
+  handleContainer: {
+    paddingVertical: 12,
     alignItems: 'center'
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2
+  },
+  sheetContent: { 
+    paddingHorizontal: 20, 
+    paddingBottom: 16 
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16
+  },
+  confirmScrollView: {
+    maxHeight: SCREEN_HEIGHT * 0.5,
+    marginBottom: 16
+  },
+  sectionHeaderConfirm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8
+  },
+  sectionTitleConfirm: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#004643'
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 12
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16
+  },
+  confirmItemHalf: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
+  },
+  confirmItemFull: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12
+  },
+  confirmValueList: {
+    fontSize: 13,
+    color: '#1F2937',
+    fontWeight: '500',
+    lineHeight: 20,
+    marginTop: 4
   },
   modalBackdrop: {
     position: 'absolute',
@@ -1523,140 +2207,127 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  confirmModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    width: '90%',
-    maxHeight: '80%'
-  },
-  confirmModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
-  },
-  confirmModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333'
-  },
-  confirmModalContent: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    maxHeight: 400
-  },
-  confirmItem: {
-    marginBottom: 15
-  },
+
   confirmLabel: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#666',
-    marginBottom: 4
+    color: '#6B7280',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3
   },
   confirmValue: {
     fontSize: 14,
-    color: '#333',
-    lineHeight: 20
+    color: '#1F2937',
+    fontWeight: '600',
+    lineHeight: 18
   },
-  confirmModalFooter: {
+  buttonGroup: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    gap: 10
+    gap: 12
   },
-  cancelConfirmBtn: {
+  cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     backgroundColor: '#F5F5F5',
-    alignItems: 'center'
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
   },
-  cancelConfirmText: {
-    fontSize: 14,
+  cancelText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#666'
   },
-  saveConfirmBtn: {
+  saveBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
     backgroundColor: '#004643',
-    alignItems: 'center'
+    alignItems: 'center',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4
   },
-  saveConfirmText: {
-    fontSize: 14,
+  saveText: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#fff'
   },
-  calendarModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    width: '90%',
-    maxWidth: 350,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  calendarHeader: {
+
+  jamKerjaContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12
+  },
+  jamKerjaBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0'
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
   },
-  calendarTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#004643'
+  jamKerjaBtnActive: {
+    backgroundColor: '#004643'
   },
-  radioGroup: {
-    gap: 12,
-    marginBottom: 12
-  },
-  radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  radioText: {
+  jamKerjaText: {
     fontSize: 14,
-    color: '#333'
+    fontWeight: '600',
+    color: '#666'
+  },
+  jamKerjaTextActive: {
+    color: '#fff'
   },
   jamKhususContainer: {
     marginTop: 12,
-    padding: 12,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    gap: 10
+  },
+  jamRow: {
+    flexDirection: 'row',
     gap: 12
   },
   jamInputGroup: {
-    gap: 6
+    flex: 1
   },
   jamLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#666'
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 6
+  },
+  jamPickerButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  jamPickerText: {
+    fontSize: 14,
+    color: '#333'
+  },
+  jamPickerPlaceholder: {
+    color: '#999'
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    padding: 8,
+    padding: 10,
     backgroundColor: '#F0F8F7',
-    borderRadius: 6
+    borderRadius: 8
   },
   infoText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#004643',
     flex: 1
   },

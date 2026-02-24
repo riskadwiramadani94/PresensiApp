@@ -179,16 +179,16 @@ export default function DetailDinasScreen() {
         <View style={styles.headerCard}>
           <View style={styles.headerTop}>
             <View style={styles.titleSection}>
-              <Text style={styles.kegiatanTitle}>{detailDinas.namaKegiatan}</Text>
-              <Text style={styles.sptNumber}>{detailDinas.nomorSpt}</Text>
+              <Text style={styles.kegiatanTitle}>{detailDinas.namaKegiatan || '-'}</Text>
+              <Text style={styles.sptNumber}>{detailDinas.nomorSpt || '-'}</Text>
             </View>
             <View style={[styles.dinasStatusBadge, { backgroundColor: dinasStatus.color }]}>
-              <Text style={styles.dinasStatusText}>{dinasStatus.status}</Text>
+              <Text style={styles.dinasStatusText}>{dinasStatus.status || '-'}</Text>
             </View>
           </View>
           {detailDinas.created_at && (
             <Text style={styles.createdDate}>
-              Tanggal dibuat: {formatDate(detailDinas.created_at)}
+              {`Tanggal dibuat: ${formatDate(detailDinas.created_at)}`}
             </Text>
           )}
         </View>
@@ -213,19 +213,24 @@ export default function DetailDinasScreen() {
             <Ionicons name="location-outline" size={20} color="#004643" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Lokasi</Text>
-              <Text style={styles.infoValue}>{detailDinas.lokasi}</Text>
+              <Text style={styles.infoValue}>{detailDinas.lokasi || '-'}</Text>
               {detailDinas.lokasi_dinas && detailDinas.lokasi_dinas.length > 0 && (
                 <View style={styles.lokasiDinasList}>
-                  {detailDinas.lokasi_dinas.map((lokasi) => (
-                    <View key={String(lokasi.id)} style={styles.lokasiDinasRow}>
-                      <Text style={styles.lokasiDinasItem}>
-                        • {lokasi.nama_lokasi} ({lokasi.jenis_lokasi === 'tetap' ? 'Kantor Tetap' : 'Lokasi Dinas'})
-                      </Text>
-                      <View style={styles.radiusBadge}>
-                        <Text style={styles.radiusText}>{detailDinas.radius}m</Text>
+                  {detailDinas.lokasi_dinas.map((lokasi, idx) => {
+                    const namaLokasi = lokasi?.nama_lokasi || '-';
+                    const jenisLokasi = lokasi?.jenis_lokasi === 'tetap' ? 'Kantor Tetap' : 'Lokasi Dinas';
+                    const radiusText = `${detailDinas.radius || 0}m`;
+                    return (
+                      <View key={`lokasi-${lokasi?.id || idx}`} style={styles.lokasiDinasRow}>
+                        <Text style={styles.lokasiDinasItem}>
+                          {`• ${namaLokasi} (${jenisLokasi})`}
+                        </Text>
+                        <View style={styles.radiusBadge}>
+                          <Text style={styles.radiusText}>{radiusText}</Text>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -263,23 +268,21 @@ export default function DetailDinasScreen() {
             <Ionicons name="time-outline" size={20} color="#004643" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Jam Kerja</Text>
-              {detailDinas.jam_mulai && detailDinas.jam_selesai ? (
-                <Text style={styles.infoValue}>
-                  {detailDinas.jam_mulai} - {detailDinas.jam_selesai} (Jam Khusus)
-                </Text>
-              ) : (
-                <Text style={styles.infoValue}>Mengikuti jam kerja kantor</Text>
-              )}
+              <Text style={styles.infoValue}>
+                {detailDinas.jam_mulai && detailDinas.jam_selesai 
+                  ? `${detailDinas.jam_mulai} - ${detailDinas.jam_selesai} (Jam Khusus)` 
+                  : 'Mengikuti jam kerja kantor'}
+              </Text>
             </View>
           </View>
 
-          {detailDinas.koordinat_lat && detailDinas.koordinat_lng && (
+          {detailDinas.koordinat_lat != null && detailDinas.koordinat_lng != null && (
             <View style={styles.infoRow}>
               <Ionicons name="navigate-outline" size={20} color="#004643" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Koordinat GPS</Text>
                 <Text style={styles.infoValue}>
-                  {detailDinas.koordinat_lat.toFixed(6)}, {detailDinas.koordinat_lng.toFixed(6)}
+                  {`${Number(detailDinas.koordinat_lat).toFixed(6)}, ${Number(detailDinas.koordinat_lng).toFixed(6)}`}
                 </Text>
               </View>
             </View>
@@ -317,22 +320,29 @@ export default function DetailDinasScreen() {
         </View>
 
         <View style={styles.pegawaiSection}>
-          <Text style={styles.cardTitle}>Daftar Pegawai ({totalPegawai})</Text>
+          <Text style={styles.cardTitle}>{`Daftar Pegawai (${totalPegawai})`}</Text>
           
-          {detailDinas.pegawai && detailDinas.pegawai.length > 0 ? detailDinas.pegawai.map((pegawai, index) => (
-            <View key={`pegawai-${pegawai.id_user || pegawai.nip || index}`} style={styles.pegawaiCard}>
-              <View style={styles.pegawaiHeader}>
-                <View style={styles.avatarContainer}>
-                  <Ionicons name="person-circle" size={40} color="#004643" />
-                </View>
-                <View style={styles.pegawaiInfo}>
-                  <Text style={styles.pegawaiName}>{pegawai.nama}</Text>
-                  <Text style={styles.pegawaiNip}>NIP: {pegawai.nip}</Text>
-                  <Text style={styles.pegawaiJabatan}>{pegawai.jabatan}</Text>
+          {detailDinas.pegawai && detailDinas.pegawai.length > 0 ? detailDinas.pegawai.map((pegawai, index) => {
+            const namaPegawai = pegawai?.nama || '-';
+            const nipPegawai = `NIP: ${pegawai?.nip || '-'}`;
+            const jabatanPegawai = pegawai?.jabatan || '-';
+            const keyPegawai = `pegawai-${pegawai?.id_user || pegawai?.nip || index}`;
+            
+            return (
+              <View key={keyPegawai} style={styles.pegawaiCard}>
+                <View style={styles.pegawaiHeader}>
+                  <View style={styles.avatarContainer}>
+                    <Ionicons name="person-circle" size={40} color="#004643" />
+                  </View>
+                  <View style={styles.pegawaiInfo}>
+                    <Text style={styles.pegawaiName}>{namaPegawai}</Text>
+                    <Text style={styles.pegawaiNip}>{nipPegawai}</Text>
+                    <Text style={styles.pegawaiJabatan}>{jabatanPegawai}</Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          )) : (
+            );
+          }) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Tidak ada pegawai</Text>
             </View>
