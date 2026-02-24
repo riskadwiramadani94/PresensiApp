@@ -1,44 +1,59 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform, Image, Modal, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, Animated, PanResponder, Platform, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader } from '../../../components';
 import { PegawaiAPI } from '../../../constants/config';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import * as ImagePicker from 'expo-image-picker';
+
+type StatusType = 'semua' | 'menunggu' | 'disetujui' | 'ditolak';
+
+interface PengajuanData {
+  id_pengajuan: number;
+  jenis_pengajuan: string;
+  tanggal_mulai: string;
+  tanggal_selesai?: string;
+  jam_mulai?: string;
+  jam_selesai?: string;
+  alasan_text: string;
+  status: 'menunggu' | 'disetujui' | 'ditolak';
+  tanggal_pengajuan: string;
+  waktu_persetujuan?: string;
+  catatan_persetujuan?: string;
+  is_retrospektif?: number;
+  disetujui_oleh?: number;
+  nama_approver?: string;
+}
 
 export default function PengajuanScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<StatusType>('semua');
+  const [pengajuanList, setPengajuanList] = useState<PengajuanData[]>([]);
+  const [filteredPengajuan, setFilteredPengajuan] = useState<PengajuanData[]>([]);
   const [userId, setUserId] = useState<string>('');
-  const [jenisPengajuan, setJenisPengajuan] = useState('');
-  const [tanggalMulai, setTanggalMulai] = useState(new Date());
-  const [tanggalSelesai, setTanggalSelesai] = useState(new Date());
-  const [jamMulai, setJamMulai] = useState(new Date());
-  const [jamSelesai, setJamSelesai] = useState(new Date());
-  const [alasan, setAlasan] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [datePickerMode, setDatePickerMode] = useState<'mulai' | 'selesai'>('mulai');
-  const [timePickerMode, setTimePickerMode] = useState<'mulai' | 'selesai'>('mulai');
-  const [loading, setLoading] = useState(false);
-  const [dokumenFoto, setDokumenFoto] = useState<any>(null);
-  const [showJenisPicker, setShowJenisPicker] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedPengajuan, setSelectedPengajuan] = useState<PengajuanData | null>(null);
   const translateY = useRef(new Animated.Value(500)).current;
-
-  const jenisPengajuanOptions = [
-    { value: 'izin_datang_terlambat', label: 'Izin Datang Terlambat', icon: 'time-outline', needDate: true, needSingleTime: true },
-    { value: 'izin_pulang_cepat', label: 'Izin Pulang Cepat', icon: 'exit-outline', needDate: true, needSingleTime: true },
-    { value: 'cuti_sakit', label: 'Cuti Sakit', icon: 'medical-outline', needDateRange: true, needUpload: true },
-    { value: 'cuti_alasan_penting', label: 'Cuti Alasan Penting', icon: 'calendar-outline', needDateRange: true },
-    { value: 'cuti_tahunan', label: 'Cuti Tahunan', icon: 'calendar-outline', needDateRange: true },
-    { value: 'lembur', label: 'Lembur', icon: 'moon-outline', needDateRange: true, needTimeRange: true },
-  ];
+  const detailTranslateY = useRef(new Animated.Value(1000)).current;
 
   useEffect(() => {
     loadUserId();
   }, []);
+
+  useEffect(() => {
+    if (userId) {
+      fetchPengajuan();
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    filterPengajuan();
+  }, [activeTab, pengajuanList, searchQuery]);
 
   const loadUserId = async () => {
     try {
@@ -47,107 +62,41 @@ export default function PengajuanScreen() {
         const user = JSON.parse(userData);
         const id = user.id_user || user.id;
         setUserId(id.toString());
+      } else {
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error loading user ID:', error);
+      setLoading(false);
     }
   };
 
-  const selectedJenis = jenisPengajuanOptions.find(j => j.value === jenisPengajuan);
-
-  const handleSubmit = async () => {
-    if (!jenisPengajuan) {
-      Alert.alert('Error', 'Pilih jenis pengajuan terlebih dahulu');
-      return;
-    }
-    if (!alasan.trim()) {
-      Alert.alert('Error', 'Alasan harus diisi');
-      return;
-    }
-
-    setLoading(true);
+  const fetchPengajuan = async () => {
     try {
-      const data = {
-        user_id: userId,
-        jenis_pengajuan: jenisPengajuan,
-        tanggal_mulai: formatDateForDB(tanggalMulai),
-        tanggal_selesai: (selectedJenis?.needDateRange || jenisPengajuan === 'lembur') ? formatDateForDB(tanggalSelesai) : null,
-        jam_mulai: (selectedJenis?.needSingleTime || selectedJenis?.needTimeRange) ? formatTimeForDB(jamMulai) : null,
-        jam_selesai: selectedJenis?.needTimeRange ? formatTimeForDB(jamSelesai) : null,
-        alasan_text: alasan,
-        dokumen_foto: dokumenFoto ? dokumenFoto.uri : null,
-      };
-
-      const response = await PegawaiAPI.submitPengajuan(data);
+      setLoading(true);
+      const response = await PegawaiAPI.getPengajuan(userId);
       
-      if (response.success) {
-        Alert.alert('Sukses', 'Pengajuan berhasil dikirim', [
-          { text: 'OK', onPress: () => {
-            setJenisPengajuan('');
-            setAlasan('');
-            setTanggalMulai(new Date());
-            setTanggalSelesai(new Date());
-            setJamMulai(new Date());
-            setJamSelesai(new Date());
-            setDokumenFoto(null);
-          }}
-        ]);
+      if (response.success && response.data) {
+        setPengajuanList(response.data);
       } else {
-        Alert.alert('Error', response.message || 'Gagal mengirim pengajuan');
+        setPengajuanList([]);
       }
     } catch (error) {
-      Alert.alert('Error', 'Terjadi kesalahan saat mengirim pengajuan');
+      console.error('Error fetching pengajuan:', error);
+      setPengajuanList([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDateForDB = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchPengajuan();
+    setRefreshing(false);
   };
 
-  const formatTimeForDB = (date: Date) => {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}:00`;
-  };
-
-  const formatDate = (date: Date) => {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  const formatTime = (date: Date) => {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Error', 'Izin akses galeri diperlukan');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setDokumenFoto(result.assets[0]);
-    }
-  };
-
-  const openBottomSheet = () => {
-    setShowJenisPicker(true);
+  const openFilterModal = () => {
+    setShowFilterModal(true);
     Animated.timing(translateY, {
       toValue: 0,
       duration: 300,
@@ -155,13 +104,34 @@ export default function PengajuanScreen() {
     }).start();
   };
 
-  const closeBottomSheet = () => {
+  const closeFilterModal = () => {
     Animated.timing(translateY, {
       toValue: 500,
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
-      setShowJenisPicker(false);
+      setShowFilterModal(false);
+    });
+  };
+
+  const openDetailModal = (item: PengajuanData) => {
+    setSelectedPengajuan(item);
+    setShowDetailModal(true);
+    Animated.timing(detailTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeDetailModal = () => {
+    Animated.timing(detailTranslateY, {
+      toValue: 1000,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowDetailModal(false);
+      setSelectedPengajuan(null);
     });
   };
 
@@ -175,7 +145,7 @@ export default function PengajuanScreen() {
     },
     onPanResponderRelease: (_, gestureState) => {
       if (gestureState.dy > 100) {
-        closeBottomSheet();
+        closeFilterModal();
       } else {
         Animated.spring(translateY, {
           toValue: 0,
@@ -185,6 +155,138 @@ export default function PengajuanScreen() {
     },
   });
 
+  const handleFilterSelect = (filter: StatusType) => {
+    setActiveTab(filter);
+    closeFilterModal();
+  };
+
+  const filterPengajuan = () => {
+    let filtered = pengajuanList;
+    if (activeTab !== 'semua') {
+      filtered = filtered.filter((item) => item.status === activeTab);
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((item) => 
+        getJenisPengajuanLabel(item.jenis_pengajuan).toLowerCase().includes(query) ||
+        item.alasan_text.toLowerCase().includes(query) ||
+        formatDate(item.tanggal_mulai).includes(query)
+      );
+    }
+    
+    setFilteredPengajuan(filtered);
+  };
+
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'menunggu':
+        return { label: 'Menunggu', color: '#FF9800', icon: 'time' };
+      case 'disetujui':
+        return { label: 'Disetujui', color: '#4CAF50', icon: 'checkmark-circle' };
+      case 'ditolak':
+        return { label: 'Ditolak', color: '#F44336', icon: 'close-circle' };
+      default:
+        return { label: status, color: '#999', icon: 'help-circle' };
+    }
+  };
+
+  const getJenisPengajuanLabel = (jenis: string) => {
+    const labels: { [key: string]: string } = {
+      'izin_datang_terlambat': 'Izin Datang Terlambat',
+      'izin_pulang_cepat': 'Izin Pulang Cepat',
+      'cuti_sakit': 'Cuti Sakit',
+      'cuti_alasan_penting': 'Cuti Alasan Penting',
+      'cuti_tahunan': 'Cuti Tahunan',
+      'lembur': 'Lembur'
+    };
+    return labels[jenis] || jenis;
+  };
+
+  const getJenisIcon = (jenis: string) => {
+    const icons: { [key: string]: string } = {
+      'izin_datang_terlambat': 'time-outline',
+      'izin_pulang_cepat': 'exit-outline',
+      'cuti_sakit': 'medical-outline',
+      'cuti_alasan_penting': 'calendar-outline',
+      'cuti_tahunan': 'calendar-outline',
+      'lembur': 'moon-outline'
+    };
+    return icons[jenis] || 'document-text-outline';
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
+  const formatTime = (timeStr: string) => {
+    if (!timeStr) return '';
+    return timeStr.substring(0, 5);
+  };
+
+  const renderPengajuanCard = (item: PengajuanData) => {
+    const status = getStatusInfo(item.status);
+    const jenisLabel = getJenisPengajuanLabel(item.jenis_pengajuan);
+    const jenisIcon = getJenisIcon(item.jenis_pengajuan);
+    
+    return (
+      <TouchableOpacity 
+        key={item.id_pengajuan} 
+        style={styles.card}
+        onPress={() => openDetailModal(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.iconContainer}>
+            <Ionicons name={jenisIcon as any} size={24} color="#004643" />
+          </View>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>{jenisLabel}</Text>
+            <View style={styles.dateRow}>
+              <Ionicons name="calendar-outline" size={14} color="#666" />
+              <Text style={styles.cardDate}>
+                {formatDate(item.tanggal_mulai)}
+                {item.tanggal_selesai && ` - ${formatDate(item.tanggal_selesai)}`}
+              </Text>
+            </View>
+            {(item.jam_mulai || item.jam_selesai) && (
+              <View style={styles.dateRow}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.cardDate}>
+                  {formatTime(item.jam_mulai || '')} - {formatTime(item.jam_selesai || '')}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.cardAlasan} numberOfLines={2}>
+              {item.alasan_text}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
+            <Ionicons name={status.icon as any} size={12} color={status.color} />
+            <Text style={[styles.statusText, { color: status.color }]}>
+              {status.label}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
@@ -193,276 +295,233 @@ export default function PengajuanScreen() {
         title="Pengajuan" 
         showBack={true}
         showHistoryButton={true}
-        onHistoryPress={() => router.push('/menu-pegawai/pengajuan/riwayat' as any)}
+        onHistoryPress={() => router.push('/menu-pegawai/pengajuan/form' as any)}
+        historyIcon="add"
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Jenis Pengajuan */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Jenis Pengajuan <Text style={styles.required}>*</Text></Text>
-          <TouchableOpacity 
-            style={styles.dropdownButton}
-            onPress={openBottomSheet}
-          >
-            {jenisPengajuan ? (
-              <View style={styles.dropdownSelected}>
-                <Ionicons 
-                  name={selectedJenis?.icon as any} 
-                  size={20} 
-                  color="#004643" 
-                />
-                <Text style={styles.dropdownSelectedText}>{selectedJenis?.label}</Text>
-              </View>
-            ) : (
-              <Text style={styles.dropdownPlaceholder}>Pilih jenis pengajuan</Text>
-            )}
-            <Ionicons name="chevron-down" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Tanggal Tunggal - untuk izin & lembur */}
-        {selectedJenis?.needDate && !selectedJenis?.needDateRange && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Tanggal <Text style={styles.required}>*</Text></Text>
-            <TouchableOpacity 
-              style={styles.dateInputFull}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#666" />
-              <Text style={styles.dateText}>{formatDate(tanggalMulai)}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Tanggal Range - untuk cuti & lembur */}
-        {selectedJenis?.needDateRange && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              {jenisPengajuan === 'lembur' ? 'Periode Lembur' : 'Periode Cuti'} <Text style={styles.required}>*</Text>
-            </Text>
-            <View style={styles.dateRow}>
-              <TouchableOpacity 
-                style={styles.dateInput}
-                onPress={() => {
-                  setDatePickerMode('mulai');
-                  setShowDatePicker(true);
-                }}
-              >
-                <Ionicons name="calendar-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatDate(tanggalMulai)}</Text>
-              </TouchableOpacity>
-              <Text style={styles.dateSeparator}>s/d</Text>
-              <TouchableOpacity 
-                style={styles.dateInput}
-                onPress={() => {
-                  setDatePickerMode('selesai');
-                  setShowDatePicker(true);
-                }}
-              >
-                <Ionicons name="calendar-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatDate(tanggalSelesai)}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Jam Tunggal - untuk izin */}
-        {selectedJenis?.needSingleTime && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>
-              {jenisPengajuan === 'izin_datang_terlambat' ? 'Jam Rencana Datang' : 'Jam Rencana Pulang'} <Text style={styles.required}>*</Text>
-            </Text>
-            <TouchableOpacity 
-              style={styles.dateInputFull}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Ionicons name="time-outline" size={20} color="#666" />
-              <Text style={styles.dateText}>{formatTime(jamMulai)}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Jam Range - untuk lembur */}
-        {selectedJenis?.needTimeRange && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Waktu Lembur <Text style={styles.required}>*</Text></Text>
-            <View style={styles.dateRow}>
-              <TouchableOpacity 
-                style={styles.dateInput}
-                onPress={() => {
-                  setTimePickerMode('mulai');
-                  setShowTimePicker(true);
-                }}
-              >
-                <Ionicons name="time-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatTime(jamMulai)}</Text>
-              </TouchableOpacity>
-              <Text style={styles.dateSeparator}>s/d</Text>
-              <TouchableOpacity 
-                style={styles.dateInput}
-                onPress={() => {
-                  setTimePickerMode('selesai');
-                  setShowTimePicker(true);
-                }}
-              >
-                <Ionicons name="time-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatTime(jamSelesai)}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Upload Dokumen - untuk cuti sakit */}
-        {selectedJenis?.needUpload && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Surat Dokter (Opsional)</Text>
-            {dokumenFoto ? (
-              <View style={styles.uploadedContainer}>
-                <Image source={{ uri: dokumenFoto.uri }} style={styles.uploadedImage} />
-                <TouchableOpacity style={styles.removeButton} onPress={() => setDokumenFoto(null)}>
-                  <Ionicons name="close-circle" size={24} color="#F44336" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-                <Ionicons name="cloud-upload-outline" size={32} color="#004643" />
-                <Text style={styles.uploadText}>Upload Surat Dokter</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Alasan */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Alasan <Text style={styles.required}>*</Text></Text>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
           <TextInput
-            style={styles.textArea}
-            placeholder="Jelaskan alasan pengajuan Anda..."
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={4}
-            value={alasan}
-            onChangeText={setAlasan}
-            textAlignVertical="top"
+            style={styles.searchInput}
+            placeholder="Cari pengajuan..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
-
-        {/* Submit Button */}
-        <TouchableOpacity 
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <Text style={styles.submitButtonText}>Mengirim...</Text>
-          ) : (
-            <>
-              <Ionicons name="send" size={20} color="#fff" />
-              <Text style={styles.submitButtonText}>Kirim Pengajuan</Text>
-            </>
-          )}
+        <TouchableOpacity style={styles.filterButton} onPress={openFilterModal}>
+          <Ionicons name="options" size={20} color="#004643" />
         </TouchableOpacity>
-      </ScrollView>
+      </View>
 
-      {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={datePickerMode === 'mulai' ? tanggalMulai : tanggalSelesai}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(Platform.OS === 'ios');
-            if (selectedDate) {
-              if (datePickerMode === 'mulai') {
-                setTanggalMulai(selectedDate);
-              } else {
-                setTanggalSelesai(selectedDate);
-              }
-            }
-          }}
-        />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#004643" />
+          <Text style={styles.loadingText}>Memuat riwayat...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#004643']} />
+          }
+        >
+          {filteredPengajuan.length > 0 ? (
+            filteredPengajuan.map((item) => renderPengajuanCard(item))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-text-outline" size={64} color="#E0E0E0" />
+              <Text style={styles.emptyTitle}>Belum Ada Riwayat</Text>
+              <Text style={styles.emptySubtitle}>
+                {activeTab === 'semua'
+                  ? 'Anda belum memiliki riwayat pengajuan'
+                  : `Tidak ada pengajuan dengan status "${getStatusInfo(activeTab).label}"`}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       )}
 
-      {/* Time Picker */}
-      {showTimePicker && (
-        <DateTimePicker
-          value={timePickerMode === 'mulai' ? jamMulai : jamSelesai}
-          mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, selectedTime) => {
-            setShowTimePicker(Platform.OS === 'ios');
-            if (selectedTime) {
-              if (timePickerMode === 'mulai') {
-                setJamMulai(selectedTime);
-              } else {
-                setJamSelesai(selectedTime);
-              }
-            }
-          }}
-        />
-      )}
-
-      {/* Bottom Sheet Picker */}
-      <Modal
-        visible={showJenisPicker}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={closeBottomSheet}
-      >
-        <View style={styles.bottomSheetOverlay}>
+      {/* Filter Modal */}
+      <Modal visible={showFilterModal} transparent animationType="none" statusBarTranslucent={true} onRequestClose={closeFilterModal}>
+        <View style={styles.modalOverlay}>
           <TouchableOpacity 
-            style={styles.bottomSheetBackdrop} 
+            style={styles.modalBackdrop} 
             activeOpacity={1}
-            onPress={closeBottomSheet}
+            onPress={closeFilterModal}
           />
-          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY }] }]}>
+          <Animated.View style={[styles.bottomSheetModal, { transform: [{ translateY }] }]}>
             <View {...panResponder.panHandlers} style={styles.handleContainer}>
               <View style={styles.handleBar} />
             </View>
             
-            <View style={styles.bottomSheetHeader}>
-              <Text style={styles.bottomSheetTitle}>Pilih Jenis Pengajuan</Text>
-            </View>
-            
-            <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
-              {jenisPengajuanOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.bottomSheetItem,
-                    jenisPengajuan === option.value && styles.bottomSheetItemActive
-                  ]}
-                  onPress={() => {
-                    setJenisPengajuan(option.value);
-                    closeBottomSheet();
-                  }}
-                >
-                  <View style={styles.bottomSheetItemLeft}>
-                    <View style={[
-                      styles.bottomSheetIcon,
-                      jenisPengajuan === option.value && styles.bottomSheetIconActive
-                    ]}>
-                      <Ionicons 
-                        name={option.icon as any} 
-                        size={20} 
-                        color={jenisPengajuan === option.value ? '#fff' : '#004643'} 
-                      />
-                    </View>
+            <View style={styles.bottomSheetContent}>
+              <Text style={styles.modalTitle}>Filter Status</Text>
+              
+              <View style={styles.filterGrid}>
+                {[
+                  { value: 'semua', label: 'Semua', icon: 'apps', color: '#666' },
+                  { value: 'menunggu', label: 'Menunggu', icon: 'time', color: '#FF9800' },
+                  { value: 'disetujui', label: 'Disetujui', icon: 'checkmark-circle', color: '#4CAF50' },
+                  { value: 'ditolak', label: 'Ditolak', icon: 'close-circle', color: '#F44336' }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.filterChip,
+                      activeTab === option.value && styles.filterChipActive
+                    ]}
+                    onPress={() => handleFilterSelect(option.value as StatusType)}
+                  >
+                    <Ionicons 
+                      name={option.icon as any} 
+                      size={18} 
+                      color={activeTab === option.value ? '#fff' : option.color} 
+                    />
                     <Text style={[
-                      styles.bottomSheetItemText,
-                      jenisPengajuan === option.value && styles.bottomSheetItemTextActive
+                      styles.filterChipText,
+                      activeTab === option.value && styles.filterChipTextActive
                     ]}>
                       {option.label}
                     </Text>
-                  </View>
-                  {jenisPengajuan === option.value && (
-                    <Ionicons name="checkmark-circle" size={24} color="#004643" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Detail Modal */}
+      <Modal visible={showDetailModal} transparent animationType="fade" statusBarTranslucent={true} onRequestClose={closeDetailModal}>
+        <View style={styles.detailModalOverlay}>
+          <TouchableOpacity 
+            style={styles.detailModalBackdrop} 
+            activeOpacity={1}
+            onPress={closeDetailModal}
+          />
+          <View style={styles.detailModalCenter}>
+            <View style={styles.detailModalContent}>
+              <View style={styles.detailHeader}>
+                <Text style={styles.detailTitle}>
+                  {selectedPengajuan && getJenisPengajuanLabel(selectedPengajuan.jenis_pengajuan)}
+                </Text>
+                <TouchableOpacity onPress={closeDetailModal} style={styles.closeButton}>
+                  <Ionicons name="close" size={22} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.detailBody} showsVerticalScrollIndicator={false}>
+                {selectedPengajuan && (
+                  <>
+                    {/* Info Section */}
+                    <View style={styles.infoSection}>
+                      <View style={styles.infoItem}>
+                        <Ionicons name="calendar" size={22} color="#004643" />
+                        <View style={styles.infoText}>
+                          <Text style={styles.infoLabel}>Tanggal</Text>
+                          <Text style={styles.infoValue}>
+                            {formatDate(selectedPengajuan.tanggal_mulai)}
+                            {selectedPengajuan.tanggal_selesai && `\n${formatDate(selectedPengajuan.tanggal_selesai)}`}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {(selectedPengajuan.jam_mulai || selectedPengajuan.jam_selesai) && (
+                        <View style={[styles.infoItem, { borderLeftWidth: 1, borderLeftColor: '#E5E7EB' }]}>
+                          <Ionicons name="time" size={22} color="#004643" />
+                          <View style={styles.infoText}>
+                            <Text style={styles.infoLabel}>
+                              {selectedPengajuan.jenis_pengajuan === 'izin_datang_terlambat' ? 'Datang' :
+                               selectedPengajuan.jenis_pengajuan === 'izin_pulang_cepat' ? 'Pulang' :
+                               selectedPengajuan.jenis_pengajuan === 'lembur' ? 'Lembur' : 'Waktu'}
+                            </Text>
+                            <Text style={styles.infoValue}>
+                              {selectedPengajuan.jam_mulai && formatTime(selectedPengajuan.jam_mulai)}
+                              {selectedPengajuan.jam_selesai && `\n${formatTime(selectedPengajuan.jam_selesai)}`}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Alasan */}
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Alasan</Text>
+                      <Text style={styles.sectionContent}>{selectedPengajuan.alasan_text}</Text>
+                    </View>
+
+                    {/* Status & Info */}
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Status</Text>
+                      <View style={styles.statusRow}>
+                        <View style={[styles.statusBadgeLarge, { 
+                          backgroundColor: getStatusInfo(selectedPengajuan.status).color + '15',
+                          borderColor: getStatusInfo(selectedPengajuan.status).color
+                        }]}>
+                          <Ionicons name={getStatusInfo(selectedPengajuan.status).icon as any} size={18} color={getStatusInfo(selectedPengajuan.status).color} />
+                          <Text style={[styles.statusTextLarge, { color: getStatusInfo(selectedPengajuan.status).color }]}>
+                            {getStatusInfo(selectedPengajuan.status).label}
+                          </Text>
+                        </View>
+                        {selectedPengajuan.disetujui_oleh && (
+                          <>
+                            <View style={styles.divider} />
+                            <View style={styles.approverInline}>
+                              <Ionicons name="person-circle-outline" size={16} color="#6B7280" />
+                              <Text style={styles.approverInlineText}>
+                                {selectedPengajuan.nama_approver || `Admin`}
+                              </Text>
+                            </View>
+                          </>
+                        )}
+                      </View>
+                      {selectedPengajuan.is_retrospektif === 1 && (
+                        <View style={styles.retrospektifBadge}>
+                          <Ionicons name="alert-circle" size={16} color="#92400E" />
+                          <Text style={styles.retrospektifText}>Telat Ngajuin</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Catatan */}
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Catatan Admin</Text>
+                      <Text style={styles.sectionContent}>
+                        {selectedPengajuan.catatan_persetujuan || 'Belum ada catatan'}
+                      </Text>
+                    </View>
+
+                    {/* Timeline */}
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Timeline</Text>
+                      <View style={styles.timelineItem}>
+                        <View style={styles.timelineDot} />
+                        <View style={styles.timelineContent}>
+                          <Text style={styles.timelineLabel}>Diajukan</Text>
+                          <Text style={styles.timelineValue}>{formatDateTime(selectedPengajuan.tanggal_pengajuan)}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.timelineItem}>
+                        <View style={[styles.timelineDot, { 
+                          backgroundColor: selectedPengajuan.waktu_persetujuan ? getStatusInfo(selectedPengajuan.status).color : '#D1D5DB' 
+                        }]} />
+                        <View style={styles.timelineContent}>
+                          <Text style={styles.timelineLabel}>Diproses</Text>
+                          <Text style={styles.timelineValue}>
+                            {selectedPengajuan.waktu_persetujuan ? formatDateTime(selectedPengajuan.waktu_persetujuan) : 'Belum diproses'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </>
+                )}
+              </ScrollView>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
@@ -471,220 +530,393 @@ export default function PengajuanScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  formGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  required: {
-    color: '#F44336',
-  },
-  dropdownButton: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    gap: 12,
+  },
+  searchIcon: {
+    marginRight: 0,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 12,
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
     borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    flex: 1,
+    paddingTop: 15,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 12,
+    marginHorizontal: 15,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  dropdownSelected: {
+  cardHeader: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E6F0EF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 6,
+  },
+  dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
+    marginBottom: 4,
   },
-  dropdownSelectedText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+  cardDate: {
+    fontSize: 13,
+    color: '#666',
   },
-  dropdownPlaceholder: {
-    fontSize: 14,
+  cardAlasan: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+    height: 28,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 80,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  emptySubtitle: {
+    fontSize: 13,
     color: '#999',
+    textAlign: 'center',
+    paddingHorizontal: 40,
   },
-  bottomSheetOverlay: {
+  modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingTop: Platform.OS === 'android' ? 0 : 50,
   },
-  bottomSheetBackdrop: {
+  modalBackdrop: {
     flex: 1,
   },
-  bottomSheet: {
+  bottomSheetModal: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    maxHeight: '70%',
+    paddingTop: 8,
   },
   handleContainer: {
     paddingVertical: 12,
     alignItems: 'center',
+    width: '100%',
   },
   handleBar: {
     width: 40,
     height: 4,
     backgroundColor: '#DDD',
     borderRadius: 2,
-  },
-  bottomSheetHeader: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  bottomSheetTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 16,
   },
   bottomSheetContent: {
-    maxHeight: 400,
-  },
-  bottomSheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    paddingBottom: 16,
   },
-  bottomSheetItemActive: {
-    backgroundColor: '#E6F0EF',
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
   },
-  bottomSheetItemLeft: {
+  filterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  filterChip: {
+    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  bottomSheetIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E6F0EF',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bottomSheetIconActive: {
-    backgroundColor: '#004643',
-  },
-  bottomSheetItemText: {
-    fontSize: 15,
-    color: '#333',
-    fontWeight: '500',
-    flex: 1,
-  },
-  bottomSheetItemTextActive: {
-    color: '#004643',
-    fontWeight: '600',
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-  },
-  dateInput: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  dateInputFull: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  dateSeparator: {
-    fontSize: 14,
-    color: '#666',
-  },
-  textArea: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    minHeight: 100,
-  },
-  submitButton: {
-    flexDirection: 'row',
-    backgroundColor: '#004643',
     paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 10,
-    marginBottom: 30,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
   },
-  submitButtonDisabled: {
-    backgroundColor: '#999',
+  filterChipActive: {
+    backgroundColor: '#004643',
+    borderColor: '#004643',
   },
-  submitButtonText: {
-    fontSize: 16,
+  filterChipText: {
+    fontSize: 13,
+    color: '#666',
     fontWeight: '600',
+  },
+  filterChipTextActive: {
     color: '#fff',
   },
-  uploadButton: {
-    backgroundColor: '#E6F0EF',
-    borderRadius: 8,
+  detailModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
+  },
+  detailModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  detailModalCenter: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  detailModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    backgroundColor: '#004643',
+  },
+  detailTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+    flex: 1,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailBody: {
+    padding: 20,
+  },
+  infoSection: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  infoItem: {
+    flex: 1,
     alignItems: 'center',
     gap: 8,
-    borderWidth: 2,
-    borderColor: '#004643',
-    borderStyle: 'dashed',
   },
-  uploadText: {
+  infoText: {
+    alignItems: 'center',
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionContent: {
     fontSize: 14,
-    color: '#004643',
+    color: '#374151',
+    lineHeight: 22,
+    backgroundColor: '#F9FAFB',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  statusBadgeLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  statusTextLarge: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  retrospektifBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#FCD34D',
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  retrospektifText: {
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '700',
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    paddingVertical: 8,
+    paddingLeft: 4,
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#004643',
+    marginTop: 5,
+    borderWidth: 3,
+    borderColor: '#E6F0EF',
+  },
+  timelineContent: {
+    flex: 1,
+  },
+  timelineLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '600',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  timelineValue: {
+    fontSize: 14,
+    color: '#111827',
     fontWeight: '600',
   },
-  uploadedContainer: {
-    position: 'relative',
-    borderRadius: 8,
-    overflow: 'hidden',
+  divider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#D1D5DB',
   },
-  uploadedImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
+  approverInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  removeButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  approverInlineText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
   },
 });

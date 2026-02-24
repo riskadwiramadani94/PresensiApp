@@ -20,6 +20,7 @@ interface AppHeaderProps {
   onAddPress?: () => void;
   showHistoryButton?: boolean;
   onHistoryPress?: () => void;
+  historyIcon?: string;
   rightComponent?: React.ReactNode;
   fallbackRoute?: string;
   primaryColor?: string;
@@ -38,6 +39,7 @@ export default function AppHeader({
   onAddPress,
   showHistoryButton = false,
   onHistoryPress,
+  historyIcon = "time-outline",
   rightComponent,
   fallbackRoute,
   primaryColor = "#fff",
@@ -99,7 +101,7 @@ export default function AppHeader({
 
           {showHistoryButton && (
             <TouchableOpacity style={styles.addButton} onPress={onHistoryPress}>
-              <Ionicons name="time-outline" size={28} color={primaryColor} />
+              <Ionicons name={historyIcon as any} size={28} color={primaryColor} />
             </TouchableOpacity>
           )}
 
