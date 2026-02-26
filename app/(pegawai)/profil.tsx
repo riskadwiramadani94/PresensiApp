@@ -340,16 +340,7 @@ export default function ProfileScreen() {
               </View>
               <Ionicons name="chevron-forward-outline" size={20} color="#999" />
             </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: '#FFF9C4' }]}>
-                  <Ionicons name="help-circle-outline" size={20} color="#F9A825" />
-                </View>
-                <Text style={styles.menuText}>Bantuan</Text>
-              </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+
           </View>
         </View>
 

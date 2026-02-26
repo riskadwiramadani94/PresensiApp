@@ -43,12 +43,12 @@ export default function PegawaiTabLayout() {
         }} 
       />
       <Tabs.Screen 
-        name="riwayat" 
+        name="inbox" 
         options={{ 
-          title: 'Riwayat',
+          title: 'Inbox',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? "stats-chart" : "stats-chart-outline"} 
+              name={focused ? "mail" : "mail-outline"} 
               size={24} 
               color={color} 
             />
@@ -87,12 +87,12 @@ export default function PegawaiTabLayout() {
         }} 
       />
       <Tabs.Screen 
-        name="inbox" 
+        name="bantuan" 
         options={{ 
-          title: 'Inbox',
+          title: 'Bantuan',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
-              name={focused ? "mail" : "mail-outline"} 
+              name={focused ? "help-circle" : "help-circle-outline"} 
               size={24} 
               color={color} 
             />

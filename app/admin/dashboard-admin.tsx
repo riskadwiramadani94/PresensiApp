@@ -230,21 +230,37 @@ export default function AdminDashboard() {
           <View style={styles.menuSection}>
             <View style={styles.mainMenuRow}>
               {[
-                { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/pegawai-akun' },
-                { id: 2, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/kelola-dinas' },
-                { id: 3, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/laporan/laporan-admin' },
-                { id: 4, name: 'Pengaturan', image: require('../../assets/images/icons/admin/pengaturan.png'), route: '/pengaturan' },
+                { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/menu-admin/pegawai-akun' },
+                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/admin/pengajuan.png'), route: '/menu-admin/pusat-validasi', params: { initialTab: 'pengajuan' } },
+                { id: 3, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/kelola-dinas' },
+                { id: 4, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/laporan/laporan-admin' },
               ].map((item) => (
                 <TouchableOpacity 
                   key={item.id} 
                   style={styles.mainMenuItem}
                   activeOpacity={0.7}
-                  onPress={() => router.push(item.route as any)}
+                  onPress={() => {
+                    if (item.params) {
+                      router.push({ pathname: item.route, params: item.params } as any);
+                    } else {
+                      router.push(item.route as any);
+                    }
+                  }}
                 >
                   <Image source={item.image} style={styles.menuIcon} />
                   <Text style={styles.menuLabel}>{item.name}</Text>
                 </TouchableOpacity>
               ))}
+            </View>
+            <View style={styles.secondMenuRow}>
+              <TouchableOpacity 
+                style={styles.mainMenuItem}
+                activeOpacity={0.7}
+                onPress={() => router.push('/pengaturan' as any)}
+              >
+                <Image source={require('../../assets/images/icons/admin/pengaturan.png')} style={styles.menuIcon} />
+                <Text style={styles.menuLabel}>Pengaturan</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -388,6 +404,11 @@ const styles = StyleSheet.create({
     marginTop: -10,
     width: Platform.OS === 'ios' ? '22%' : '23%',
     alignItems: 'center',
+  },
+  secondMenuRow: {
+    flexDirection: 'row',
+    marginTop: 20,
+    paddingHorizontal: Platform.OS === 'ios' ? 5 : 0,
   },
   menuIcon: {
     width: 35,

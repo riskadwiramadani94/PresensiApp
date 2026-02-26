@@ -35,38 +35,22 @@ export const runNetworkDiagnostic = async (): Promise<NetworkDiagnosticResult> =
 
   // Test primary server
   try {
-    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TEST_CONNECTION}`, {
-      method: 'GET',
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/api/login`, {
+      method: 'HEAD',
       signal: AbortSignal.timeout(10000)
     });
-    result.primaryServerReachable = response.ok;
-    if (!response.ok) {
+    result.primaryServerReachable = response.ok || response.status === 405;
+    if (!response.ok && response.status !== 405) {
       result.errors.push(`Server utama tidak dapat dijangkau (HTTP ${response.status})`);
     }
   } catch (error) {
     result.primaryServerReachable = false;
     result.errors.push(`Server utama tidak dapat dijangkau: ${(error as Error).message}`);
-    result.recommendations.push('Pastikan server backend berjalan di http://10.251.109.30/hadirinapp');
-  }
-
-  // Test fallback server
-  try {
-    const response = await fetch(`${API_CONFIG.FALLBACK_URL}${API_CONFIG.ENDPOINTS.TEST_CONNECTION}`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(10000)
-    });
-    result.fallbackServerReachable = response.ok;
-    if (!response.ok) {
-      result.errors.push(`Server fallback tidak dapat dijangkau (HTTP ${response.status})`);
-    }
-  } catch (error) {
-    result.fallbackServerReachable = false;
-    result.errors.push(`Server fallback tidak dapat dijangkau: ${(error as Error).message}`);
-    result.recommendations.push('Pastikan server backend berjalan di localhost/hadirinapp');
+    result.recommendations.push(`Pastikan server backend berjalan di ${API_CONFIG.BASE_URL}`);
   }
 
   // Overall connection status
-  result.isConnected = result.primaryServerReachable || result.fallbackServerReachable;
+  result.isConnected = result.primaryServerReachable;
 
   // Add general recommendations
   if (!result.isConnected) {
@@ -84,7 +68,6 @@ export const printDiagnosticReport = (result: NetworkDiagnosticResult) => {
   console.log('=== NETWORK DIAGNOSTIC REPORT ===');
   console.log(`Internet Connection: ${result.internetConnection ? '✅' : '❌'}`);
   console.log(`Primary Server (${API_CONFIG.BASE_URL}): ${result.primaryServerReachable ? '✅' : '❌'}`);
-  console.log(`Fallback Server (${API_CONFIG.FALLBACK_URL}): ${result.fallbackServerReachable ? '✅' : '❌'}`);
   console.log(`Overall Status: ${result.isConnected ? '✅ Connected' : '❌ Disconnected'}`);
   
   if (result.errors.length > 0) {

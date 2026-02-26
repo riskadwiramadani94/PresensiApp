@@ -81,11 +81,11 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="pusat-validasi"
+        name="inbox-admin"
         options={{
-          title: 'Validasi',
+          title: 'Kotak Masuk',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "checkmark-circle" : "checkmark-circle-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "mail" : "mail-outline"} size={24} color={color} />
           ),
         }}
       />
@@ -117,11 +117,11 @@ export default function AdminTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="inbox-admin"
+        name="bantuan-admin"
         options={{
-          title: 'Kotak Masuk',
+          title: 'Bantuan',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "mail" : "mail-outline"} size={24} color={color} />
+            <Ionicons name={focused ? "help-circle" : "help-circle-outline"} size={24} color={color} />
           ),
         }}
       />

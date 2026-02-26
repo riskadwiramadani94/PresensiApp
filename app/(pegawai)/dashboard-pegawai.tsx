@@ -271,9 +271,10 @@ export default function BerandaScreen() {
           <View style={styles.menuSection}>
             <View style={styles.mainMenuRow}>
               {[
-                { id: 1, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/menu-pegawai/pengajuan' },
-                { id: 2, name: 'Kegiatan', image: require('../../assets/images/icons/pegawai/kegiatan.png'), route: '/menu-pegawai/kegiatan' },
-                { id: 3, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png'), route: '/menu-pegawai/lembur' },
+                { id: 1, name: 'Presensi', image: require('../../assets/images/icons/pegawai/presensi.png'), route: '/menu-pegawai/presensi' },
+                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/menu-pegawai/pengajuan' },
+                { id: 3, name: 'Dinas', image: require('../../assets/images/icons/pegawai/kegiatan.png'), route: '/menu-pegawai/kegiatan' },
+                { id: 4, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png'), route: '/menu-pegawai/lembur' },
               ].map((item) => (
                 <TouchableOpacity 
                   key={item.id} 

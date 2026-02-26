@@ -75,6 +75,111 @@ const getDynamicAttendanceStatus = async (userId, targetDate = null) => {
   }
 };
 
+// Function to auto-generate "Tidak Hadir" for all employees
+const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, month, year) => {
+  try {
+    // Determine date range
+    let startDateStr, endDateStr;
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    
+    if (filter_date === 'harian' && start_date) {
+      startDateStr = start_date;
+      endDateStr = start_date;
+    } else if (filter_date === 'mingguan' && start_date && end_date) {
+      startDateStr = start_date;
+      endDateStr = end_date;
+    } else if (filter_date === 'bulanan' && month && year) {
+      startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, parseInt(month), 0).getDate();
+      endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    } else if (filter_date === 'tahunan' && year) {
+      startDateStr = `${year}-01-01`;
+      endDateStr = `${year}-12-31`;
+    } else {
+      return; // No filter, skip
+    }
+    
+    // Only process dates up to today
+    if (endDateStr > currentDate) {
+      endDateStr = currentDate;
+    }
+    
+    // Get all active pegawai
+    const [pegawaiList] = await db.execute(`
+      SELECT p.id_user
+      FROM pegawai p
+      INNER JOIN users u ON p.id_user = u.id_user
+      WHERE u.role = 'pegawai' AND p.id_user IS NOT NULL
+    `);
+    
+    // Loop through each date in range
+    let currentDateLoop = new Date(startDateStr);
+    const endDateObj = new Date(endDateStr);
+    
+    while (currentDateLoop <= endDateObj) {
+      const dateStr = currentDateLoop.toISOString().split('T')[0];
+      const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const dayName = dayNames[currentDateLoop.getDay()];
+      
+      // Check if it's a work day
+      const [jamKerjaRows] = await db.execute(
+        'SELECT is_kerja, batas_absen FROM jam_kerja_hari WHERE hari = ?',
+        [dayName]
+      );
+      const isWorkDay = jamKerjaRows.length > 0 && jamKerjaRows[0].is_kerja === 1;
+      
+      // Check if it's a holiday
+      const [holidayRows] = await db.execute(
+        'SELECT id FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+        [dateStr]
+      );
+      const isHoliday = holidayRows.length > 0;
+      
+      if (isWorkDay && !isHoliday && jamKerjaRows.length > 0) {
+        const { batas_absen } = jamKerjaRows[0];
+        const currentTime = now.toTimeString().slice(0, 8);
+        
+        // Only insert if date is before today OR (today AND past batas_absen)
+        if (dateStr < currentDate || (dateStr === currentDate && currentTime > batas_absen)) {
+          // For each pegawai, check if they have attendance
+          for (const pegawai of pegawaiList) {
+            // Check if already has presensi
+            const [presensiRows] = await db.execute(
+              'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ?',
+              [pegawai.id_user, dateStr]
+            );
+            
+            // Check if on dinas
+            const [dinasRows] = await db.execute(
+              'SELECT id FROM dinas_pegawai dp JOIN dinas d ON dp.id_dinas = d.id_dinas WHERE dp.id_user = ? AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)',
+              [pegawai.id_user, dateStr]
+            );
+            
+            // Check if on cuti
+            const [cutiRows] = await db.execute(
+              'SELECT id_pengajuan FROM pengajuan WHERE id_user = ? AND tanggal_mulai <= ? AND (tanggal_selesai >= ? OR tanggal_selesai IS NULL) AND status = "disetujui" AND jenis_pengajuan IN ("cuti_sakit", "cuti_tahunan", "cuti_alasan_penting")',
+              [pegawai.id_user, dateStr, dateStr]
+            );
+            
+            // If no presensi, not on dinas, not on cuti -> insert "Tidak Hadir"
+            if (presensiRows.length === 0 && dinasRows.length === 0 && cutiRows.length === 0) {
+              await db.execute(
+                'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi) VALUES (?, ?, "Tidak Hadir", "disetujui")',
+                [pegawai.id_user, dateStr]
+              );
+            }
+          }
+        }
+      }
+      
+      currentDateLoop.setDate(currentDateLoop.getDate() + 1);
+    }
+  } catch (error) {
+    console.error('Auto-generate Tidak Hadir error:', error);
+  }
+};
+
 const getLaporan = async (req, res) => {
   try {
     const { type } = req.query;
@@ -129,6 +234,29 @@ const getLaporan = async (req, res) => {
       });
 
     } else if (type === 'absen') {
+      const { filter_date, start_date, end_date, month, year } = req.query;
+      
+      // Build date filter
+      let dateFilter = '';
+      let dateParams = [];
+      
+      if (filter_date === 'harian' && start_date) {
+        dateFilter = 'AND DATE(pr.tanggal) = ?';
+        dateParams = [start_date];
+      } else if (filter_date === 'mingguan' && start_date && end_date) {
+        dateFilter = 'AND DATE(pr.tanggal) BETWEEN ? AND ?';
+        dateParams = [start_date, end_date];
+      } else if (filter_date === 'bulanan' && month && year) {
+        dateFilter = 'AND MONTH(pr.tanggal) = ? AND YEAR(pr.tanggal) = ?';
+        dateParams = [month, year];
+      } else if (filter_date === 'tahunan' && year) {
+        dateFilter = 'AND YEAR(pr.tanggal) = ?';
+        dateParams = [year];
+      }
+      
+      // Auto-generate "Tidak Hadir" untuk semua pegawai yang belum absen
+      await autoGenerateTidakHadir(db, filter_date, start_date, end_date, month, year);
+      
       // Get all pegawai with dynamic absen summary
       const [pegawaiResults] = await db.execute(`
         SELECT 
@@ -150,26 +278,27 @@ const getLaporan = async (req, res) => {
       const data = [];
       
       for (const pegawai of pegawaiResults) {
-        // Get attendance summary with dynamic status for today
-        const [summaryRows] = await db.execute(`
+        // Get attendance summary with date filter
+        const summaryQuery = `
           SELECT 
-            COUNT(CASE WHEN pr.status = 'Hadir' THEN 1 END) as hadir,
-            COUNT(CASE WHEN pr.status = 'Tidak Hadir' THEN 1 END) as tidak_hadir,
-            COUNT(CASE WHEN pr.status = 'Terlambat' THEN 1 END) as terlambat,
-            COUNT(CASE WHEN pr.status = 'Izin' THEN 1 END) as izin,
-            COUNT(CASE WHEN pr.status = 'Sakit' THEN 1 END) as sakit,
-            COUNT(CASE WHEN pr.status = 'Cuti' THEN 1 END) as cuti,
-            COUNT(CASE WHEN pr.status = 'Pulang Cepat' THEN 1 END) as pulang_cepat,
-            COUNT(CASE WHEN pr.status = 'Dinas Luar/ Perjalanan Dinas' THEN 1 END) as dinas_luar,
-            COUNT(CASE WHEN pr.status = 'Mangkir/ Alpha' THEN 1 END) as mangkir
+            COUNT(DISTINCT CASE WHEN pr.status = 'Hadir' THEN DATE(pr.tanggal) END) as hadir,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Tidak Hadir' THEN DATE(pr.tanggal) END) as tidak_hadir,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Terlambat' THEN DATE(pr.tanggal) END) as terlambat,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Izin' THEN DATE(pr.tanggal) END) as izin,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Sakit' THEN DATE(pr.tanggal) END) as sakit,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Cuti' THEN DATE(pr.tanggal) END) as cuti,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Pulang Cepat' THEN DATE(pr.tanggal) END) as pulang_cepat,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Dinas Luar/ Perjalanan Dinas' THEN DATE(pr.tanggal) END) as dinas_luar,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Mangkir/ Alpha' THEN DATE(pr.tanggal) END) as mangkir
           FROM presensi pr
-          WHERE pr.id_user = ?
-        `, [pegawai.id_user]);
+          WHERE pr.id_user = ? ${dateFilter}
+        `;
+        const [summaryRows] = await db.execute(summaryQuery, [pegawai.id_user, ...dateParams]);
         
         const summary = summaryRows[0];
         
-        // Count days on dinas (from dinas_pegawai table)
-        const [dinasCountRows] = await db.execute(`
+        // Count days on dinas with date filter
+        const dinasQueryBase = `
           SELECT COUNT(DISTINCT DATE(calendar.tanggal)) as dinas_count
           FROM dinas_pegawai dp
           JOIN dinas d ON dp.id_dinas = d.id_dinas
@@ -183,14 +312,21 @@ const getLaporan = async (req, res) => {
           WHERE dp.id_user = ?
           AND DATE(calendar.tanggal) BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
           AND pr.id_presensi IS NULL
-        `, [pegawai.id_user]);
+        `;
+        
+        let dinasQuery = dinasQueryBase;
+        let dinasParams = [pegawai.id_user];
+        
+        if (dateFilter) {
+          const calendarFilter = dateFilter.replace('pr.tanggal', 'calendar.tanggal');
+          dinasQuery += ` ${calendarFilter}`;
+          dinasParams = [...dinasParams, ...dateParams];
+        }
+        
+        const [dinasCountRows] = await db.execute(dinasQuery, dinasParams);
         
         const dinasCount = dinasCountRows[0]?.dinas_count || 0;
         
-        // Get dynamic status for today
-        const todayStatus = await getDynamicAttendanceStatus(pegawai.id_user);
-        
-        // Adjust counts based on today's dynamic status
         let adjustedSummary = {
           'Hadir': parseInt(summary.hadir || 0),
           'Tidak Hadir': parseInt(summary.tidak_hadir || 0),
@@ -204,21 +340,12 @@ const getLaporan = async (req, res) => {
           'Mangkir/ Alpha': parseInt(summary.mangkir || 0)
         };
         
-        // Add today's dynamic status if it's a work day and not attended yet
-        if (todayStatus.isWorkDay && !todayStatus.hasAttended) {
-          if (todayStatus.status === 'Tidak Hadir') {
-            adjustedSummary['Tidak Hadir'] += 1;
-          }
-          // 'Belum Absen' is shown in real-time but not counted in summary
-        }
-        
         data.push({
           id_pegawai: parseInt(pegawai.id_pegawai),
           nama_lengkap: pegawai.nama_lengkap,
           nip: pegawai.nip,
           foto_profil: pegawai.foto_profil,
-          summary: adjustedSummary,
-          today_status: todayStatus.status // Add current status for real-time display
+          summary: adjustedSummary
         });
       }
 
@@ -333,41 +460,111 @@ const getLaporan = async (req, res) => {
       });
 
     } else if (type === 'lembur') {
-      // Get all lembur data
-      const [results] = await db.execute(`
+      const { filter_date, start_date, end_date, month, year, search } = req.query;
+      
+      // Build date filter
+      let dateFilter = '';
+      let dateParams = [];
+      
+      if (filter_date === 'mingguan' && start_date && end_date) {
+        dateFilter = 'AND DATE(peng.tanggal_mulai) BETWEEN ? AND ?';
+        dateParams = [start_date, end_date];
+      } else if (filter_date === 'bulanan' && month && year) {
+        dateFilter = 'AND MONTH(peng.tanggal_mulai) = ? AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [month, year];
+      } else if (filter_date === 'tahunan' && year) {
+        dateFilter = 'AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [year];
+      }
+      
+      // Get all pegawai with lembur summary
+      const [pegawaiResults] = await db.execute(`
         SELECT 
-          peng.id_pengajuan as id,
+          p.id_pegawai,
           p.nama_lengkap,
           p.nip,
-          p.jabatan,
-          p.foto_profil,
-          peng.jenis_pengajuan,
-          peng.tanggal_mulai,
-          peng.tanggal_selesai,
-          peng.jam_mulai,
-          peng.jam_selesai,
-          peng.alasan_text,
-          peng.status
-        FROM pengajuan peng
-        INNER JOIN pegawai p ON peng.id_pegawai = p.id_pegawai
-        WHERE peng.jenis_pengajuan IN ('lembur_weekday', 'lembur_weekend', 'lembur_holiday')
-        ORDER BY peng.tanggal_mulai DESC
+          CASE 
+            WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
+            THEN CONCAT('/uploads/pegawai/', p.foto_profil)
+            ELSE NULL
+          END as foto_profil,
+          p.id_user
+        FROM pegawai p
+        LEFT JOIN users u ON p.id_user = u.id_user
+        WHERE u.role = 'pegawai' AND p.id_user IS NOT NULL
+        ORDER BY p.nama_lengkap
       `);
+
+      const data = [];
       
-      const data = results.map(row => ({
-        id: parseInt(row.id),
-        nama_lengkap: row.nama_lengkap,
-        nip: row.nip,
-        jabatan: row.jabatan,
-        foto_profil: row.foto_profil,
-        jenis_pengajuan: row.jenis_pengajuan,
-        tanggal_mulai: row.tanggal_mulai,
-        tanggal_selesai: row.tanggal_selesai,
-        jam_mulai: row.jam_mulai,
-        jam_selesai: row.jam_selesai,
-        alasan_text: row.alasan_text,
-        status: row.status
-      }));
+      for (const pegawai of pegawaiResults) {
+        // Get lembur summary with date filter
+        const summaryQuery = `
+          SELECT 
+            COUNT(*) as total_pengajuan,
+            SUM(CASE WHEN peng.status = 'disetujui' THEN 1 ELSE 0 END) as disetujui,
+            SUM(CASE WHEN peng.status = 'menunggu' THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN peng.status = 'ditolak' THEN 1 ELSE 0 END) as ditolak,
+            SUM(
+              CASE 
+                WHEN peng.status = 'disetujui' 
+                THEN DATEDIFF(
+                  COALESCE(peng.tanggal_selesai, peng.tanggal_mulai), 
+                  peng.tanggal_mulai
+                ) + 1
+                ELSE 0
+              END
+            ) as total_hari,
+            SUM(
+              CASE 
+                WHEN peng.status = 'disetujui' 
+                AND peng.jam_mulai IS NOT NULL 
+                AND peng.jam_selesai IS NOT NULL
+                AND EXISTS (
+                  SELECT 1 FROM absen_lembur al 
+                  WHERE al.id_pengajuan = peng.id_pengajuan 
+                  AND al.jam_masuk IS NOT NULL
+                )
+                THEN TIMESTAMPDIFF(HOUR, 
+                  CONCAT(peng.tanggal_mulai, ' ', peng.jam_mulai),
+                  CONCAT(COALESCE(peng.tanggal_selesai, peng.tanggal_mulai), ' ', peng.jam_selesai)
+                )
+                ELSE 0
+              END
+            ) as total_jam
+          FROM pengajuan peng
+          WHERE peng.id_pegawai = ? 
+          AND peng.jenis_pengajuan = 'lembur'
+          ${dateFilter}
+        `;
+        
+        const [summaryRows] = await db.execute(summaryQuery, [pegawai.id_pegawai, ...dateParams]);
+        const summary = summaryRows[0];
+        
+        // Only include pegawai with lembur data
+        if (parseInt(summary.total_pengajuan) > 0) {
+          // Apply search filter if provided
+          if (search && !pegawai.nama_lengkap.toLowerCase().includes(search.toLowerCase()) && 
+              !pegawai.nip.includes(search)) {
+            continue;
+          }
+          
+          data.push({
+            id_pegawai: parseInt(pegawai.id_pegawai),
+            nama_lengkap: pegawai.nama_lengkap,
+            nip: pegawai.nip,
+            foto_profil: pegawai.foto_profil,
+            summary: {
+              total_pengajuan: parseInt(summary.total_pengajuan || 0),
+              disetujui: parseInt(summary.disetujui || 0),
+              pending: parseInt(summary.pending || 0),
+              ditolak: parseInt(summary.ditolak || 0),
+              total_hari: parseInt(summary.total_hari || 0),
+              total_jam: parseInt(summary.total_jam || 0)
+            }
+          });
+        }
+      }
       
       res.json({
         success: true,
@@ -387,7 +584,7 @@ const getLaporan = async (req, res) => {
 const getDetailAbsenPegawai = async (req, res) => {
   try {
     const { id } = req.params;
-    const { bulan = new Date().getMonth() + 1, tahun = new Date().getFullYear() } = req.query;
+    const { filter_date, start_date, end_date, month, year } = req.query;
     
     if (!id) {
       return res.json({ success: false, message: 'ID pegawai diperlukan' });
@@ -405,13 +602,37 @@ const getDetailAbsenPegawai = async (req, res) => {
     
     const user_id = pegawai.id_user;
     
-    // Generate semua tanggal dalam bulan
-    const startDate = `${tahun}-${String(bulan).padStart(2, '0')}-01`;
-    const endDate = new Date(tahun, bulan, 0).toISOString().split('T')[0];
+    // Determine date range based on filter_date
+    let startDateStr, endDateStr;
+    
+    if (filter_date === 'harian' && start_date) {
+      startDateStr = start_date;
+      endDateStr = start_date;
+    } else if (filter_date === 'mingguan' && start_date && end_date) {
+      startDateStr = start_date;
+      endDateStr = end_date;
+    } else if (filter_date === 'bulanan' && month && year) {
+      startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, parseInt(month), 0).getDate();
+      endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      console.log('Bulanan filter:', { month, year, startDateStr, endDateStr });
+    } else if (filter_date === 'tahunan' && year) {
+      startDateStr = `${year}-01-01`;
+      endDateStr = `${year}-12-31`;
+    } else {
+      // Default to current month
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      startDateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+      const lastDay = new Date(currentYear, currentMonth, 0).getDate();
+      endDateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      console.log('Default filter (current month):', { currentMonth, currentYear, startDateStr, endDateStr });
+    }
     
     const absenData = [];
-    let currentDate = new Date(startDate);
-    const endDateObj = new Date(endDate);
+    let currentDate = new Date(startDateStr + 'T00:00:00');
+    const endDateObj = new Date(endDateStr + 'T00:00:00');
     
     while (currentDate <= endDateObj) {
       const dateStr = currentDate.toISOString().split('T')[0];
@@ -451,7 +672,35 @@ const getDetailAbsenPegawai = async (req, res) => {
         FROM presensi 
         WHERE id_user = ? AND tanggal = ?
       `, [user_id, dateStr]);
-      const presensi = presensiRows[0];
+      let presensi = presensiRows[0];
+      
+      // Auto-insert "Tidak Hadir" jika sudah lewat batas absen dan belum ada presensi
+      if (!presensi && isWorkDay && !isHoliday && !dinas && !pengajuan) {
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0];
+        const currentTime = now.toTimeString().slice(0, 8);
+        
+        // Hanya untuk hari ini atau hari sebelumnya
+        if (dateStr <= currentDate && jamKerjaRows.length > 0) {
+          const { batas_absen } = jamKerjaRows[0];
+          
+          // Jika sudah lewat batas absen, insert "Tidak Hadir"
+          if (dateStr < currentDate || (dateStr === currentDate && currentTime > batas_absen)) {
+            await db.execute(`
+              INSERT INTO presensi (id_user, tanggal, status, status_validasi)
+              VALUES (?, ?, 'Tidak Hadir', 'disetujui')
+            `, [user_id, dateStr]);
+            
+            // Fetch ulang presensi yang baru diinsert
+            const [newPresensiRows] = await db.execute(`
+              SELECT tanggal, jam_masuk, jam_pulang, status, alasan_luar_lokasi as keterangan
+              FROM presensi 
+              WHERE id_user = ? AND tanggal = ?
+            `, [user_id, dateStr]);
+            presensi = newPresensiRows[0];
+          }
+        }
+      }
       
       // Cek pengajuan izin/cuti yang disetujui
       const [pengajuanRows] = await db.execute(`
@@ -564,8 +813,123 @@ const getDetailAbsenPegawai = async (req, res) => {
 // Detail Laporan - GET detail by type and id
 const getDetailLaporan = async (req, res) => {
   try {
-    const { type = 'absen', id, date, start_date, end_date } = req.query;
+    const { type = 'absen', id, date, user_id, id_pegawai, start_date, end_date, month, year } = req.query;
     const db = await getConnection();
+    
+    // Detail lembur per pegawai
+    if (type === 'lembur' && id_pegawai) {
+      // Build date filter
+      let dateFilter = '';
+      let dateParams = [];
+      
+      if (start_date && end_date) {
+        dateFilter = 'AND DATE(peng.tanggal_mulai) BETWEEN ? AND ?';
+        dateParams = [start_date, end_date];
+      } else if (month && year) {
+        dateFilter = 'AND MONTH(peng.tanggal_mulai) = ? AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [month, year];
+      } else if (year) {
+        dateFilter = 'AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [year];
+      }
+      
+      const [rows] = await db.execute(`
+        SELECT 
+          peng.tanggal_mulai as tanggal,
+          peng.status,
+          peng.jam_mulai,
+          peng.jam_selesai,
+          peng.alasan_text as keterangan,
+          CASE WHEN peng.id_pengajuan IS NOT NULL THEN 1 ELSE 0 END as has_pengajuan,
+          CASE WHEN al.id_absen_lembur IS NOT NULL THEN 1 ELSE 0 END as has_absen
+        FROM pengajuan peng
+        LEFT JOIN absen_lembur al ON peng.id_pengajuan = al.id_pengajuan
+        WHERE peng.id_pegawai = ?
+        AND peng.jenis_pengajuan = 'lembur'
+        ${dateFilter}
+        ORDER BY peng.tanggal_mulai DESC
+      `, [id_pegawai, ...dateParams]);
+      
+      res.json({
+        success: true,
+        data: rows
+      });
+      return;
+    }
+    
+    // Detail lembur per tanggal
+    if (type === 'lembur' && date && (user_id || id_pegawai)) {
+      // Jika ada id_pegawai, convert ke user_id dulu
+      let finalUserId = user_id;
+      if (id_pegawai && !user_id) {
+        const [pegawaiRows] = await db.execute('SELECT id_user FROM pegawai WHERE id_pegawai = ?', [id_pegawai]);
+        if (pegawaiRows.length > 0) {
+          finalUserId = pegawaiRows[0].id_user;
+        }
+      }
+      
+      if (!finalUserId) {
+        return res.json({ success: false, message: 'User ID tidak ditemukan' });
+      }
+      
+      const [pengajuanRows] = await db.execute(`
+        SELECT 
+          peng.id_pengajuan,
+          peng.tanggal_mulai as tanggal,
+          peng.status,
+          peng.jam_mulai,
+          peng.jam_selesai,
+          peng.alasan_text as alasan,
+          TIMESTAMPDIFF(HOUR, 
+            CONCAT(peng.tanggal_mulai, ' ', peng.jam_mulai),
+            CONCAT(COALESCE(peng.tanggal_selesai, peng.tanggal_mulai), ' ', peng.jam_selesai)
+          ) as durasi
+        FROM pengajuan peng
+        WHERE peng.id_user = ?
+        AND DATE(peng.tanggal_mulai) = ?
+        AND peng.jenis_pengajuan = 'lembur'
+        LIMIT 1
+      `, [finalUserId, date]);
+      
+      const [absenRows] = await db.execute(`
+        SELECT 
+          al.jam_masuk,
+          al.jam_pulang,
+          al.foto_masuk,
+          al.foto_pulang,
+          TIMESTAMPDIFF(HOUR, al.jam_masuk, al.jam_pulang) as durasi_aktual
+        FROM absen_lembur al
+        WHERE al.id_user = ?
+        AND DATE(al.tanggal) = ?
+        LIMIT 1
+      `, [finalUserId, date]);
+      
+      const data = {
+        tanggal: date,
+        status: pengajuanRows[0]?.status || 'Belum Ada Pengajuan',
+        pengajuan: pengajuanRows[0] ? {
+          alasan: pengajuanRows[0].alasan,
+          jam_mulai: pengajuanRows[0].jam_mulai,
+          jam_selesai: pengajuanRows[0].jam_selesai,
+          durasi: `${pengajuanRows[0].durasi || 0} jam`
+        } : null,
+        absen: absenRows[0] ? {
+          jam_masuk: absenRows[0].jam_masuk,
+          jam_keluar: absenRows[0].jam_pulang,
+          foto_masuk: absenRows[0].foto_masuk,
+          foto_pulang: absenRows[0].foto_pulang,
+          durasi_aktual: `${absenRows[0].durasi_aktual || 0} jam`,
+          lokasi_masuk: '-',
+          lokasi_pulang: '-'
+        } : null
+      };
+      
+      res.json({
+        success: true,
+        data
+      });
+      return;
+    }
     
     // Jika ada ID, ambil detail single record
     if (id && type === 'dinas') {
@@ -633,16 +997,8 @@ const getDetailAbsen = async (req, res) => {
         p.tanggal,
         p.jam_masuk,
         p.jam_pulang,
-        CASE 
-          WHEN p.foto_masuk IS NOT NULL AND p.foto_masuk != '' 
-          THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', p.foto_masuk)
-          ELSE NULL
-        END as foto_masuk,
-        CASE 
-          WHEN p.foto_pulang IS NOT NULL AND p.foto_pulang != '' 
-          THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', p.foto_pulang)
-          ELSE NULL
-        END as foto_pulang,
+        p.foto_masuk,
+        p.foto_pulang,
         p.lintang_masuk as lat_masuk,
         p.bujur_masuk as long_masuk,
         p.lintang_pulang as lat_pulang,
