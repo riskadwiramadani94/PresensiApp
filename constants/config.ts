@@ -75,6 +75,7 @@ export const API_CONFIG = {
     PEGAWAI_PENGAJUAN: '/pegawai/pengajuan/api/pengajuan',
     PEGAWAI_PROFILE: '/pegawai/profil/api/profile',
     PEGAWAI_KEGIATAN: '/pegawai/kegiatan/api/kegiatan',
+    PEGAWAI_INBOX: '/pegawai/inbox/api/notifications',
   }
 };
 
@@ -603,9 +604,27 @@ export const PusatValidasiAPI = {
     }
   },
   
+  getAllAbsenDinas: async () => {
+    try {
+      const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.PUSAT_VALIDASI_ABSEN_DINAS + '/all'));
+      return response.json();
+    } catch (error) {
+      return { success: false, message: 'Tidak dapat terhubung ke server', data: [] };
+    }
+  },
+  
   getPengajuan: async () => {
     try {
       const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.PUSAT_VALIDASI_PENGAJUAN));
+      return response.json();
+    } catch (error) {
+      return { success: false, message: 'Tidak dapat terhubung ke server', data: [] };
+    }
+  },
+  
+  getAllPengajuan: async () => {
+    try {
+      const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.PUSAT_VALIDASI_PENGAJUAN + '/all'));
       return response.json();
     } catch (error) {
       return { success: false, message: 'Tidak dapat terhubung ke server', data: [] };

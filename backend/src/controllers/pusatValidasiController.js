@@ -56,6 +56,60 @@ const pusatValidasiController = {
     }
   },
 
+  // Get SEMUA absen dinas (termasuk yang sudah diproses)
+  getAllAbsenDinas: async (req, res) => {
+    try {
+      const db = await getConnection();
+      const query = `
+        SELECT 
+          ad.id,
+          ad.id_dinas,
+          ad.id_user,
+          ad.tanggal_absen,
+          ad.jam_masuk,
+          ad.lintang_masuk as latitude_masuk,
+          ad.bujur_masuk as longitude_masuk,
+          CASE 
+            WHEN ad.foto_masuk IS NOT NULL AND ad.foto_masuk != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_masuk)
+            ELSE NULL
+          END as foto_masuk,
+          CASE 
+            WHEN ad.foto_pulang IS NOT NULL AND ad.foto_pulang != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_pulang)
+            ELSE NULL
+          END as foto_pulang,
+          ad.status,
+          ad.status_validasi,
+          ad.keterangan,
+          pg.nama_lengkap,
+          pg.nip,
+          d.nama_kegiatan,
+          d.nomor_spt,
+          d.alamat_lengkap
+        FROM absen_dinas ad
+        JOIN users u ON ad.id_user = u.id_user
+        JOIN pegawai pg ON u.id_user = pg.id_user
+        JOIN dinas d ON ad.id_dinas = d.id_dinas
+        ORDER BY ad.tanggal_absen DESC, ad.jam_masuk DESC
+        LIMIT 100
+      `;
+      
+      const [results] = await db.execute(query);
+      
+      res.json({
+        success: true,
+        data: results
+      });
+    } catch (error) {
+      console.error('Error getting all absen dinas:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Gagal mengambil data absen dinas'
+      });
+    }
+  },
+
   // Get pengajuan yang menunggu persetujuan
   getPengajuan: async (req, res) => {
     try {
@@ -95,6 +149,51 @@ const pusatValidasiController = {
     } catch (error) {
       console.error('Error getting pengajuan:', error);
       console.error('Error details:', error.message);
+      res.status(500).json({
+        success: false,
+        message: 'Gagal mengambil data pengajuan: ' + error.message
+      });
+    }
+  },
+
+  // Get SEMUA pengajuan (termasuk yang sudah diproses)
+  getAllPengajuan: async (req, res) => {
+    try {
+      const db = await getConnection();
+      
+      const query = `
+        SELECT 
+          p.id_pengajuan,
+          p.id_user,
+          p.jenis_pengajuan,
+          p.tanggal_mulai,
+          p.tanggal_selesai,
+          p.jam_mulai,
+          p.jam_selesai,
+          p.alasan_text,
+          p.dokumen_foto,
+          p.status,
+          p.is_retrospektif,
+          p.tanggal_pengajuan,
+          pg.nama_lengkap,
+          pg.nip,
+          COALESCE(pg.jabatan, '-') as jabatan,
+          COALESCE(pg.divisi, '-') as divisi
+        FROM pengajuan p
+        JOIN users u ON p.id_user = u.id_user
+        LEFT JOIN pegawai pg ON p.id_pegawai = pg.id_pegawai
+        ORDER BY p.tanggal_pengajuan DESC
+        LIMIT 100
+      `;
+      
+      const [results] = await db.execute(query);
+      
+      res.json({
+        success: true,
+        data: results
+      });
+    } catch (error) {
+      console.error('Error getting all pengajuan:', error);
       res.status(500).json({
         success: false,
         message: 'Gagal mengambil data pengajuan: ' + error.message

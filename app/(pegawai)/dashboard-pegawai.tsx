@@ -40,6 +40,7 @@ export default function BerandaScreen() {
     totalJamKerja: '0j 0m'
   });
   const [loading, setLoading] = useState(true);
+  const [lastCheckDate, setLastCheckDate] = useState(new Date());
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -48,12 +49,31 @@ export default function BerandaScreen() {
     fetchUserData();
     startLocationTracking();
     
-    const interval = setInterval(() => {
+    // Update waktu setiap 30 detik
+    const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 30000);
     
-    return () => clearInterval(interval);
-  }, []);
+    // Cek pergantian hari setiap 1 menit
+    const dayCheckInterval = setInterval(() => {
+      const now = new Date();
+      const lastCheck = new Date(lastCheckDate);
+      
+      // Jika hari berbeda, refresh data
+      if (now.getDate() !== lastCheck.getDate() || 
+          now.getMonth() !== lastCheck.getMonth() || 
+          now.getFullYear() !== lastCheck.getFullYear()) {
+        console.log('🔄 Hari berganti, refresh data dashboard...');
+        fetchUserData();
+        setLastCheckDate(now);
+      }
+    }, 60000); // Cek setiap 1 menit
+    
+    return () => {
+      clearInterval(timeInterval);
+      clearInterval(dayCheckInterval);
+    };
+  }, [lastCheckDate]);
 
   const loadUserDataFirst = async () => {
     try {
@@ -105,12 +125,14 @@ export default function BerandaScreen() {
           const jamMasuk = data.presensi_hari_ini.jam_masuk;
           const status = data.presensi_hari_ini.status;
           
-          if (status === 'Terlambat') {
-            statusAbsen = 'Terlambat';
-            keteranganAbsen = `Anda terlambat absen pada pukul ${jamMasuk?.substring(0, 5)} WIB`;
-          } else {
-            statusAbsen = 'Sudah Absen';
-            keteranganAbsen = `Anda sudah absen pada pukul ${jamMasuk?.substring(0, 5)} WIB`;
+          if (jamMasuk) {
+            if (status === 'Terlambat') {
+              statusAbsen = 'Terlambat';
+              keteranganAbsen = `Anda terlambat absen pada pukul ${jamMasuk.substring(0, 5)} WIB`;
+            } else {
+              statusAbsen = 'Sudah Absen';
+              keteranganAbsen = `Anda sudah absen pada pukul ${jamMasuk.substring(0, 5)} WIB`;
+            }
           }
         }
         

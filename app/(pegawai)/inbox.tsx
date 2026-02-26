@@ -1,142 +1,268 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '@/components/AppHeader';
+import { getApiUrl, API_CONFIG } from '@/constants/config';
+import { AuthStorage } from '@/utils/AuthStorage';
+
+interface Notification {
+  id: string;
+  type: 'lupa_absen_pulang' | 'reminder_absen_masuk' | 'reminder_absen_pulang' | 'terlambat_absen_masuk';
+  title: string;
+  desc: string;
+  time: string;
+  isCompleted: boolean;
+  icon: string;
+  color: string;
+  tanggal?: string;
+}
 
 export default function InboxScreen() {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'approval',
-      title: 'Pengajuan Disetujui',
-      desc: 'Pengajuan Dinas Luar Anda untuk tanggal 13 Jan telah disetujui oleh Admin.',
-      time: '10 Menit yang lalu',
-      isRead: false,
-      icon: 'checkmark-circle',
-      color: '#4CAF50'
-    },
-    {
-      id: 2,
-      type: 'reminder',
-      title: 'Lupa Absen Pulang?',
-      desc: 'Sistem mencatat Anda belum melakukan absen pulang pada tanggal 10 Jan.',
-      time: '1 Hari yang lalu',
-      isRead: true,
-      icon: 'alert-circle',
-      color: '#FF9800'
-    },
-    {
-      id: 3,
-      type: 'info',
-      title: 'Update Sistem v1.0',
-      desc: 'Sekarang Anda bisa melakukan pengajuan Dinas Luar langsung melalui menu Pengajuan.',
-      time: '3 Hari yang lalu',
-      isRead: true,
-      icon: 'information-circle',
-      color: '#2196F3'
-    }
-  ]);
+  const router = useRouter();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [uncompletedCount, setUncompletedCount] = useState(0);
 
-  const handleMarkAllRead = () => {
-    setNotifications(notifications.map(notif => ({ ...notif, isRead: true })));
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications();
+    }, [])
+  );
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const user = await AuthStorage.getUser();
+      
+      if (!user) return;
+
+      const response = await fetch(
+        `${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_INBOX)}?user_id=${user.id_user || user.id}`
+      );
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        setNotifications(data.data);
+        setUncompletedCount(data.data.filter((n: Notification) => !n.isCompleted).length);
+      } else {
+        setNotifications([]);
+        setUncompletedCount(0);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+      setUncompletedCount(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  };
+
+  const handleNotifPress = (notif: Notification) => {
+    if (notif.type === 'reminder_absen_masuk' || 
+        notif.type === 'terlambat_absen_masuk' || 
+        notif.type === 'reminder_absen_pulang') {
+      router.push('/(pegawai)/presensi');
+    } else if (notif.type === 'lupa_absen_pulang') {
+      router.push('/(pegawai)/bantuan');
+    }
+  };
+
+  const renderNotifItem = ({ item }: { item: Notification }) => {
+    const statusText = item.isCompleted ? 'Selesai' : '';
+
+    return (
+      <TouchableOpacity
+        style={[styles.notifCard, item.isCompleted && styles.completedCard]}
+        onPress={() => handleNotifPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[
+          styles.iconWrapper,
+          { backgroundColor: item.color + '20' },
+          item.isCompleted && styles.iconCompleted
+        ]}>
+          <Ionicons name={item.icon as any} size={24} color={item.color} />
+        </View>
+
+        <View style={styles.notifContent}>
+          <Text style={styles.notifTitle}>{item.title}</Text>
+          <Text style={styles.notifDesc} numberOfLines={2}>
+            {item.desc}
+          </Text>
+          <View style={styles.timeRow}>
+            <Ionicons name="time-outline" size={14} color="#9CA3AF" />
+            <Text style={styles.timeText}>{item.time}</Text>
+          </View>
+          {item.isCompleted && (
+            <View style={styles.statusBadge}>
+              <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+              <Text style={styles.statusText}>{statusText}</Text>
+            </View>
+          )}
+        </View>
+
+        {!item.isCompleted && <View style={styles.dotIndicator} />}
+        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+      </TouchableOpacity>
+    );
   };
 
   return (
     <View style={styles.container}>
       <AppHeader 
-        title="Notifikasi" 
+        title={uncompletedCount > 0 ? `Kotak Masuk (${uncompletedCount})` : 'Kotak Masuk'}
         showBack={false}
       />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={handleMarkAllRead} style={styles.markReadBtn}>
-            <Ionicons name="checkmark-done-outline" size={18} color="#004643" />
-            <Text style={styles.markRead}>Tandai Semua Dibaca</Text>
-          </TouchableOpacity>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#004643" />
+          <Text style={styles.loadingText}>Memuat kotak masuk...</Text>
         </View>
-
-        {notifications.map((item) => (
-          <TouchableOpacity 
-            key={item.id} 
-            style={[styles.notifCard, !item.isRead && styles.unreadCard]}
-          >
-            <View style={[styles.iconWrapper, { backgroundColor: item.color + '20' }]}>
-              <Ionicons name={item.icon as any} size={24} color={item.color} />
-            </View>
-            
-            <View style={styles.notifContent}>
-              <View style={styles.notifHeader}>
-                <Text style={styles.notifTitle}>{item.title}</Text>
-                <Text style={styles.notifTime}>{item.time}</Text>
-              </View>
-              <Text style={styles.notifDesc} numberOfLines={2}>
-                {item.desc}
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderNotifItem}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              colors={['#004643']}
+              tintColor="#004643"
+            />
+          }
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="checkmark-done-circle-outline" size={80} color="#E0E0E0" />
+              <Text style={styles.emptyText}>Tidak Ada Item</Text>
+              <Text style={styles.emptySubtext}>
+                Semua absensi Anda sudah lengkap
               </Text>
             </View>
-
-            {!item.isRead && <View style={styles.dotIndicator} />}
-          </TouchableOpacity>
-        ))}
-
-        {notifications.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="mail-open-outline" size={80} color="#DDD" />
-            <Text style={styles.emptyText}>Belum ada notifikasi baru</Text>
-          </View>
-        )}
-      </ScrollView>
+          )}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  headerActions: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F8FAFC' 
   },
-  markReadBtn: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  notifCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-end',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#F0F8F7',
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  markRead: { fontSize: 13, color: '#004643', fontWeight: '600', marginLeft: 6 },
-  notifCard: { 
-    flexDirection: 'row', 
-    padding: 18, 
-    backgroundColor: '#fff', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#F5F5F5',
-    alignItems: 'center'
-  },
-  unreadCard: { backgroundColor: '#F0F7F6' },
-  iconWrapper: { 
-    width: 50, 
-    height: 50, 
-    borderRadius: 25, 
-    justifyContent: 'center', 
+  iconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15
+    marginRight: 12,
   },
-  notifContent: { flex: 1 },
-  notifHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  notifTitle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-  notifTime: { fontSize: 10, color: '#999' },
-  notifDesc: { fontSize: 12, color: '#666', lineHeight: 18 },
-  dotIndicator: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4, 
-    backgroundColor: '#004643', 
-    marginLeft: 10 
+  iconCompleted: {
+    opacity: 0.6,
   },
-  emptyState: { alignItems: 'center', marginTop: 100 },
-  emptyText: { color: '#999', marginTop: 10 }
+  completedCard: {
+    backgroundColor: '#F9FAFB',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4CAF50',
+  },
+  dotIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#004643',
+    marginRight: 8,
+  },
+  notifContent: {
+    flex: 1,
+  },
+  notifTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  notifDesc: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  emptySubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#D1D5DB',
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
 });

@@ -133,7 +133,13 @@ export default function LaporanAdminScreen() {
                   key={item.type}
                   style={styles.laporanCard}
                   onPress={() => {
-                    router.push(`/laporan/laporan-detail-${item.type}` as any);
+                    const routes: Record<string, any> = {
+                      absen: '/menu-admin/laporan/laporan-detail-absen',
+                      dinas: '/menu-admin/laporan/laporan-detail-dinas',
+                      izin: '/menu-admin/laporan/laporan-detail-izin',
+                      lembur: '/menu-admin/laporan/laporan-detail-lembur'
+                    };
+                    router.push(routes[item.type] as any);
                   }}
                 >
                   <View

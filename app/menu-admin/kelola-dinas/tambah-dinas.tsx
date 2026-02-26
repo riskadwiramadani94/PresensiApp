@@ -55,6 +55,7 @@ export default function TambahDinasScreen() {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [jamKerjaDefault, setJamKerjaDefault] = useState<any>(null);
 
   const totalSteps = 5;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -253,6 +254,7 @@ export default function TambahDinasScreen() {
     fetchPegawai();
     fetchAvailableLokasi();
     loadDraftData();
+    fetchJamKerja();
   }, []);
 
   // Auto-save draft every 30 seconds
@@ -378,6 +380,29 @@ export default function TambahDinasScreen() {
     }
   };
 
+  const fetchJamKerja = async () => {
+    try {
+      const response = await PengaturanAPI.getJamKerja();
+      if (response.success && response.data) {
+        setJamKerjaDefault(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching jam kerja:', error);
+    }
+  };
+
+  const getJamKerjaForDate = (dateStr: string) => {
+    if (!dateStr || !jamKerjaDefault) return null;
+    
+    const [day, month, year] = dateStr.split('/');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dayName = dayNames[date.getDay()];
+    
+    const jamKerja = jamKerjaDefault.find((jk: any) => jk.hari === dayName);
+    return jamKerja ? { ...jamKerja, dayName } : null;
+  };
+
   const fetchAvailableLokasi = async () => {
     try {
       const response = await PengaturanAPI.getLokasiKantor();
@@ -470,6 +495,15 @@ export default function TambahDinasScreen() {
     setFormData({...formData, tanggalMulai: formattedDate});
     validateField('tanggalMulai', formattedDate);
     closeDateMulaiPicker();
+  };
+
+  const parseDateFromString = (dateStr: string) => {
+    if (!dateStr) return undefined;
+    const [day, month, year] = dateStr.split('/');
+    if (day && month && year) {
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    return undefined;
   };
 
   const handleDateSelesaiSelect = (date: Date) => {
@@ -968,6 +1002,25 @@ export default function TambahDinasScreen() {
                   </TouchableOpacity>
                 </View>
                 
+                {useDefaultJam && formData.tanggalMulai && (() => {
+                  const jamKerja = getJamKerjaForDate(formData.tanggalMulai);
+                  return jamKerja ? (
+                    <View style={styles.jamDefaultBox}>
+                      <View style={styles.jamDefaultHeader}>
+                        <Ionicons name="calendar-outline" size={16} color="#004643" />
+                        <Text style={styles.jamDefaultTitle}>Jam Kantor Default</Text>
+                      </View>
+                      <Text style={styles.jamDefaultDay}>{jamKerja.dayName}: {jamKerja.jam_masuk?.substring(0, 5)} - {jamKerja.jam_pulang?.substring(0, 5)}</Text>
+                      <View style={styles.infoBox}>
+                        <Ionicons name="information-circle" size={14} color="#004643" />
+                        <Text style={styles.infoText}>
+                          Hari lainnya otomatis mengikuti jam kantor default masing-masing
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null;
+                })()}
+                
                 {!useDefaultJam && (
                   <View style={styles.jamKhususContainer}>
                     <View style={styles.jamRow}>
@@ -1134,6 +1187,7 @@ export default function TambahDinasScreen() {
               <Text style={styles.calendarSheetTitle}>Pilih Tanggal Mulai</Text>
               <CustomCalendar 
                 onDatePress={(date: Date) => handleDateMulaiSelect(date)}
+                initialDate={parseDateFromString(formData.tanggalMulai)}
                 weekendDays={[0, 6]}
                 showWeekends={false}
               />
@@ -1153,6 +1207,8 @@ export default function TambahDinasScreen() {
               <Text style={styles.calendarSheetTitle}>Pilih Tanggal Selesai</Text>
               <CustomCalendar 
                 onDatePress={(date: Date) => handleDateSelesaiSelect(date)}
+                initialDate={parseDateFromString(formData.tanggalSelesai)}
+                startDate={parseDateFromString(formData.tanggalMulai)}
                 weekendDays={[0, 6]}
                 showWeekends={false}
               />
@@ -2328,6 +2384,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#004643',
     flex: 1
+  },
+  jamDefaultBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F0F8F7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#C8E6C9'
+  },
+  jamDefaultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8
+  },
+  jamDefaultTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#004643'
+  },
+  jamDefaultDay: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8
   },
   
   // Input Modal styles

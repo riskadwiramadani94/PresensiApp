@@ -23,6 +23,7 @@ const pusatValidasiRoutes = require('./src/routes/pusat-validasi');
 const kegiatanPegawaiRoutes = require('./src/routes/kegiatan-pegawai');
 const performaPegawaiRoutes = require('./src/routes/performa-pegawai');
 const lemburRoutes = require('./src/routes/lembur');
+const inboxPegawaiRoutes = require('./src/routes/inbox-pegawai');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +55,7 @@ app.use('/admin/pusat-validasi/api', pusatValidasiRoutes);
 app.use('/pegawai/kegiatan', kegiatanPegawaiRoutes);
 app.use('/pegawai/api', performaPegawaiRoutes);
 app.use('/pegawai/lembur/api', lemburRoutes);
+app.use('/pegawai/inbox/api', inboxPegawaiRoutes);
 
 // Health check
 app.get('/', (req, res) => {

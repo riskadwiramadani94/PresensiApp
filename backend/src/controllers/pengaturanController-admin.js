@@ -243,6 +243,8 @@ const saveJamKerja = async (req, res) => {
     await connection.beginTransaction();
 
     try {
+      const today = new Date().toISOString().split('T')[0];
+
       for (const item of jam_kerja) {
         const { hari, jam_masuk, batas_absen, jam_pulang, is_kerja } = item;
 
@@ -250,6 +252,21 @@ const saveJamKerja = async (req, res) => {
           throw new Error(`Data tidak lengkap untuk hari ${hari}`);
         }
 
+        // 1. Tutup history lama
+        await connection.execute(`
+          UPDATE jam_kerja_history 
+          SET tanggal_selesai_berlaku = DATE_SUB(?, INTERVAL 1 DAY)
+          WHERE hari = ? AND tanggal_selesai_berlaku IS NULL
+        `, [today, hari]);
+
+        // 2. Insert history baru
+        await connection.execute(`
+          INSERT INTO jam_kerja_history 
+          (hari, jam_masuk, batas_absen, jam_pulang, is_kerja, tanggal_mulai_berlaku)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [hari, jam_masuk, batas_absen, jam_pulang, is_kerja ? 1 : 0, today]);
+
+        // 3. Update jam_kerja_hari (untuk UI)
         await connection.execute(`
           INSERT INTO jam_kerja_hari (hari, jam_masuk, batas_absen, jam_pulang, is_kerja) 
           VALUES (?, ?, ?, ?, ?)
@@ -265,7 +282,7 @@ const saveJamKerja = async (req, res) => {
 
       res.json({
         success: true,
-        message: 'Pengaturan jam kerja berhasil disimpan'
+        message: 'Pengaturan jam kerja berhasil disimpan dan history tersimpan'
       });
 
     } catch (error) {

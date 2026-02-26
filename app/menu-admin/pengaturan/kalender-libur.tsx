@@ -25,6 +25,7 @@ interface HariLibur {
   tanggal: string;
   nama_libur: string;
   jenis: string;
+  is_active?: number;
 }
 
 interface JamKerjaHari {
@@ -172,7 +173,7 @@ export default function KalenderLiburScreen() {
       // Konversi tanggal dari server (ISO format) ke format YYYY-MM-DD
       const serverDate = new Date(h.tanggal);
       const serverDateStr = `${serverDate.getFullYear()}-${String(serverDate.getMonth() + 1).padStart(2, "0")}-${String(serverDate.getDate()).padStart(2, "0")}`;
-      return serverDateStr === dateStr;
+      return serverDateStr === dateStr && h.is_active !== 0;
     });
   };
 
@@ -188,7 +189,7 @@ export default function KalenderLiburScreen() {
       // Konversi tanggal dari server (ISO format) ke format YYYY-MM-DD
       const serverDate = new Date(h.tanggal);
       const serverDateStr = `${serverDate.getFullYear()}-${String(serverDate.getMonth() + 1).padStart(2, "0")}-${String(serverDate.getDate()).padStart(2, "0")}`;
-      return serverDateStr === dateStr;
+      return serverDateStr === dateStr && h.is_active !== 0;
     });
   };
 

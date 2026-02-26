@@ -88,10 +88,9 @@ export default function PresensiScreen() {
       console.log('🔍 Checking attendance for date:', today);
       
       // Cek di presensi biasa
-      const response1 = await fetch(`${API_CONFIG.BASE_URL}/check-attendance.php?user_id=${userId}&date=${today}`);
-      const data1 = await response1.json();
+      const response1 = await PegawaiAPI.getPresensi(userId.toString(), today);
       
-      console.log('📋 Presensi biasa:', data1);
+      console.log('📋 Presensi response:', response1);
       
       // Cek di absen dinas
       const response2 = await fetch(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-attendance?user_id=${userId}&date=${today}`);
@@ -99,10 +98,23 @@ export default function PresensiScreen() {
       
       console.log('📋 Absen dinas:', data2);
       
-      if ((data1.success && data1.has_checked_in) || (data2.success && data2.has_checked_in)) {
+      // Cek dari response presensi
+      const hasPresensi = response1.success && 
+                          response1.data?.presensi_hari_ini && 
+                          response1.data.presensi_hari_ini.jam_masuk;
+      
+      const hasDinas = data2.success && data2.has_checked_in;
+      
+      if (hasPresensi || hasDinas) {
         console.log('✅ Sudah absen hari ini');
         setHasCheckedIn(true);
-        setCheckInTime(data1.check_in_time || data2.check_in_time);
+        
+        if (hasPresensi) {
+          setCheckInTime(response1.data.presensi_hari_ini.jam_masuk.substring(0, 5));
+        } else if (hasDinas) {
+          setCheckInTime(data2.check_in_time);
+        }
+        
         setValidationStatus(data2.status_validasi || 'disetujui');
       } else {
         console.log('❌ Belum absen hari ini');
@@ -112,6 +124,10 @@ export default function PresensiScreen() {
       }
     } catch (error) {
       console.error('Error checking attendance:', error);
+      // Jika error, set ke belum absen untuk safety
+      setHasCheckedIn(false);
+      setCheckInTime(null);
+      setValidationStatus(null);
     }
   };
 
@@ -536,16 +552,36 @@ export default function PresensiScreen() {
       
       const endpoint = `${API_CONFIG.BASE_URL}/pegawai/presensi/api/presensi`;
       
+      console.log('📤 Submitting to:', endpoint);
+      console.log('📦 FormData size:', formData);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 detik timeout
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('✅ Response status:', response.status);
       
       const result = await response.json();
       
       if (result.success) {
+        // Refresh status dari server
+        await checkTodayAttendance();
+        
         // Tampilkan pesan berbeda untuk dinas vs kantor
-        if (result.status_validasi === 'menunggu') {
+        if (result.already_checked_in) {
+          Alert.alert(
+            'Informasi',
+            'Anda sudah melakukan presensi masuk hari ini',
+            [{ text: 'OK' }]
+          );
+        } else if (result.status_validasi === 'menunggu') {
           Alert.alert(
             'Presensi Tercatat',
             `Absensi ${type} berhasil dicatat di ${result.nama_lokasi}.\n\nStatus: Menunggu Validasi Admin`,
@@ -555,7 +591,7 @@ export default function PresensiScreen() {
           Alert.alert('Berhasil', `Absensi ${type} berhasil dicatat di ${result.nama_lokasi}`);
         }
         
-        if (type === 'masuk') {
+        if (type === 'masuk' && !result.already_checked_in) {
           setHasCheckedIn(true);
           setCheckInTime(new Date().toLocaleTimeString('id-ID'));
         }

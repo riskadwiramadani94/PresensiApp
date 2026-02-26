@@ -8,6 +8,7 @@ import { AppHeader } from '../../../components';
 import { PegawaiAPI } from '../../../constants/config';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import CustomCalendar from '../../../components/CustomCalendar';
 
 export default function PengajuanScreen() {
   const router = useRouter();
@@ -21,6 +22,9 @@ export default function PengajuanScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'mulai' | 'selesai'>('mulai');
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarMode, setCalendarMode] = useState<'single' | 'range'>('single');
+  const calendarTranslateY = useRef(new Animated.Value(500)).current;
   const [timePickerMode, setTimePickerMode] = useState<'mulai' | 'selesai'>('mulai');
   const [loading, setLoading] = useState(false);
   const [dokumenFoto, setDokumenFoto] = useState<any>(null);
@@ -185,6 +189,66 @@ export default function PengajuanScreen() {
     },
   });
 
+  const calendarPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        calendarTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeCalendarModal();
+      } else {
+        Animated.spring(calendarTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
+  const openCalendarModal = (mode: 'single' | 'range') => {
+    setCalendarMode(mode);
+    setShowCalendarModal(true);
+    Animated.timing(calendarTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeCalendarModal = () => {
+    Animated.timing(calendarTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowCalendarModal(false);
+    });
+  };
+
+  const handleDateSelect = (date: Date) => {
+    if (calendarMode === 'single') {
+      setTanggalMulai(date);
+      closeCalendarModal();
+    } else {
+      if (datePickerMode === 'mulai') {
+        setTanggalMulai(date);
+        setDatePickerMode('selesai');
+      } else {
+        if (date < tanggalMulai) {
+          Alert.alert('Error', 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai');
+          return;
+        }
+        setTanggalSelesai(date);
+        closeCalendarModal();
+        setDatePickerMode('mulai');
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
@@ -224,7 +288,7 @@ export default function PengajuanScreen() {
             <Text style={styles.label}>Tanggal <Text style={styles.required}>*</Text></Text>
             <TouchableOpacity 
               style={styles.dateInputFull}
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => openCalendarModal('single')}
             >
               <Ionicons name="calendar-outline" size={20} color="#666" />
               <Text style={styles.dateText}>{formatDate(tanggalMulai)}</Text>
@@ -243,7 +307,7 @@ export default function PengajuanScreen() {
                 style={styles.dateInput}
                 onPress={() => {
                   setDatePickerMode('mulai');
-                  setShowDatePicker(true);
+                  openCalendarModal('range');
                 }}
               >
                 <Ionicons name="calendar-outline" size={20} color="#666" />
@@ -254,7 +318,7 @@ export default function PengajuanScreen() {
                 style={styles.dateInput}
                 onPress={() => {
                   setDatePickerMode('selesai');
-                  setShowDatePicker(true);
+                  openCalendarModal('range');
                 }}
               >
                 <Ionicons name="calendar-outline" size={20} color="#666" />
@@ -362,24 +426,50 @@ export default function PengajuanScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={datePickerMode === 'mulai' ? tanggalMulai : tanggalSelesai}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(Platform.OS === 'ios');
-            if (selectedDate) {
-              if (datePickerMode === 'mulai') {
-                setTanggalMulai(selectedDate);
-              } else {
-                setTanggalSelesai(selectedDate);
-              }
-            }
-          }}
-        />
-      )}
+      {/* Calendar Modal */}
+      <Modal
+        visible={showCalendarModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeCalendarModal}
+      >
+        <View style={styles.calendarOverlay}>
+          <TouchableOpacity 
+            style={styles.calendarBackdrop} 
+            activeOpacity={1}
+            onPress={closeCalendarModal}
+          />
+          <Animated.View style={[styles.calendarSheet, { transform: [{ translateY: calendarTranslateY }] }]}>
+            <View {...calendarPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.calendarSheetHeader}>
+              <Text style={styles.calendarSheetTitle}>
+                {calendarMode === 'single' 
+                  ? 'Pilih Tanggal' 
+                  : datePickerMode === 'mulai' 
+                    ? 'Pilih Tanggal Mulai' 
+                    : 'Pilih Tanggal Selesai'}
+              </Text>
+              <TouchableOpacity onPress={closeCalendarModal}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.calendarSheetContent} showsVerticalScrollIndicator={false}>
+              <CustomCalendar
+                initialDate={datePickerMode === 'mulai' ? tanggalMulai : tanggalSelesai}
+                startDate={calendarMode === 'range' && datePickerMode === 'selesai' ? tanggalMulai : undefined}
+                onDatePress={handleDateSelect}
+                events={[]}
+                showWeekends={false}
+              />
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Time Picker */}
       {showTimePicker && (
@@ -684,5 +774,38 @@ const styles = StyleSheet.create({
     right: 8,
     backgroundColor: '#fff',
     borderRadius: 12,
+  },
+  calendarOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  calendarBackdrop: {
+    flex: 1,
+  },
+  calendarSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '80%',
+  },
+  calendarSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  calendarSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  calendarSheetContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
 });

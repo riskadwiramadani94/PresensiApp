@@ -45,7 +45,7 @@ export default function PegawaiTabLayout() {
       <Tabs.Screen 
         name="inbox" 
         options={{ 
-          title: 'Inbox',
+          title: 'Kotak Masuk',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? "mail" : "mail-outline"} 

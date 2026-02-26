@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Animated, PanResponder, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG } from '../../../constants/config';
+import { API_CONFIG, getApiUrl } from '../../../constants/config';
 import AppHeader from '../../../components/AppHeader';
 import CustomCalendar from '../../../components/CustomCalendar';
 
@@ -31,7 +31,7 @@ interface Stats {
 export default function RiwayatScreen() {
   const [loading, setLoading] = useState(true);
   const [riwayatData, setRiwayatData] = useState<RiwayatItem[]>([]);
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('asc');
   const [stats, setStats] = useState<Stats>({
     hadir: 0,
     terlambat: '0x',
@@ -77,7 +77,19 @@ export default function RiwayatScreen() {
 
   useEffect(() => {
     fetchRiwayat();
-  }, [sortOrder, jenisLaporan, selectedPeriode]);
+  }, [jenisLaporan, selectedPeriode]);
+
+  useEffect(() => {
+    if (riwayatData.length > 0) {
+      const sorted = [...riwayatData].sort((a, b) => {
+        const dateA = new Date(a.tanggal).getTime();
+        const dateB = new Date(b.tanggal).getTime();
+        return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+      });
+      setRiwayatData(sorted);
+    }
+  }, [sortOrder]);
+
 
   const getJenisLabel = () => {
     const jenis = jenisLaporanOptions.find(j => j.value === jenisLaporan);
@@ -225,6 +237,7 @@ export default function RiwayatScreen() {
   };
 
   const fetchRiwayat = async () => {
+    setLoading(true);
     try {
       const userData = await AsyncStorage.getItem('userData');
       if (!userData) return;
@@ -246,50 +259,41 @@ export default function RiwayatScreen() {
         const [monthName, yearStr] = selectedPeriode.split(' ');
         const monthIndex = months.indexOf(monthName);
         const year = parseInt(yearStr);
-        const firstDay = new Date(year, monthIndex, 1);
-        const lastDay = new Date(year, monthIndex + 1, 0);
-        startDate = firstDay.toISOString().split('T')[0];
-        endDate = lastDay.toISOString().split('T')[0];
+        startDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+        endDate = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
       } else if (jenisLaporan === 'tahunan') {
         const year = parseInt(selectedPeriode);
-        const firstDay = new Date(year, 0, 1);
-        const lastDay = new Date(year, 11, 31);
-        startDate = firstDay.toISOString().split('T')[0];
-        endDate = lastDay.toISOString().split('T')[0];
+        startDate = `${year}-01-01`;
+        endDate = `${year}-12-31`;
       }
       
+      console.log('Fetching riwayat:', startDate, 'to', endDate);
+      
+      // ✅ Gunakan endpoint PEGAWAI_PRESENSI yang sudah handle libur & jam kerja di backend
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/pegawai/presensi/api/riwayat-gabungan?user_id=${userId}&start_date=${startDate}&end_date=${endDate}`
+        `${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_PRESENSI)}?user_id=${userId}&start_date=${startDate}&end_date=${endDate}`
       );
       const data = await response.json();
       
-      console.log('API Response:', data);
-      console.log('Filter params:', { jenisLaporan, startDate, endDate });
+      console.log('📊 Response from backend:', data);
       
-      if (data.success) {
-        let riwayat = data.data || [];
-        console.log('Riwayat data before filter:', riwayat.length);
+      if (data.success && data.data) {
+        // ✅ LANGSUNG PAKAI data dari backend - sudah include libur & weekend
+        const riwayat = data.data.map((item: any) => ({
+          tanggal: item.tanggal,
+          status: item.status,
+          jam_masuk: item.jam_masuk,
+          jam_keluar: item.jam_keluar,
+          lokasi: item.keterangan || item.status,
+          jenis_presensi: undefined,
+          status_validasi: undefined,
+          kegiatan_dinas: undefined
+        }));
         
-        // Hapus duplikat berdasarkan tanggal - ambil yang terbaru per tanggal
-        const uniqueRiwayat = riwayat.reduce((acc: RiwayatItem[], current: RiwayatItem) => {
-          const currentDate = current.tanggal.split('T')[0];
-          const existing = acc.find(item => item.tanggal.split('T')[0] === currentDate);
-          
-          if (!existing) {
-            acc.push(current);
-          } else {
-            // Jika ada duplikat, prioritaskan yang ada jam_masuk
-            if (current.jam_masuk && !existing.jam_masuk) {
-              const index = acc.findIndex(item => item.tanggal.split('T')[0] === currentDate);
-              acc[index] = current;
-            }
-          }
-          return acc;
-        }, []);
+        console.log('✅ Data dari backend (sudah include libur & weekend):', riwayat.length);
         
-        console.log('Riwayat after removing duplicates:', uniqueRiwayat.length);
-        
-        const sortedRiwayat = [...uniqueRiwayat].sort((a, b) => {
+        const sortedRiwayat = [...riwayat].sort((a, b) => {
           const dateA = new Date(a.tanggal).getTime();
           const dateB = new Date(b.tanggal).getTime();
           return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
@@ -305,8 +309,9 @@ export default function RiwayatScreen() {
     }
   };
 
+
   const calculateStats = (data: RiwayatItem[]) => {
-    console.log('Calculate stats, total items:', data.length);
+    console.log('📊 Calculate stats, total items:', data.length);
     
     let hadirCount = 0;
     let terlambatCount = 0;
@@ -318,15 +323,15 @@ export default function RiwayatScreen() {
     let liburCount = 0;
 
     data.forEach((item, idx) => {
-      console.log(`Item ${idx}:`, item.status, item.jam_masuk, item.jam_keluar);
+      const status = (item.status || '').trim().toLowerCase();
+      console.log(`Item ${idx}: status='${item.status}' (normalized='${status}'), jam_masuk=${item.jam_masuk}, jam_keluar=${item.jam_keluar}`);
       
-      const status = (item.status || '').toLowerCase();
-      
-      if (status === 'hadir' || status === 'terlambat') {
+      // ✅ Hitung Hadir & Terlambat
+      if (status === 'hadir') {
         hadirCount++;
-        if (status === 'terlambat') {
-          terlambatCount++;
-        }
+      } else if (status === 'terlambat') {
+        hadirCount++;
+        terlambatCount++;
       } else if (status === 'izin') {
         izinCount++;
       } else if (status === 'sakit') {
@@ -339,6 +344,7 @@ export default function RiwayatScreen() {
         liburCount++;
       }
       
+      // Hitung jam kerja
       if (item.jam_masuk && item.jam_keluar) {
         try {
           const [mH, mM] = item.jam_masuk.split(':').map(Number);
@@ -348,7 +354,7 @@ export default function RiwayatScreen() {
             totalJamKerja += jamKerja;
           }
         } catch (e) {
-          console.log('Error parsing time:', e);
+          console.log('❌ Error parsing time:', e);
         }
       }
     });
@@ -356,7 +362,7 @@ export default function RiwayatScreen() {
     const jamKerjaHours = Math.floor(totalJamKerja / 60);
     const jamKerjaMinutes = totalJamKerja % 60;
 
-    console.log('Final stats:', { hadirCount, terlambatCount, totalJamKerja });
+    console.log('✅ Final stats:', { hadirCount, terlambatCount, totalJamKerja, liburCount });
 
     setStats({
       hadir: hadirCount,
@@ -377,7 +383,8 @@ export default function RiwayatScreen() {
       case 'dinas': return '#2196F3';
       case 'izin': return '#9C27B0';
       case 'sakit': return '#F44336';
-      case 'libur': return '#757575';
+      case 'libur': return '#F44336';
+      case 'belum waktunya': return '#9E9E9E';
       default: return '#999';
     }
   };
@@ -456,7 +463,7 @@ export default function RiwayatScreen() {
           <TouchableOpacity style={styles.sectionHeader} onPress={toggleSortOrder}>
             <Ionicons name="list" size={20} color="#004643" />
             <Text style={styles.sectionTitle}>
-              {sortOrder === 'desc' ? 'Terlama-terbaru' : 'Terbaru-terlama'}
+              {sortOrder === 'asc' ? 'Terlama-Terbaru' : 'Terbaru-Terlama'}
             </Text>
             <Ionicons name="swap-vertical" size={18} color="#004643" />
           </TouchableOpacity>
@@ -468,9 +475,13 @@ export default function RiwayatScreen() {
             </View>
           ) : (
             riwayatData.map((item, index) => {
-              const date = new Date(item.tanggal);
-              const day = date.getDate();
-              const dayName = date.toLocaleDateString('id-ID', { weekday: 'short' }).toUpperCase();
+              const [year, month, day] = item.tanggal.split('-').map(Number);
+              const date = new Date(year, month - 1, day);
+              const dayNum = date.getDate();
+              const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+              const dayName = days[date.getDay()];
+              const monthName = months[date.getMonth()];
               const color = getStatusColor(item.status);
               const isDinas = item.jenis_presensi === 'dinas';
               
@@ -480,14 +491,13 @@ export default function RiwayatScreen() {
                   
                   <View style={styles.dateSection}>
                     <Text style={styles.dayName}>{dayName}</Text>
-                    <Text style={styles.dateNumber}>{day}</Text>
+                    <Text style={styles.dateNumber}>{dayNum}</Text>
+                    <Text style={styles.monthName}>{monthName}</Text>
                   </View>
                   
                   <View style={styles.contentSection}>
                     <View style={styles.statusRow}>
-                      <Text style={styles.dayFull}>
-                        {date.toLocaleDateString('id-ID', { weekday: 'long' })}
-                      </Text>
+                      <Text style={styles.dayFull}>{dayName}</Text>
                       <Text style={[styles.statusBadge, { color }]}>{item.status}</Text>
                     </View>
                     
@@ -825,6 +835,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#1a1a1a',
+  },
+  monthName: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
   contentSection: {
     flex: 1,

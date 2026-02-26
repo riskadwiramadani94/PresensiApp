@@ -136,6 +136,10 @@ const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, mon
       );
       const isHoliday = holidayRows.length > 0;
       
+      // ✅ HANYA insert "Tidak Hadir" jika:
+      // 1. Hari kerja (is_kerja=1)
+      // 2. BUKAN hari libur
+      // 3. Sudah lewat batas absen
       if (isWorkDay && !isHoliday && jamKerjaRows.length > 0) {
         const { batas_absen } = jamKerjaRows[0];
         const currentTime = now.toTimeString().slice(0, 8);
@@ -279,17 +283,39 @@ const getLaporan = async (req, res) => {
       
       for (const pegawai of pegawaiResults) {
         // Get attendance summary with date filter
+        // ✅ Tidak Hadir = hanya yang benar-benar tidak hadir (BUKAN libur/weekend)
         const summaryQuery = `
           SELECT 
             COUNT(DISTINCT CASE WHEN pr.status = 'Hadir' THEN DATE(pr.tanggal) END) as hadir,
-            COUNT(DISTINCT CASE WHEN pr.status = 'Tidak Hadir' THEN DATE(pr.tanggal) END) as tidak_hadir,
+            COUNT(DISTINCT CASE 
+              WHEN pr.status = 'Tidak Hadir' 
+              AND NOT EXISTS (
+                SELECT 1 FROM hari_libur hl 
+                WHERE DATE(pr.tanggal) = hl.tanggal AND hl.is_active = 1
+              )
+              AND EXISTS (
+                SELECT 1 FROM jam_kerja_hari jkh
+                WHERE jkh.hari = CASE DAYOFWEEK(pr.tanggal)
+                  WHEN 1 THEN 'Minggu'
+                  WHEN 2 THEN 'Senin'
+                  WHEN 3 THEN 'Selasa'
+                  WHEN 4 THEN 'Rabu'
+                  WHEN 5 THEN 'Kamis'
+                  WHEN 6 THEN 'Jumat'
+                  WHEN 7 THEN 'Sabtu'
+                END
+                AND jkh.is_kerja = 1
+              )
+              THEN DATE(pr.tanggal) 
+            END) as tidak_hadir,
             COUNT(DISTINCT CASE WHEN pr.status = 'Terlambat' THEN DATE(pr.tanggal) END) as terlambat,
             COUNT(DISTINCT CASE WHEN pr.status = 'Izin' THEN DATE(pr.tanggal) END) as izin,
             COUNT(DISTINCT CASE WHEN pr.status = 'Sakit' THEN DATE(pr.tanggal) END) as sakit,
             COUNT(DISTINCT CASE WHEN pr.status = 'Cuti' THEN DATE(pr.tanggal) END) as cuti,
             COUNT(DISTINCT CASE WHEN pr.status = 'Pulang Cepat' THEN DATE(pr.tanggal) END) as pulang_cepat,
             COUNT(DISTINCT CASE WHEN pr.status = 'Dinas Luar/ Perjalanan Dinas' THEN DATE(pr.tanggal) END) as dinas_luar,
-            COUNT(DISTINCT CASE WHEN pr.status = 'Mangkir/ Alpha' THEN DATE(pr.tanggal) END) as mangkir
+            COUNT(DISTINCT CASE WHEN pr.status = 'Mangkir/ Alpha' THEN DATE(pr.tanggal) END) as mangkir,
+            COUNT(DISTINCT CASE WHEN pr.status = 'Libur' THEN DATE(pr.tanggal) END) as libur
           FROM presensi pr
           WHERE pr.id_user = ? ${dateFilter}
         `;
@@ -329,7 +355,7 @@ const getLaporan = async (req, res) => {
         
         let adjustedSummary = {
           'Hadir': parseInt(summary.hadir || 0),
-          'Tidak Hadir': parseInt(summary.tidak_hadir || 0),
+          'Tidak Hadir': parseInt(summary.tidak_hadir || 0), // Sudah tidak termasuk Libur karena Libur dihitung terpisah
           'Terlambat': parseInt(summary.terlambat || 0),
           'Izin': parseInt(summary.izin || 0),
           'Sakit': parseInt(summary.sakit || 0),
@@ -337,7 +363,8 @@ const getLaporan = async (req, res) => {
           'Pulang Cepat': parseInt(summary.pulang_cepat || 0),
           'Dinas Luar/ Perjalanan Dinas': parseInt(summary.dinas_luar || 0),
           'Dinas': parseInt(dinasCount),
-          'Mangkir/ Alpha': parseInt(summary.mangkir || 0)
+          'Mangkir/ Alpha': parseInt(summary.mangkir || 0),
+          'Libur': parseInt(summary.libur || 0) // Libur dihitung terpisah
         };
         
         data.push({

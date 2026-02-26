@@ -286,6 +286,16 @@ export default function AddDataPegawaiForm() {
     }).start();
   };
 
+  const parseSelectedDate = () => {
+    if (!formData.tanggal_lahir) return undefined;
+    
+    const [day, month, year] = formData.tanggal_lahir.split('/');
+    if (day && month && year) {
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    return undefined;
+  };
+
   const closeCalendarModal = () => {
     Animated.timing(calendarTranslateY, {
       toValue: SCREEN_HEIGHT,
@@ -697,6 +707,7 @@ export default function AddDataPegawaiForm() {
                 <Text style={styles.calendarSheetTitle}>Pilih Tanggal Lahir</Text>
                 <CustomCalendar 
                   onDatePress={(date) => handleDateSelect(date)}
+                  initialDate={parseSelectedDate()}
                   weekendDays={[0, 6]}
                   showWeekends={false}
                 />

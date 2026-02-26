@@ -17,21 +17,33 @@ interface CalendarProps {
   onDatePress?: (date: Date, events: CalendarEvent[]) => void;
   weekendDays?: number[];
   showWeekends?: boolean;
+  initialDate?: Date;
+  startDate?: Date;
 }
 
 export default function CustomCalendar({ 
   events = [], 
   onDatePress,
   weekendDays = [0, 6],
-  showWeekends = true 
+  showWeekends = true,
+  initialDate,
+  startDate
 }: CalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(initialDate || new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [hasSelectedMonth, setHasSelectedMonth] = useState(false);
   const [hasSelectedYear, setHasSelectedYear] = useState(false);
   const [tempMonth, setTempMonth] = useState(new Date().getMonth());
   const [tempYear, setTempYear] = useState(new Date().getFullYear());
   const pickerTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  useEffect(() => {
+    if (initialDate) {
+      setCurrentMonth(initialDate);
+      setSelectedDate(initialDate);
+    }
+  }, [initialDate]);
 
   const getDaysInMonth = () => {
     const year = currentMonth.getFullYear();
@@ -238,6 +250,8 @@ export default function CustomCalendar({
             const dateEvents = getDateEvents(date);
             const hasEvents = dateEvents.length > 0;
             const isToday = date && date.toDateString() === new Date().toDateString();
+            const isSelected = selectedDate && date && date.toDateString() === selectedDate.toDateString();
+            const isStartDate = startDate && date && date.toDateString() === startDate.toDateString();
             const eventStyle = getEventTypeStyle(dateEvents);
             const eventTextStyle = getEventTextStyle(dateEvents);
             const dotColor = getDotColor(dateEvents);
@@ -250,7 +264,9 @@ export default function CustomCalendar({
                   !date && styles.emptyCell,
                   isWE && styles.weekendCell,
                   hasEvents && { ...eventStyle, borderWidth: 1 },
-                  isToday && styles.todayCell
+                  isToday && styles.todayCell,
+                  isSelected && styles.selectedCell,
+                  isStartDate && styles.startDateCell
                 ]}
                 onPress={() => handleDatePress(date)}
                 disabled={!date}
@@ -260,7 +276,9 @@ export default function CustomCalendar({
                     styles.dayText,
                     isWE && styles.weekendText,
                     hasEvents && eventTextStyle,
-                    isToday && styles.todayText
+                    isToday && styles.todayText,
+                    isSelected && styles.selectedText,
+                    isStartDate && styles.startDateText
                   ]}>
                     {date.getDate()}
                   </Text>
@@ -427,6 +445,32 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   todayText: {
+    color: '#FFFFFF',
+    fontWeight: '700'
+  },
+  selectedCell: {
+    backgroundColor: '#2196F3',
+    borderRadius: 20,
+    elevation: 2,
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3
+  },
+  selectedText: {
+    color: '#FFFFFF',
+    fontWeight: '700'
+  },
+  startDateCell: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 20,
+    elevation: 2,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3
+  },
+  startDateText: {
     color: '#FFFFFF',
     fontWeight: '700'
   },

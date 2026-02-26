@@ -22,6 +22,7 @@ interface InboxItem {
   waktu: string;
   tanggal: string;
   data: any;
+  isProcessed: boolean;
 }
 
 export default function InboxAdmin() {
@@ -30,6 +31,7 @@ export default function InboxAdmin() {
   const [refreshing, setRefreshing] = useState(false);
   const [inboxData, setInboxData] = useState<InboxItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [unprocessedCount, setUnprocessedCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -42,8 +44,8 @@ export default function InboxAdmin() {
       setLoading(true);
       const items: InboxItem[] = [];
 
-      // 1. Fetch Absen Dinas yang menunggu validasi
-      const absenResult = await PusatValidasiAPI.getAbsenDinas();
+      // 1. Fetch Absen Dinas (semua, termasuk yang sudah diproses)
+      const absenResult = await PusatValidasiAPI.getAllAbsenDinas();
       if (absenResult.success && absenResult.data) {
         absenResult.data.forEach((absen: any) => {
           items.push({
@@ -54,13 +56,14 @@ export default function InboxAdmin() {
             nip: absen.nip || '-',
             waktu: absen.jam_masuk || '-',
             tanggal: absen.tanggal_absen || '-',
-            data: absen
+            data: absen,
+            isProcessed: absen.status_validasi !== 'menunggu'
           });
         });
       }
 
-      // 2. Fetch Pengajuan yang menunggu persetujuan
-      const pengajuanResult = await PusatValidasiAPI.getPengajuan();
+      // 2. Fetch Pengajuan (semua, termasuk yang sudah diproses)
+      const pengajuanResult = await PusatValidasiAPI.getAllPengajuan();
       if (pengajuanResult.success && pengajuanResult.data) {
         pengajuanResult.data.forEach((pengajuan: any) => {
           const jenisPengajuan = formatJenisPengajuan(pengajuan.jenis_pengajuan);
@@ -72,7 +75,8 @@ export default function InboxAdmin() {
             nip: pengajuan.nip || '-',
             waktu: formatWaktu(pengajuan.tanggal_pengajuan),
             tanggal: formatTanggal(pengajuan.tanggal_pengajuan),
-            data: pengajuan
+            data: pengajuan,
+            isProcessed: pengajuan.status !== 'menunggu'
           });
         });
       }
@@ -86,6 +90,7 @@ export default function InboxAdmin() {
 
       setInboxData(items);
       setTotalCount(items.length);
+      setUnprocessedCount(items.filter(item => !item.isProcessed).length);
     } catch (error) {
       console.error('Error fetching inbox:', error);
     } finally {
@@ -125,39 +130,39 @@ export default function InboxAdmin() {
   };
 
   const handleItemPress = (item: InboxItem) => {
-    // Redirect ke Pusat Validasi dengan tab dan item yang sesuai
+    // Redirect ke Pusat Validasi dengan tab yang sesuai
     if (item.type === 'absen_dinas') {
-      // Untuk absen dinas, buka halaman detail absen dinas
+      // Untuk absen dinas, buka tab absen dinas
       router.push({
-        pathname: '/pusat-validasi/absen-dinas',
-        params: {
-          dinasId: item.data.id_dinas
-        }
+        pathname: '/menu-admin/pusat-validasi',
+        params: { initialTab: 'absen_dinas' }
       } as any);
     } else {
-      // Untuk pengajuan, buka pusat validasi tab pengajuan
+      // Untuk pengajuan, buka tab pengajuan
       router.push({
-        pathname: '/admin/pusat-validasi',
-        params: {
-          initialTab: 'pengajuan'
-        }
+        pathname: '/menu-admin/pusat-validasi',
+        params: { initialTab: 'pengajuan' }
       } as any);
     }
   };
 
   const renderInboxItem = ({ item }: { item: InboxItem }) => {
     const isAbsenDinas = item.type === 'absen_dinas';
+    const statusText = item.isProcessed ? 
+      (item.data.status === 'disetujui' || item.data.status_validasi === 'disetujui' ? 'Disetujui' : 'Ditolak') : 
+      'Menunggu';
 
     return (
       <TouchableOpacity
-        style={styles.inboxCard}
+        style={[styles.inboxCard, item.isProcessed && styles.processedCard]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
         {/* Icon */}
         <View style={[
           styles.iconCircle,
-          isAbsenDinas ? styles.iconAbsenDinas : styles.iconPengajuan
+          isAbsenDinas ? styles.iconAbsenDinas : styles.iconPengajuan,
+          item.isProcessed && styles.iconProcessed
         ]}>
           <Ionicons 
             name={isAbsenDinas ? 'clipboard' : 'document-text'} 
@@ -174,9 +179,22 @@ export default function InboxAdmin() {
             <Ionicons name="time-outline" size={14} color="#9CA3AF" />
             <Text style={styles.timeText}>{item.waktu} • {item.tanggal}</Text>
           </View>
+          {item.isProcessed && (
+            <View style={styles.statusBadge}>
+              <Ionicons 
+                name="checkmark-circle" 
+                size={14} 
+                color={statusText === 'Disetujui' ? '#4CAF50' : '#F44336'} 
+              />
+              <Text style={[styles.statusText, { color: statusText === 'Disetujui' ? '#4CAF50' : '#F44336' }]}>
+                {statusText}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Arrow */}
+        {/* Indicator */}
+        {!item.isProcessed && <View style={styles.dotIndicator} />}
         <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
       </TouchableOpacity>
     );
@@ -187,7 +205,7 @@ export default function InboxAdmin() {
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
-        title={totalCount > 0 ? `Kotak Masuk (${totalCount})` : 'Kotak Masuk'}
+        title={unprocessedCount > 0 ? `Kotak Masuk (${unprocessedCount})` : 'Kotak Masuk'}
         showBack={false}
       />
       
@@ -272,6 +290,29 @@ const styles = StyleSheet.create({
   },
   iconPengajuan: {
     backgroundColor: '#1282c3',
+  },
+  iconProcessed: {
+    opacity: 0.6,
+  },
+  processedCard: {
+    backgroundColor: '#F9FAFB',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dotIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#004643',
+    marginRight: 8,
   },
   content: {
     flex: 1,

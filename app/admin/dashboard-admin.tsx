@@ -232,8 +232,8 @@ export default function AdminDashboard() {
               {[
                 { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/menu-admin/pegawai-akun' },
                 { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/admin/pengajuan.png'), route: '/menu-admin/pusat-validasi', params: { initialTab: 'pengajuan' } },
-                { id: 3, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/kelola-dinas' },
-                { id: 4, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/laporan/laporan-admin' },
+                { id: 3, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/menu-admin/kelola-dinas' },
+                { id: 4, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/menu-admin/laporan/laporan-admin' },
               ].map((item) => (
                 <TouchableOpacity 
                   key={item.id} 
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
               <TouchableOpacity 
                 style={styles.mainMenuItem}
                 activeOpacity={0.7}
-                onPress={() => router.push('/pengaturan' as any)}
+                onPress={() => router.push('/menu-admin/pengaturan' as any)}
               >
                 <Image source={require('../../assets/images/icons/admin/pengaturan.png')} style={styles.menuIcon} />
                 <Text style={styles.menuLabel}>Pengaturan</Text>
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   },
   secondMenuRow: {
     flexDirection: 'row',
-    marginTop: 20,
+    marginTop: 25,
     paddingHorizontal: Platform.OS === 'ios' ? 5 : 0,
   },
   menuIcon: {

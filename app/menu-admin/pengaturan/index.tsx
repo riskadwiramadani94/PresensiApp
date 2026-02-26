@@ -32,7 +32,7 @@ export default function PengaturanScreen() {
           <View style={styles.menuCard}>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => router.push("/pengaturan/jam-kerja" as any)}
+              onPress={() => router.push("/menu-admin/pengaturan/jam-kerja" as any)}
             >
               <View style={styles.menuLeft}>
                 <View
@@ -54,7 +54,7 @@ export default function PengaturanScreen() {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => router.push("/pengaturan/kalender-libur" as any)}
+              onPress={() => router.push("/menu-admin/pengaturan/kalender-libur" as any)}
             >
               <View style={styles.menuLeft}>
                 <View
@@ -76,7 +76,7 @@ export default function PengaturanScreen() {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => router.push("/pengaturan/lokasi-kantor" as any)}
+              onPress={() => router.push("/menu-admin/pengaturan/lokasi-kantor" as any)}
             >
               <View style={styles.menuLeft}>
                 <View

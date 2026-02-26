@@ -127,7 +127,7 @@ const getPresensi = async (req, res) => {
 
     // If start_date and end_date provided, get range data
     if (start_date && end_date) {
-      // Get presensi data
+      // Get presensi data - prioritize records with jam_masuk
       const [rangeRows] = await db.execute(
         `SELECT 
           DATE_FORMAT(tanggal, '%Y-%m-%d') as tanggal,
@@ -138,7 +138,7 @@ const getPresensi = async (req, res) => {
         FROM presensi 
         WHERE id_user = ? 
         AND DATE_FORMAT(tanggal, '%Y-%m-%d') BETWEEN ? AND ?
-        ORDER BY tanggal ASC`,
+        ORDER BY tanggal ASC, CASE WHEN jam_masuk IS NULL THEN 1 ELSE 0 END, jam_masuk DESC`,
         [user_id, start_date, end_date]
       );
       
@@ -159,16 +159,20 @@ const getPresensi = async (req, res) => {
         [user_id, start_date, end_date, start_date, end_date, start_date, end_date]
       );
       
-      // Create a map of presensi data
+      // Create a map of presensi data - prioritize records with jam_masuk
       const presensiMap = new Map();
       rangeRows.forEach(row => {
-        presensiMap.set(row.tanggal, {
-          tanggal: row.tanggal,
-          jam_masuk: row.jam_masuk,
-          jam_keluar: row.jam_keluar,
-          status: row.status,
-          keterangan: row.keterangan || (row.status === 'Terlambat' ? 'Terlambat' : 'Hadir normal')
-        });
+        // Only set if not exists OR if current row has jam_masuk and existing doesn't
+        if (!presensiMap.has(row.tanggal) || 
+            (row.jam_masuk && !presensiMap.get(row.tanggal).jam_masuk)) {
+          presensiMap.set(row.tanggal, {
+            tanggal: row.tanggal,
+            jam_masuk: row.jam_masuk,
+            jam_keluar: row.jam_keluar,
+            status: row.status,
+            keterangan: row.keterangan || (row.status === 'Terlambat' ? 'Terlambat' : 'Hadir normal')
+          });
+        }
       });
       
       // Generate all dates in range and check dinas status
@@ -185,39 +189,47 @@ const getPresensi = async (req, res) => {
         
         // PRIORITY 1: Check if it's a holiday from hari_libur
         const [hariLiburRows] = await db.execute(
-          'SELECT nama_libur FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+          'SELECT nama_libur, jenis FROM hari_libur WHERE tanggal = ? AND is_active = 1',
           [dateStr]
         );
         const isHoliday = hariLiburRows.length > 0;
         
-        // PRIORITY 2: Check if it's a work day from jam_kerja_hari
-        const [jamKerjaRows] = await db.execute(
-          'SELECT is_kerja FROM jam_kerja_hari WHERE hari = ?',
-          [dayName]
-        );
+        // PRIORITY 2: Check if it's a work day from jam_kerja_history (HISTORIS)
+        const [jamKerjaRows] = await db.execute(`
+          SELECT is_kerja FROM jam_kerja_history 
+          WHERE hari = ? 
+          AND ? BETWEEN tanggal_mulai_berlaku AND IFNULL(tanggal_selesai_berlaku, '9999-12-31')
+        `, [dayName, dateStr]);
         const isWorkDay = jamKerjaRows.length > 0 && jamKerjaRows[0].is_kerja === 1;
         
-        // Check if there's presensi data
-        if (presensiMap.has(dateStr)) {
-          formattedData.push(presensiMap.get(dateStr));
-        } else if (isHoliday) {
-          // PRIORITY 1: Hari libur nasional/keagamaan
+        // ✅ CEK LIBUR & WEEKEND DULU sebelum cek presensi
+        if (isHoliday) {
+          // PRIORITY 1: Hari libur nasional/keagamaan/perusahaan
+          const jenisMap = {
+            'nasional': 'Libur Nasional',
+            'keagamaan': 'Libur Keagamaan',
+            'perusahaan': 'Libur Perusahaan'
+          };
+          const jenisLabel = jenisMap[hariLiburRows[0].jenis] || 'Libur';
           formattedData.push({
             tanggal: dateStr,
             jam_masuk: null,
             jam_keluar: null,
             status: 'Libur',
-            keterangan: hariLiburRows[0].nama_libur
+            keterangan: `${hariLiburRows[0].nama_libur} (${jenisLabel})`
           });
         } else if (!isWorkDay) {
-          // PRIORITY 2: Hari libur (dari setting jam kerja)
+          // PRIORITY 2: Weekend (Sabtu/Minggu)
           formattedData.push({
             tanggal: dateStr,
             jam_masuk: null,
             jam_keluar: null,
             status: 'Libur',
-            keterangan: `Hari ${dayName}`
+            keterangan: `Hari ${dayName} (Weekend)`
           });
+        } else if (presensiMap.has(dateStr)) {
+          // PRIORITY 3: Ada data presensi
+          formattedData.push(presensiMap.get(dateStr));
         } else {
           // Check if user is on dinas this day
           const isDinas = dinasRows.some(dinas => {
@@ -245,6 +257,55 @@ const getPresensi = async (req, res) => {
               status: 'Dinas',
               keterangan: `${dinasInfo.nama_kegiatan} (${startDate}-${endDate})`
             });
+          } else {
+            // PRIORITY 4: Hari kerja tapi tidak ada presensi dan tidak dinas
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const checkDate = new Date(dateStr);
+            checkDate.setHours(0, 0, 0, 0);
+            
+            if (checkDate > today) {
+              // Hari yang akan datang
+              formattedData.push({
+                tanggal: dateStr,
+                jam_masuk: null,
+                jam_keluar: null,
+                status: 'Belum Waktunya',
+                keterangan: 'Belum waktunya absen'
+              });
+            } else if (checkDate.getTime() === today.getTime()) {
+              // Hari ini - cek apakah sudah lewat jam pulang
+              const now = new Date();
+              const jamPulang = new Date();
+              jamPulang.setHours(17, 0, 0, 0);
+              
+              if (now > jamPulang) {
+                formattedData.push({
+                  tanggal: dateStr,
+                  jam_masuk: null,
+                  jam_keluar: null,
+                  status: 'Tidak Hadir',
+                  keterangan: 'Tidak hadir'
+                });
+              } else {
+                formattedData.push({
+                  tanggal: dateStr,
+                  jam_masuk: null,
+                  jam_keluar: null,
+                  status: 'Belum Absen',
+                  keterangan: 'Belum melakukan absensi'
+                });
+              }
+            } else {
+              // Hari yang sudah lewat
+              formattedData.push({
+                tanggal: dateStr,
+                jam_masuk: null,
+                jam_keluar: null,
+                status: 'Tidak Hadir',
+                keterangan: 'Tidak hadir'
+              });
+            }
           }
         }
         
@@ -427,8 +488,8 @@ const submitPresensi = async (req, res) => {
     if (jenis_presensi === 'masuk') {
       // Check if already checked in today
       const [existingRows] = await db.execute(
-        'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal LIKE ? AND jam_masuk IS NOT NULL',
-        [user_id, tanggal_only + '%']
+        'SELECT id_presensi FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? AND jam_masuk IS NOT NULL',
+        [user_id, tanggal_only]
       );
       
       const [existingDinasRows] = await db.execute(
@@ -459,17 +520,30 @@ const submitPresensi = async (req, res) => {
         
       } else {
         // TIDAK DINAS → Simpan ke presensi biasa
-        await db.execute(`
-          INSERT INTO presensi (
-            id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, foto_masuk, 
-            alasan_luar_lokasi, status, status_validasi, lokasi_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          user_id, tanggal, jam_sekarang, latitude, longitude, fotoFile || null, 
-          keterangan || null, status, 'disetujui', lokasi_id_valid
-        ]);
-        
-        console.log(`✓ Presensi BIASA saved: lokasi_id=${lokasi_id_valid}`);
+        try {
+          await db.execute(`
+            INSERT INTO presensi (
+              id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, foto_masuk, 
+              alasan_luar_lokasi, status, status_validasi, lokasi_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            user_id, tanggal, jam_sekarang, latitude, longitude, fotoFile || null, 
+            keterangan || null, status, 'disetujui', lokasi_id_valid
+          ]);
+          
+          console.log(`✓ Presensi BIASA saved: lokasi_id=${lokasi_id_valid}`);
+        } catch (insertError) {
+          // Handle duplicate entry error
+          if (insertError.code === 'ER_DUP_ENTRY') {
+            console.log('⚠️ Duplicate entry detected, user already checked in today');
+            return res.json({ 
+              success: true, 
+              message: 'Anda sudah melakukan presensi masuk hari ini',
+              already_checked_in: true
+            });
+          }
+          throw insertError; // Re-throw jika bukan duplicate error
+        }
       }
 
     } else { // keluar
