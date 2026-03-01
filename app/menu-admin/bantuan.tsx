@@ -17,7 +17,7 @@ interface FAQByCategory {
   [key: string]: FAQ[];
 }
 
-export default function BantuanScreen() {
+export default function BantuanAdminScreen() {
   const [faqData, setFaqData] = useState<FAQByCategory>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FAQ[]>([]);
@@ -25,11 +25,11 @@ export default function BantuanScreen() {
   const [searching, setSearching] = useState(false);
 
   const categoryLabels: { [key: string]: string } = {
-    presensi: 'Presensi',
-    pengajuan: 'Pengajuan',
-    dinas: 'Dinas',
-    lembur: 'Lembur',
-    profil: 'Profil',
+    pegawai_akun: 'Pegawai & Akun',
+    validasi: 'Validasi & Persetujuan',
+    kelola_dinas: 'Kelola Dinas',
+    laporan: 'Laporan',
+    pengaturan: 'Pengaturan',
     umum: 'Umum'
   };
 
@@ -48,7 +48,7 @@ export default function BantuanScreen() {
   const fetchFAQ = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/faq?role=pegawai`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/faq?role=admin`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -72,7 +72,7 @@ export default function BantuanScreen() {
     setSearching(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/faq/search?q=${encodeURIComponent(searchQuery)}&role=pegawai`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/faq/search?q=${encodeURIComponent(searchQuery)}&role=admin`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -113,7 +113,7 @@ export default function BantuanScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Bantuan" showBack={false} />
+      <AppHeader title="Bantuan" showBack={true} />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <View style={styles.section}>
@@ -156,7 +156,6 @@ export default function BantuanScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>FAQ</Text>
             
-            {/* Search Box */}
             <View style={styles.searchContainer}>
               <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
               <TextInput
@@ -175,7 +174,6 @@ export default function BantuanScreen() {
                 <Text style={styles.loadingText}>Memuat FAQ...</Text>
               </View>
             ) : searchQuery.length >= 2 ? (
-              // Show search results
               <View>
                 <Text style={styles.searchResultTitle}>Hasil Pencarian ({searchResults.length})</Text>
                 {searchResults.length > 0 ? (
@@ -185,7 +183,6 @@ export default function BantuanScreen() {
                 )}
               </View>
             ) : (
-              // Show FAQ by category
               Object.keys(faqData).map(category => (
                 <View key={category} style={styles.categorySection}>
                   <Text style={styles.categoryTitle}>{categoryLabels[category] || category}</Text>
