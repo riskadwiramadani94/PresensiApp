@@ -19,7 +19,7 @@ import {
     View,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { AppHeader, SkeletonLoader } from "../../../components";
+import { AppHeader } from "../../../components";
 import {
     API_CONFIG,
     getApiUrl,
@@ -284,22 +284,38 @@ export default function JamKerjaScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            <View style={styles.infoCard}>
-              <Ionicons name="information-circle" size={20} color="#004643" />
-              <Text style={styles.infoText}>
-                Atur jam kerja per hari. Hari libur akan ditandai merah di
-                kalender
-              </Text>
-            </View>
-
             {loading ? (
-              <SkeletonLoader
-                type="schedule"
-                count={7}
-                message="Memuat jam kerja..."
-              />
+              /* ========================================
+                   SKELETON LOADING STATE - JAM KERJA
+              ======================================== */
+              <>
+                <View style={styles.skeletonInfoCard} />
+                {[1, 2, 3, 4, 5, 6, 7].map((item) => (
+                  <View key={item} style={styles.hariCard}>
+                    <View style={styles.hariInfo}>
+                      <View style={styles.hariLeft}>
+                        <View style={styles.skeletonHariNama} />
+                        <View style={styles.skeletonHariJam} />
+                      </View>
+                      <View style={styles.hariRight}>
+                        <View style={styles.skeletonSwitch} />
+                        <View style={styles.skeletonEditBtn} />
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </>
             ) : (
-              jamKerjaList.map((item, index) => (
+              <>
+                <View style={styles.infoCard}>
+                  <Ionicons name="information-circle" size={20} color="#004643" />
+                  <Text style={styles.infoText}>
+                    Atur jam kerja per hari. Hari libur akan ditandai merah di
+                    kalender
+                  </Text>
+                </View>
+
+                {jamKerjaList.map((item, index) => (
                 <View key={index} style={styles.hariCard}>
                   <View style={styles.hariInfo}>
                     <View style={styles.hariLeft}>
@@ -346,7 +362,8 @@ export default function JamKerjaScreen() {
                     </View>
                   </View>
                 </View>
-              ))
+              ))}
+              </>
             )}
           </View>
         </ScrollView>
@@ -621,5 +638,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#fff",
+  },
+
+  /* ========================================
+     SKELETON STYLES - JAM KERJA
+  ======================================== */
+  skeletonInfoCard: {
+    height: 60,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+    marginBottom: 16,
+    marginHorizontal: 15,
+  },
+  skeletonHariNama: {
+    width: '40%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonHariJam: {
+    width: '60%',
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonSwitch: {
+    width: 51,
+    height: 31,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 16,
+  },
+  skeletonEditBtn: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
   },
 });

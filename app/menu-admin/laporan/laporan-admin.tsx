@@ -10,7 +10,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
-import { AppHeader, SkeletonLoader } from "../../../components";
+import { AppHeader } from "../../../components";
 import { API_CONFIG, getApiUrl } from "../../../constants/config";
 
 export default function LaporanAdminScreen() {
@@ -116,11 +116,32 @@ export default function LaporanAdminScreen() {
       />
 
       {loading ? (
-        <SkeletonLoader
-          type="list"
-          count={4}
-          message="Memuat statistik laporan..."
-        />
+        /* ========================================
+             SKELETON LOADING STATE - LAPORAN
+        ======================================== */
+        <View style={styles.contentContainer}>
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.laporanGrid}>
+              {[1, 2, 3, 4].map((item) => (
+                <View key={item} style={styles.laporanCard}>
+                  {/* Skeleton Icon */}
+                  <View style={styles.skeletonLaporanIcon} />
+                  {/* Skeleton Info */}
+                  <View style={styles.laporanInfo}>
+                    <View style={styles.skeletonLaporanTitle} />
+                    <View style={styles.skeletonLaporanDesc} />
+                    <View style={styles.skeletonLaporanCount} />
+                  </View>
+                  {/* Skeleton Chevron */}
+                  <View style={styles.skeletonChevron} />
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
       ) : (
         <View style={styles.contentContainer}>
           <ScrollView
@@ -232,5 +253,48 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: "#666",
+  },
+
+  /* ========================================
+     SKELETON STYLES - LAPORAN
+  ======================================== */
+  // Skeleton untuk Icon Laporan
+  skeletonLaporanIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  // Skeleton untuk Title Laporan
+  skeletonLaporanTitle: {
+    width: '60%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  // Skeleton untuk Deskripsi Laporan
+  skeletonLaporanDesc: {
+    width: '80%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  // Skeleton untuk Count Laporan
+  skeletonLaporanCount: {
+    width: '30%',
+    height: 11,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  // Skeleton untuk Chevron
+  skeletonChevron: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E0E0E0',
   },
 });

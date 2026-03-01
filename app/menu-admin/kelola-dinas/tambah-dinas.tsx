@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Dimensions, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Dimensions, Animated, PanResponder, Keyboard } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -56,6 +56,8 @@ export default function TambahDinasScreen() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [jamKerjaDefault, setJamKerjaDefault] = useState<any>(null);
+
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const totalSteps = 5;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -255,6 +257,18 @@ export default function TambahDinasScreen() {
     fetchAvailableLokasi();
     loadDraftData();
     fetchJamKerja();
+
+    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardShow.remove();
+      keyboardHide.remove();
+    };
   }, []);
 
   // Auto-save draft every 30 seconds
@@ -862,7 +876,11 @@ export default function TambahDinasScreen() {
         fallbackRoute="/menu-admin/kelola-dinas"
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           
           {/* Informasi Dasar */}
           <View style={styles.sectionHeader}>
@@ -1595,7 +1613,7 @@ export default function TambahDinasScreen() {
       </Modal>
 
       {/* Button Footer - Fixed di bawah seperti header */}
-      <View style={styles.buttonFooter}>
+      <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
         <TouchableOpacity 
           style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
           onPress={handleSubmit}
@@ -1614,6 +1632,7 @@ export default function TambahDinasScreen() {
           )}
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
 
       {/* Confirmation Modal - Bottom Sheet */}
       <Modal 
@@ -1792,6 +1811,7 @@ export default function TambahDinasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
+  keyboardView: { flex: 1 },
 
   content: {
     flex: 1,

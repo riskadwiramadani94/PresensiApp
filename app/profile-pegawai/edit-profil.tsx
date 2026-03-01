@@ -9,7 +9,10 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Image
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -53,9 +56,23 @@ export default function EditProfilPegawaiScreen() {
   });
   const [newPhoto, setNewPhoto] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      keyboardShow.remove();
+      keyboardHide.remove();
+    };
   }, []);
 
   const fetchProfile = async () => {
@@ -254,17 +271,23 @@ export default function EditProfilPegawaiScreen() {
         fallbackRoute="/(pegawai)/profil"
       />
       
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.content}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="camera" size={24} color="#004643" />
-              <Text style={styles.cardTitle}>Foto Profil</Text>
-            </View>
-            
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* FOTO PROFIL SECTION */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="camera-outline" size={20} color="#004643" />
+            <Text style={styles.sectionTitle}>Foto Profil</Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.formContent}>
             <View style={styles.photoSection}>
               <TouchableOpacity onPress={pickImage} style={styles.photoWrapper}>
                 {photoUri ? (
@@ -282,119 +305,138 @@ export default function EditProfilPegawaiScreen() {
             </View>
           </View>
 
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="person" size={24} color="#004643" />
-              <Text style={styles.cardTitle}>Data Profil</Text>
-            </View>
-
-            <Text style={styles.inputLabel}>Nama Lengkap</Text>
-            <TextInput
-              style={[styles.input, errors.nama_lengkap && styles.inputError]}
-              value={profile.nama_lengkap}
-              onChangeText={(text) => {
-                setProfile({ ...profile, nama_lengkap: text });
-                if (errors.nama_lengkap) {
-                  setErrors({ ...errors, nama_lengkap: '' });
-                }
-              }}
-              placeholder="Masukkan nama lengkap"
-              placeholderTextColor="#999"
-            />
-            {errors.nama_lengkap && (
-              <Text style={styles.errorText}>{errors.nama_lengkap}</Text>
-            )}
-
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={profile.email}
-              editable={false}
-              placeholderTextColor="#999"
-            />
-
-            <Text style={styles.inputLabel}>NIP</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={profile.nip}
-              editable={false}
-              placeholderTextColor="#999"
-            />
-
-            <Text style={styles.inputLabel}>Jenis Kelamin</Text>
-            <View style={styles.genderContainer}>
-              <TouchableOpacity 
-                style={[styles.genderBtn, profile.jenis_kelamin === 'Laki-laki' && styles.genderBtnActive]}
-                onPress={() => setProfile({ ...profile, jenis_kelamin: 'Laki-laki' })}
-              >
-                <Text style={[styles.genderText, profile.jenis_kelamin === 'Laki-laki' && styles.genderTextActive]}>Laki-laki</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.genderBtn, profile.jenis_kelamin === 'Perempuan' && styles.genderBtnActive]}
-                onPress={() => setProfile({ ...profile, jenis_kelamin: 'Perempuan' })}
-              >
-                <Text style={[styles.genderText, profile.jenis_kelamin === 'Perempuan' && styles.genderTextActive]}>Perempuan</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputLabel}>Tanggal Lahir</Text>
-            <TextInput
-              style={styles.input}
-              value={profile.tanggal_lahir}
-              onChangeText={(text) => setProfile({ ...profile, tanggal_lahir: text })}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#999"
-            />
-
-            <Text style={styles.inputLabel}>Alamat</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={profile.alamat}
-              onChangeText={(text) => setProfile({ ...profile, alamat: text })}
-              placeholder="Masukkan alamat lengkap"
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={3}
-            />
-
-            <Text style={styles.inputLabel}>Nomor Telepon</Text>
-            <TextInput
-              style={[styles.input, errors.no_telepon && styles.inputError]}
-              value={profile.no_telepon}
-              onChangeText={(text) => {
-                setProfile({ ...profile, no_telepon: text });
-                if (errors.no_telepon) {
-                  setErrors({ ...errors, no_telepon: '' });
-                }
-              }}
-              placeholder="Masukkan nomor telepon"
-              placeholderTextColor="#999"
-              keyboardType="phone-pad"
-            />
-            {errors.no_telepon && (
-              <Text style={styles.errorText}>{errors.no_telepon}</Text>
-            )}
-
-            <Text style={styles.inputLabel}>Jabatan</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={profile.jabatan}
-              editable={false}
-              placeholderTextColor="#999"
-            />
-
-            <Text style={styles.inputLabel}>Divisi</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={profile.divisi}
-              editable={false}
-              placeholderTextColor="#999"
-            />
+          {/* DATA PROFIL SECTION */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="person-outline" size={20} color="#004643" />
+            <Text style={styles.sectionTitle}>Data Profil</Text>
           </View>
-        </View>
-      </ScrollView>
+          <View style={styles.divider} />
+          
+          <View style={styles.formContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nama Lengkap</Text>
+              <TextInput
+                style={[styles.input, errors.nama_lengkap && styles.inputError]}
+                value={profile.nama_lengkap}
+                onChangeText={(text) => {
+                  setProfile({ ...profile, nama_lengkap: text });
+                  if (errors.nama_lengkap) {
+                    setErrors({ ...errors, nama_lengkap: '' });
+                  }
+                }}
+                placeholder="Masukkan nama lengkap"
+                placeholderTextColor="#999"
+              />
+              {errors.nama_lengkap && (
+                <Text style={styles.errorText}>{errors.nama_lengkap}</Text>
+              )}
+            </View>
 
-      <View style={styles.buttonFooter}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={[styles.input, styles.inputDisabled]}
+                value={profile.email}
+                editable={false}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>NIP</Text>
+              <TextInput
+                style={[styles.input, styles.inputDisabled]}
+                value={profile.nip}
+                editable={false}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Jenis Kelamin</Text>
+              <View style={styles.genderContainer}>
+                <TouchableOpacity 
+                  style={[styles.genderBtn, profile.jenis_kelamin === 'Laki-laki' && styles.genderBtnActive]}
+                  onPress={() => setProfile({ ...profile, jenis_kelamin: 'Laki-laki' })}
+                >
+                  <Text style={[styles.genderText, profile.jenis_kelamin === 'Laki-laki' && styles.genderTextActive]}>Laki-laki</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.genderBtn, profile.jenis_kelamin === 'Perempuan' && styles.genderBtnActive]}
+                  onPress={() => setProfile({ ...profile, jenis_kelamin: 'Perempuan' })}
+                >
+                  <Text style={[styles.genderText, profile.jenis_kelamin === 'Perempuan' && styles.genderTextActive]}>Perempuan</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Tanggal Lahir</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.tanggal_lahir}
+                onChangeText={(text) => setProfile({ ...profile, tanggal_lahir: text })}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Alamat</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={profile.alamat}
+                onChangeText={(text) => setProfile({ ...profile, alamat: text })}
+                placeholder="Masukkan alamat lengkap"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nomor Telepon</Text>
+              <TextInput
+                style={[styles.input, errors.no_telepon && styles.inputError]}
+                value={profile.no_telepon}
+                onChangeText={(text) => {
+                  setProfile({ ...profile, no_telepon: text });
+                  if (errors.no_telepon) {
+                    setErrors({ ...errors, no_telepon: '' });
+                  }
+                }}
+                placeholder="Masukkan nomor telepon"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
+              />
+              {errors.no_telepon && (
+                <Text style={styles.errorText}>{errors.no_telepon}</Text>
+              )}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Jabatan</Text>
+              <TextInput
+                style={[styles.input, styles.inputDisabled]}
+                value={profile.jabatan}
+                editable={false}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Divisi</Text>
+              <TextInput
+                style={[styles.input, styles.inputDisabled]}
+                value={profile.divisi}
+                editable={false}
+                placeholderTextColor="#999"
+              />
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
         <TouchableOpacity 
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -412,7 +454,8 @@ export default function EditProfilPegawaiScreen() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -422,18 +465,35 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 14, color: '#666' },
   scrollView: { flex: 1 },
-  content: { padding: 20 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  scrollContent: {
+    paddingBottom: 20,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginLeft: 10 },
-  photoSection: { alignItems: 'center', marginBottom: 10 },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#004643',
+    marginLeft: 8
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  formContent: {
+    paddingHorizontal: 20,
+  },
+  inputGroup: {
+    marginBottom: 16
+  },
+  photoSection: { alignItems: 'center', marginBottom: 16 },
   photoWrapper: { position: 'relative', marginBottom: 10 },
   photoImage: { width: 100, height: 100, borderRadius: 50 },
   photoPlaceholder: {
@@ -458,24 +518,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   photoHint: { fontSize: 12, color: '#666', textAlign: 'center' },
-  inputLabel: { fontSize: 14, fontWeight: '500', marginBottom: 8, color: '#333' },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
     color: '#333',
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
   },
-  inputError: { borderColor: '#D32F2F' },
+  inputError: { borderColor: '#F44336', borderWidth: 2 },
   inputDisabled: { backgroundColor: '#F5F5F5', color: '#999' },
-  textArea: { height: 80, textAlignVertical: 'top' },
-  errorText: { fontSize: 12, color: '#D32F2F', marginTop: -10, marginBottom: 10 },
-  genderContainer: { flexDirection: 'row', marginBottom: 15, gap: 10 },
-  genderBtn: { flex: 1, padding: 12, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, alignItems: 'center' },
+  textArea: { textAlignVertical: 'top', minHeight: 80 },
+  errorText: { fontSize: 12, color: '#F44336', marginTop: 4, marginLeft: 4 },
+  genderContainer: { flexDirection: 'row', gap: 12 },
+  genderBtn: { flex: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#F8F9FA', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0' },
   genderBtnActive: { backgroundColor: '#004643', borderColor: '#004643' },
-  genderText: { color: '#666', fontSize: 14 },
+  genderText: { fontSize: 14, fontWeight: '600', color: '#666' },
   genderTextActive: { color: '#fff', fontWeight: 'bold' },
   saveButton: {
     backgroundColor: '#004643',
@@ -496,15 +557,10 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   buttonFooter: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    borderTopColor: '#E0E0E0',
   },
 });

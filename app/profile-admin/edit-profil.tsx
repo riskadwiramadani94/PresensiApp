@@ -10,7 +10,9 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-  Platform
+  Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -42,9 +44,23 @@ export default function EditProfilAdminScreen() {
   });
   const [newPhoto, setNewPhoto] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      keyboardShow.remove();
+      keyboardHide.remove();
+    };
   }, []);
 
   const fetchProfile = async () => {
@@ -244,18 +260,23 @@ export default function EditProfilAdminScreen() {
         fallbackRoute="/admin/profil-admin"
       />
       
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.content}>
-          {/* FOTO PROFIL CARD */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="camera" size={24} color="#004643" />
-              <Text style={styles.cardTitle}>Foto Profil</Text>
-            </View>
-            
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* FOTO PROFIL SECTION */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="camera-outline" size={20} color="#004643" />
+            <Text style={styles.sectionTitle}>Foto Profil</Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.formContent}>
             <View style={styles.photoSection}>
               <TouchableOpacity onPress={pickImage} style={styles.photoWrapper}>
                 {photoUri ? (
@@ -273,72 +294,78 @@ export default function EditProfilAdminScreen() {
             </View>
           </View>
 
-          {/* DATA PROFIL CARD */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="person" size={24} color="#004643" />
-              <Text style={styles.cardTitle}>Data Profil</Text>
+          {/* DATA PROFIL SECTION */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="person-outline" size={20} color="#004643" />
+            <Text style={styles.sectionTitle}>Data Profil</Text>
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.formContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nama Lengkap</Text>
+              <TextInput
+                style={[styles.input, errors.nama_lengkap && styles.inputError]}
+                value={profile.nama_lengkap}
+                onChangeText={(text) => {
+                  setProfile({ ...profile, nama_lengkap: text });
+                  if (errors.nama_lengkap) {
+                    setErrors({ ...errors, nama_lengkap: '' });
+                  }
+                }}
+                placeholder="Masukkan nama lengkap"
+                placeholderTextColor="#999"
+              />
+              {errors.nama_lengkap && (
+                <Text style={styles.errorText}>{errors.nama_lengkap}</Text>
+              )}
             </View>
 
-            <Text style={styles.inputLabel}>Nama Lengkap</Text>
-            <TextInput
-              style={[styles.input, errors.nama_lengkap && styles.inputError]}
-              value={profile.nama_lengkap}
-              onChangeText={(text) => {
-                setProfile({ ...profile, nama_lengkap: text });
-                if (errors.nama_lengkap) {
-                  setErrors({ ...errors, nama_lengkap: '' });
-                }
-              }}
-              placeholder="Masukkan nama lengkap"
-              placeholderTextColor="#999"
-            />
-            {errors.nama_lengkap && (
-              <Text style={styles.errorText}>{errors.nama_lengkap}</Text>
-            )}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={[styles.input, errors.email && styles.inputError]}
+                value={profile.email}
+                onChangeText={(text) => {
+                  setProfile({ ...profile, email: text });
+                  if (errors.email) {
+                    setErrors({ ...errors, email: '' });
+                  }
+                }}
+                placeholder="Masukkan email"
+                placeholderTextColor="#999"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
+              )}
+            </View>
 
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              value={profile.email}
-              onChangeText={(text) => {
-                setProfile({ ...profile, email: text });
-                if (errors.email) {
-                  setErrors({ ...errors, email: '' });
-                }
-              }}
-              placeholder="Masukkan email"
-              placeholderTextColor="#999"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {errors.email && (
-              <Text style={styles.errorText}>{errors.email}</Text>
-            )}
-
-            <Text style={styles.inputLabel}>Nomor Telepon</Text>
-            <TextInput
-              style={[styles.input, errors.no_telepon && styles.inputError]}
-              value={profile.no_telepon}
-              onChangeText={(text) => {
-                setProfile({ ...profile, no_telepon: text });
-                if (errors.no_telepon) {
-                  setErrors({ ...errors, no_telepon: '' });
-                }
-              }}
-              placeholder="Masukkan nomor telepon"
-              placeholderTextColor="#999"
-              keyboardType="phone-pad"
-            />
-            {errors.no_telepon && (
-              <Text style={styles.errorText}>{errors.no_telepon}</Text>
-            )}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nomor Telepon</Text>
+              <TextInput
+                style={[styles.input, errors.no_telepon && styles.inputError]}
+                value={profile.no_telepon}
+                onChangeText={(text) => {
+                  setProfile({ ...profile, no_telepon: text });
+                  if (errors.no_telepon) {
+                    setErrors({ ...errors, no_telepon: '' });
+                  }
+                }}
+                placeholder="Masukkan nomor telepon"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
+              />
+              {errors.no_telepon && (
+                <Text style={styles.errorText}>{errors.no_telepon}</Text>
+              )}
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* Button Footer - Fixed di bawah */}
-      <View style={styles.buttonFooter}>
+        {/* Button Footer - Fixed di bawah */}
+        <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
         <TouchableOpacity 
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -356,7 +383,8 @@ export default function EditProfilAdminScreen() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -379,61 +407,37 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  content: {
-    padding: 20,
+  scrollContent: {
+    paddingBottom: 20,
   },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#F0F8F7',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#D0E8E4',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#004643',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#004643',
-    marginBottom: 4,
-    lineHeight: 18,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  cardHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#004643',
+    marginLeft: 8
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  formContent: {
+    paddingHorizontal: 20,
+  },
+  inputGroup: {
+    marginBottom: 16
   },
   photoSection: {
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 16,
   },
   photoWrapper: {
     position: 'relative',
@@ -472,27 +476,29 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontWeight: '600',
     color: '#333',
+    marginBottom: 8
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
     color: '#333',
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
   },
   inputError: {
-    borderColor: '#D32F2F',
+    borderColor: '#F44336',
+    borderWidth: 2
   },
   errorText: {
     fontSize: 12,
-    color: '#D32F2F',
-    marginTop: -10,
-    marginBottom: 10,
+    color: '#F44336',
+    marginTop: 4,
+    marginLeft: 4
   },
   saveButton: {
     backgroundColor: '#004643',
@@ -515,15 +521,10 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   buttonFooter: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    borderTopColor: '#E0E0E0',
   },
 });

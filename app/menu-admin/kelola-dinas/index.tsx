@@ -442,11 +442,54 @@ export default function KelolaDinasScreen() {
           onRefresh={fetchDinasAktif}
           ListEmptyComponent={() =>
             loading ? (
-              <SkeletonLoader
-                type="list"
-                count={3}
-                message="Memuat data dinas..."
-              />
+              /* ========================================
+                   SKELETON LOADING STATE - KELOLA DINAS
+              ======================================== */
+              <View style={styles.listContent}>
+                {[1, 2, 3].map((item) => (
+                  <View key={item} style={styles.dinasCard}>
+                    {/* Skeleton Card Header */}
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardTitle}>
+                        {/* Skeleton Nama Kegiatan */}
+                        <View style={styles.skeletonKegiatanName} />
+                        {/* Skeleton Nomor SPT */}
+                        <View style={styles.skeletonSptNumber} />
+                      </View>
+                      <View style={styles.cardHeaderRight}>
+                        {/* Skeleton Status Badge */}
+                        <View style={styles.skeletonStatusBadge} />
+                        {/* Skeleton More Button */}
+                        <View style={styles.skeletonMoreBtn} />
+                      </View>
+                    </View>
+
+                    {/* Skeleton Card Info */}
+                    <View style={styles.cardInfo}>
+                      {/* Skeleton Lokasi */}
+                      <View style={styles.infoRow}>
+                        <View style={styles.skeletonInfoIcon} />
+                        <View style={[styles.skeletonInfoText, { width: '60%' }]} />
+                      </View>
+                      {/* Skeleton Jam Kerja */}
+                      <View style={styles.infoRow}>
+                        <View style={styles.skeletonInfoIcon} />
+                        <View style={[styles.skeletonInfoText, { width: '45%' }]} />
+                      </View>
+                      {/* Skeleton Tanggal */}
+                      <View style={styles.infoRow}>
+                        <View style={styles.skeletonInfoIcon} />
+                        <View style={[styles.skeletonInfoText, { width: '50%' }]} />
+                      </View>
+                      {/* Skeleton Jumlah Pegawai */}
+                      <View style={styles.infoRow}>
+                        <View style={styles.skeletonInfoIcon} />
+                        <View style={[styles.skeletonInfoText, { width: '40%' }]} />
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="briefcase-outline" size={60} color="#ccc" />
@@ -1171,5 +1214,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#fff",
+  },
+
+  /* ========================================
+     SKELETON STYLES - KELOLA DINAS
+  ======================================== */
+  // Skeleton untuk Nama Kegiatan
+  skeletonKegiatanName: {
+    width: '70%',
+    height: 13,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  // Skeleton untuk Nomor SPT
+  skeletonSptNumber: {
+    width: '45%',
+    height: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Status Badge
+  skeletonStatusBadge: {
+    width: 70,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 6,
+  },
+  // Skeleton untuk More Button
+  skeletonMoreBtn: {
+    width: 34,
+    height: 34,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 17,
+  },
+  // Skeleton untuk Info Icon (location, time, calendar, people)
+  skeletonInfoIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#E0E0E0',
+  },
+  // Skeleton untuk Info Text (lokasi, jam kerja, tanggal, jumlah pegawai)
+  skeletonInfoText: {
+    height: 11,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginLeft: 6,
   },
 });

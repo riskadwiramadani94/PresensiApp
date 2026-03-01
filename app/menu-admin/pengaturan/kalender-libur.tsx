@@ -20,6 +20,9 @@ import {
 import { AppHeader, SkeletonLoader } from "../../../components";
 import { PengaturanAPI } from "../../../constants/config";
 
+/* ========================================
+   TYPES & INTERFACES
+======================================== */
 interface HariLibur {
   id: number;
   tanggal: string;
@@ -33,6 +36,9 @@ interface JamKerjaHari {
   is_kerja: boolean;
 }
 
+/* ========================================
+   MAIN COMPONENT
+======================================== */
 export default function KalenderLiburScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -47,6 +53,9 @@ export default function KalenderLiburScreen() {
   });
   const translateY = useRef(new Animated.Value(500)).current;
 
+  /* ========================================
+     MODAL HANDLERS
+  ======================================== */
   const openModal = () => {
     setShowModal(true);
     if (Platform.OS === "android") {
@@ -94,6 +103,9 @@ export default function KalenderLiburScreen() {
     },
   });
 
+  /* ========================================
+     DATA FETCHING
+  ======================================== */
   useFocusEffect(
     React.useCallback(() => {
       fetchHariLibur();
@@ -126,6 +138,9 @@ export default function KalenderLiburScreen() {
     }
   };
 
+  /* ========================================
+     CALENDAR LOGIC
+  ======================================== */
   const getDaysInMonth = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -193,6 +208,9 @@ export default function KalenderLiburScreen() {
     });
   };
 
+  /* ========================================
+     EVENT HANDLERS
+  ======================================== */
   const handleDatePress = (date: Date | null) => {
     if (!date) return;
     const holiday = getHolidayInfo(date);
@@ -290,6 +308,9 @@ export default function KalenderLiburScreen() {
     setCurrentMonth(newMonth);
   };
 
+  /* ========================================
+     RENDER
+  ======================================== */
   const days = getDaysInMonth();
   const monthName = currentMonth.toLocaleDateString("id-ID", {
     month: "long",
@@ -308,11 +329,33 @@ export default function KalenderLiburScreen() {
 
       <ScrollView style={styles.content}>
         {loading ? (
-          <SkeletonLoader
-            type="card"
-            count={3}
-            message="Memuat kalender libur..."
-          />
+          <>
+            <View style={styles.skeletonInfoCard} />
+            <View style={styles.skeletonCalendarCard}>
+              <View style={styles.skeletonCalendarHeader}>
+                <View style={styles.skeletonMonthBtn} />
+                <View style={styles.skeletonMonthText} />
+                <View style={styles.skeletonMonthBtn} />
+              </View>
+              <View style={styles.skeletonWeekDays} />
+              <View style={styles.skeletonDaysGrid}>
+                {[...Array(35)].map((_, i) => (
+                  <View key={i} style={styles.skeletonDayCell} />
+                ))}
+              </View>
+            </View>
+            <View style={styles.skeletonLegendCard}>
+              <View style={styles.skeletonLegendTitle} />
+              <View style={styles.skeletonLegendItem} />
+              <View style={styles.skeletonLegendItem} />
+            </View>
+            <View style={styles.skeletonListCard}>
+              <View style={styles.skeletonListTitle} />
+              {[...Array(3)].map((_, i) => (
+                <View key={i} style={styles.skeletonListItem} />
+              ))}
+            </View>
+          </>
         ) : (
           <>
             <View style={styles.infoCard}>
@@ -534,6 +577,9 @@ export default function KalenderLiburScreen() {
   );
 }
 
+/* ========================================
+   STYLES
+======================================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8FAFB" },
   content: {
@@ -730,6 +776,94 @@ const styles = StyleSheet.create({
     color: "#999",
     textAlign: "center",
     paddingVertical: 24,
+  },
+  skeletonInfoCard: {
+    height: 60,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  skeletonCalendarCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+  },
+  skeletonCalendarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  skeletonMonthBtn: {
+    width: 40,
+    height: 40,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 8,
+  },
+  skeletonMonthText: {
+    width: 120,
+    height: 20,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 4,
+  },
+  skeletonWeekDays: {
+    height: 30,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  skeletonDaysGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  skeletonDayCell: {
+    width: "14.28%",
+    height: 32,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  skeletonLegendCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+  },
+  skeletonLegendTitle: {
+    width: 100,
+    height: 18,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonLegendItem: {
+    height: 18,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 4,
+    marginBottom: 10,
+  },
+  skeletonListCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+  },
+  skeletonListTitle: {
+    width: 140,
+    height: 18,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 4,
+    marginBottom: 16,
+  },
+  skeletonListItem: {
+    height: 50,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 8,
+    marginBottom: 12,
   },
   modalOverlay: {
     flex: 1,

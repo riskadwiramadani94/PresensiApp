@@ -23,6 +23,9 @@ import { API_CONFIG, getApiUrl } from "../../constants/config";
 import { SkeletonLoader, AppHeader } from "../../components";
 import * as ImagePicker from 'expo-image-picker';
 
+/* ========================================
+   TYPES & INTERFACES
+======================================== */
 interface AdminProfile {
   id_user: number;
   email: string;
@@ -32,6 +35,9 @@ interface AdminProfile {
   no_telepon?: string;
 }
 
+/* ========================================
+   MAIN COMPONENT
+======================================== */
 export default function ProfilAdminScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -40,6 +46,9 @@ export default function ProfilAdminScreen() {
   const [logoutModal, setLogoutModal] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  /* ========================================
+     DATA FETCHING
+  ======================================== */
   useFocusEffect(
     useCallback(() => {
       fetchProfile();
@@ -114,6 +123,9 @@ export default function ProfilAdminScreen() {
     }
   };
 
+  /* ========================================
+     EVENT HANDLERS
+  ======================================== */
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem('userData');
@@ -126,6 +138,9 @@ export default function ProfilAdminScreen() {
     }
   };
 
+  /* ========================================
+     IMAGE HANDLERS
+  ======================================== */
   const pickAndUploadImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -217,10 +232,75 @@ export default function ProfilAdminScreen() {
     }
   };
 
+  /* ========================================
+     RENDER
+  ======================================== */
   if (loading) {
     return (
       <View style={styles.container}>
-        <SkeletonLoader type="form" count={3} message="Memuat profil admin..." />
+        <RNStatusBar 
+          barStyle="light-content"
+          backgroundColor="transparent"
+          translucent={true}
+        />
+        <AppHeader 
+          title="Profil"
+          showBack={false}
+        />
+        {/* ========================================
+             SKELETON LOADING STATE - PROFIL ADMIN
+        ======================================== */}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.skeletonProfileSection}>
+            <View style={styles.skeletonProfileInfo}>
+              <View style={styles.skeletonProfileName} />
+              <View style={styles.skeletonProfileEmail} />
+              <View style={styles.skeletonEditBtn} />
+            </View>
+            <View style={styles.skeletonAvatar} />
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.section}>
+            <View style={styles.skeletonSectionLabel} />
+            <View style={styles.menuCard}>
+              {[1, 2].map((item) => (
+                <View key={item}>
+                  <View style={styles.skeletonMenuItem}>
+                    <View style={styles.skeletonIconCircle} />
+                    <View style={styles.skeletonMenuText} />
+                  </View>
+                  {item === 1 && <View style={styles.menuDivider} />}
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.skeletonSectionLabel} />
+            <View style={styles.menuCard}>
+              {[1, 2].map((item) => (
+                <View key={item}>
+                  <View style={styles.skeletonMenuItem}>
+                    <View style={styles.skeletonIconCircle} />
+                    <View style={styles.skeletonMenuText} />
+                  </View>
+                  {item === 1 && <View style={styles.menuDivider} />}
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.menuCard}>
+              <View style={styles.skeletonMenuItem}>
+                <View style={styles.skeletonIconCircle} />
+                <View style={styles.skeletonMenuText} />
+              </View>
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -417,8 +497,9 @@ export default function ProfilAdminScreen() {
   );
 }
 
-
-
+/* ========================================
+   STYLES
+======================================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   scrollContent: {
@@ -613,5 +694,73 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     fontWeight: '600', 
     color: '#fff' 
+  },
+
+  /* ========================================
+     SKELETON STYLES - PROFIL ADMIN
+  ======================================== */
+  skeletonProfileSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  skeletonProfileInfo: {
+    flex: 1,
+  },
+  skeletonProfileName: {
+    width: '60%',
+    height: 24,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonProfileEmail: {
+    width: '50%',
+    height: 16,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonEditBtn: {
+    width: 100,
+    height: 36,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 20,
+  },
+  skeletonAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E0E0E0',
+  },
+  skeletonSectionLabel: {
+    width: '40%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 10,
+    marginLeft: 5,
+  },
+  skeletonMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Platform.OS === 'ios' ? 14 : 16,
+    paddingHorizontal: 15,
+  },
+  skeletonIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  skeletonMenuText: {
+    width: '50%',
+    height: 16,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
   },
 });

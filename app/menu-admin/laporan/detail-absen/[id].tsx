@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { AppHeader, SkeletonLoader } from '../../../../components';
+import { AppHeader } from '../../../../components';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -871,7 +871,55 @@ export default function DetailAbsenPegawai() {
           fallbackRoute="/laporan/laporan-detail-absen"
         />
         
-        <SkeletonLoader type="list" count={5} message="Memuat data absensi..." />
+        {/* ========================================
+             SKELETON LOADING STATE - DETAIL ABSEN PEGAWAI
+        ======================================== */}
+        <View style={{ flex: 1 }}>
+          {/* Skeleton Pegawai Info */}
+          <View style={styles.pegawaiInfo}>
+            <View style={styles.pegawaiHeader}>
+              <View style={styles.skeletonAvatar} />
+              <View style={styles.pegawaiDetails}>
+                <View style={styles.skeletonPegawaiNama} />
+                <View style={styles.skeletonPegawaiNip} />
+              </View>
+            </View>
+          </View>
+
+          {/* Skeleton Period Info */}
+          <View style={styles.periodInfo}>
+            <View style={styles.periodHeader}>
+              <View style={styles.skeletonPeriodIcon} />
+              <View style={styles.skeletonPeriodTitle} />
+            </View>
+            <View style={styles.skeletonPeriodText} />
+          </View>
+
+          {/* Skeleton Absen List */}
+          <ScrollView
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {[1, 2, 3, 4, 5].map((item) => (
+              <View key={item} style={styles.absenItem}>
+                {/* Skeleton Date Section */}
+                <View style={styles.dateSection}>
+                  <View style={styles.skeletonDayText} />
+                  <View style={styles.skeletonDateText} />
+                  <View style={styles.skeletonMonthText} />
+                </View>
+                {/* Skeleton Status Section */}
+                <View style={styles.statusSection}>
+                  <View style={styles.skeletonStatusBadge} />
+                  <View style={styles.skeletonKeterangan} />
+                  <View style={styles.skeletonTimeInfo} />
+                </View>
+                {/* Skeleton Chevron */}
+                <View style={styles.skeletonChevron} />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
       </View>
     );
   }
@@ -1267,5 +1315,97 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 8,
     fontWeight: '500',
+  },
+
+  /* ========================================
+     SKELETON STYLES - DETAIL ABSEN PEGAWAI
+  ======================================== */
+  // Skeleton untuk Pegawai Info
+  skeletonAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    marginRight: 16,
+  },
+  skeletonPegawaiNama: {
+    width: '70%',
+    height: 18,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonPegawaiNip: {
+    width: '50%',
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Period Info
+  skeletonPeriodIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E0E0E0',
+  },
+  skeletonPeriodTitle: {
+    width: '40%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  skeletonPeriodText: {
+    width: '60%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Absen Item
+  skeletonDayText: {
+    width: 40,
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonDateText: {
+    width: 30,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonMonthText: {
+    width: 35,
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonStatusBadge: {
+    width: 80,
+    height: 24,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  skeletonKeterangan: {
+    width: '90%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonTimeInfo: {
+    width: '70%',
+    height: 11,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonChevron: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E0E0E0',
   },
 });

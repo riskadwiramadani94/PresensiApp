@@ -9,9 +9,11 @@ import {
     View
 } from "react-native";
 import { AppHeader } from "../../../components";
+import { useState } from "react";
 
 export default function PengaturanScreen() {
   const router = useRouter();
+  const [loading] = useState(false); // Untuk future use jika ada loading
 
   return (
     <View style={styles.container}>
@@ -23,79 +25,110 @@ export default function PengaturanScreen() {
 
       <AppHeader title="Pengaturan" showBack={true} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>PENGATURAN ABSENSI</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => router.push("/menu-admin/pengaturan/jam-kerja" as any)}
-            >
-              <View style={styles.menuLeft}>
-                <View
-                  style={[styles.iconCircle, { backgroundColor: "#E3F2FD" }]}
-                >
-                  <Ionicons name="time-outline" size={22} color="#1976D2" />
+      {loading ? (
+        /* ========================================
+             SKELETON LOADING STATE - PENGATURAN
+        ======================================== */
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.section}>
+            <View style={styles.skeletonSectionLabel} />
+            <View style={styles.menuCard}>
+              {[1, 2, 3].map((item) => (
+                <View key={item}>
+                  <View style={styles.menuItem}>
+                    <View style={styles.menuLeft}>
+                      <View style={styles.skeletonIconCircle} />
+                      <View style={styles.menuTextContainer}>
+                        <View style={styles.skeletonMenuText} />
+                        <View style={styles.skeletonMenuDesc} />
+                      </View>
+                    </View>
+                    <View style={styles.skeletonChevron} />
+                  </View>
+                  {item < 3 && <View style={styles.menuDivider} />}
                 </View>
-                <View style={styles.menuTextContainer}>
-                  <Text style={styles.menuText}>Jam Kerja</Text>
-                  <Text style={styles.menuDesc}>
-                    Atur jam masuk dan pulang kerja
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => router.push("/menu-admin/pengaturan/kalender-libur" as any)}
-            >
-              <View style={styles.menuLeft}>
-                <View
-                  style={[styles.iconCircle, { backgroundColor: "#FFEBEE" }]}
-                >
-                  <Ionicons name="calendar-outline" size={22} color="#F44336" />
-                </View>
-                <View style={styles.menuTextContainer}>
-                  <Text style={styles.menuText}>Kalender Libur</Text>
-                  <Text style={styles.menuDesc}>
-                    Kelola hari libur dan tanggal merah
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <View style={styles.menuDivider} />
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => router.push("/menu-admin/pengaturan/lokasi-kantor" as any)}
-            >
-              <View style={styles.menuLeft}>
-                <View
-                  style={[styles.iconCircle, { backgroundColor: "#E8F5E9" }]}
-                >
-                  <Ionicons name="location-outline" size={22} color="#4CAF50" />
-                </View>
-                <View style={styles.menuTextContainer}>
-                  <Text style={styles.menuText}>Lokasi Kantor</Text>
-                  <Text style={styles.menuDesc}>
-                    Tentukan lokasi dan radius absensi
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>PENGATURAN ABSENSI</Text>
+            <View style={styles.menuCard}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push("/menu-admin/pengaturan/jam-kerja" as any)}
+              >
+                <View style={styles.menuLeft}>
+                  <View
+                    style={[styles.iconCircle, { backgroundColor: "#E3F2FD" }]}
+                  >
+                    <Ionicons name="time-outline" size={22} color="#1976D2" />
+                  </View>
+                  <View style={styles.menuTextContainer}>
+                    <Text style={styles.menuText}>Jam Kerja</Text>
+                    <Text style={styles.menuDesc}>
+                      Atur jam masuk dan pulang kerja
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+              </TouchableOpacity>
+
+              <View style={styles.menuDivider} />
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push("/menu-admin/pengaturan/kalender-libur" as any)}
+              >
+                <View style={styles.menuLeft}>
+                  <View
+                    style={[styles.iconCircle, { backgroundColor: "#FFEBEE" }]}
+                  >
+                    <Ionicons name="calendar-outline" size={22} color="#F44336" />
+                  </View>
+                  <View style={styles.menuTextContainer}>
+                    <Text style={styles.menuText}>Kalender Libur</Text>
+                    <Text style={styles.menuDesc}>
+                      Kelola hari libur dan tanggal merah
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+              </TouchableOpacity>
+
+              <View style={styles.menuDivider} />
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push("/menu-admin/pengaturan/lokasi-kantor" as any)}
+              >
+                <View style={styles.menuLeft}>
+                  <View
+                    style={[styles.iconCircle, { backgroundColor: "#E8F5E9" }]}
+                  >
+                    <Ionicons name="location-outline" size={22} color="#4CAF50" />
+                  </View>
+                  <View style={styles.menuTextContainer}>
+                    <Text style={styles.menuText}>Lokasi Kantor</Text>
+                    <Text style={styles.menuDesc}>
+                      Tentukan lokasi dan radius absensi
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward-outline" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -164,5 +197,48 @@ const styles = StyleSheet.create({
   menuDivider: {
     height: 1,
     backgroundColor: "#F0F0F0",
+  },
+
+  /* ========================================
+     SKELETON STYLES - PENGATURAN
+  ======================================== */
+  // Skeleton untuk Section Label
+  skeletonSectionLabel: {
+    width: '50%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 10,
+    marginLeft: 5,
+  },
+  // Skeleton untuk Icon Circle
+  skeletonIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  // Skeleton untuk Menu Text
+  skeletonMenuText: {
+    width: '60%',
+    height: 15,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  // Skeleton untuk Menu Description
+  skeletonMenuDesc: {
+    width: '80%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Chevron
+  skeletonChevron: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E0E0E0',
   },
 });

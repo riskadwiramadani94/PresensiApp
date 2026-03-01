@@ -5,6 +5,9 @@ import AppHeader from '../../components/AppHeader';
 import { API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/* ========================================
+   TYPES & INTERFACES
+======================================== */
 interface FAQ {
   id_faq: number;
   kategori: string;
@@ -17,6 +20,9 @@ interface FAQByCategory {
   [key: string]: FAQ[];
 }
 
+/* ========================================
+   MAIN COMPONENT
+======================================== */
 export default function BantuanAdminScreen() {
   const [faqData, setFaqData] = useState<FAQByCategory>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +39,9 @@ export default function BantuanAdminScreen() {
     umum: 'Umum'
   };
 
+  /* ========================================
+     DATA FETCHING
+  ======================================== */
   useEffect(() => {
     fetchFAQ();
   }, []);
@@ -90,6 +99,9 @@ export default function BantuanAdminScreen() {
     }
   };
 
+  /* ========================================
+     EVENT HANDLERS
+  ======================================== */
   const handleContact = (type: string) => {
     switch(type) {
       case 'whatsapp':
@@ -104,6 +116,9 @@ export default function BantuanAdminScreen() {
     }
   };
 
+  /* ========================================
+     RENDER FUNCTIONS
+  ======================================== */
   const renderFAQItem = (faq: FAQ) => (
     <View key={faq.id_faq} style={styles.faqCard}>
       <Text style={styles.faqQuestion}>{faq.pertanyaan}</Text>
@@ -111,13 +126,45 @@ export default function BantuanAdminScreen() {
     </View>
   );
 
+  /* ========================================
+     MAIN RENDER
+  ======================================== */
   return (
     <View style={styles.container}>
       <AppHeader title="Bantuan" showBack={false} />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Hubungi Kami</Text>
+          {loading ? (
+            /* ========================================
+                 SKELETON LOADING STATE - BANTUAN
+            ======================================== */
+            <>
+              <View style={styles.skeletonSectionTitle} />
+              {[1, 2, 3].map((item) => (
+                <View key={item} style={styles.skeletonContactCard}>
+                  <View style={styles.skeletonIconBox} />
+                  <View style={styles.skeletonContactContent}>
+                    <View style={styles.skeletonContactTitle} />
+                    <View style={styles.skeletonContactSubtitle} />
+                  </View>
+                  <View style={styles.skeletonChevron} />
+                </View>
+              ))}
+
+              <View style={[styles.skeletonSectionTitle, { marginTop: 24 }]} />
+              <View style={styles.skeletonSearchBar} />
+              {[1, 2, 3].map((item) => (
+                <View key={item}>
+                  <View style={styles.skeletonCategoryTitle} />
+                  <View style={styles.skeletonFaqCard} />
+                  <View style={styles.skeletonFaqCard} />
+                </View>
+              ))}
+            </>
+          ) : (
+            <>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Hubungi Kami</Text>
             
             <TouchableOpacity style={styles.card} onPress={() => handleContact('whatsapp')}>
               <View style={[styles.iconBox, { backgroundColor: '#25D366' }]}>
@@ -169,9 +216,15 @@ export default function BantuanAdminScreen() {
             </View>
 
             {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
-                <Text style={styles.loadingText}>Memuat FAQ...</Text>
+              <View>
+                <View style={styles.skeletonSearchBar} />
+                {[1, 2, 3].map((item) => (
+                  <View key={item}>
+                    <View style={styles.skeletonCategoryTitle} />
+                    <View style={styles.skeletonFaqCard} />
+                    <View style={styles.skeletonFaqCard} />
+                  </View>
+                ))}
               </View>
             ) : searchQuery.length >= 2 ? (
               <View>
@@ -191,12 +244,17 @@ export default function BantuanAdminScreen() {
               ))
             )}
           </View>
+          </>
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
 
+/* ========================================
+   STYLES
+======================================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 20, paddingBottom: 100 },
@@ -281,4 +339,72 @@ const styles = StyleSheet.create({
   },
   faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
   faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20 },
+
+  /* ========================================
+     SKELETON STYLES - BANTUAN
+  ======================================== */
+  skeletonSectionTitle: {
+    width: '30%',
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonContactCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+  },
+  skeletonIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  skeletonContactContent: {
+    flex: 1,
+  },
+  skeletonContactTitle: {
+    width: '40%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonContactSubtitle: {
+    width: '70%',
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonChevron: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonSearchBar: {
+    height: 48,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  skeletonCategoryTitle: {
+    width: '40%',
+    height: 18,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonFaqCard: {
+    height: 80,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
 });

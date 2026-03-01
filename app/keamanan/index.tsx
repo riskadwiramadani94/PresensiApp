@@ -10,7 +10,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from "react-native";
 import { StatusBar } from 'expo-status-bar';
 import { API_CONFIG, getApiUrl } from "../../constants/config";
@@ -27,6 +30,7 @@ export default function PengaturanKeamananScreen() {
   const [showKonfirmasiPassword, setShowKonfirmasiPassword] = useState(false);
   const [currentEmail, setCurrentEmail] = useState("");
   const [userRole, setUserRole] = useState<string>('pegawai');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [formData, setFormData] = useState({
     email: "",
     passwordLama: "",
@@ -36,6 +40,19 @@ export default function PengaturanKeamananScreen() {
 
   useEffect(() => {
     loadCurrentData();
+  }, []);
+
+  useEffect(() => {
+    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      keyboardShow.remove();
+      keyboardHide.remove();
+    };
   }, []);
 
   const loadCurrentData = async () => {
@@ -174,7 +191,11 @@ export default function PengaturanKeamananScreen() {
         showBack={true}
         fallbackRoute={userRole === 'admin' ? '/admin/profil-admin' : '/(pegawai)/profil'}
       />
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
 
         {/* FORM UBAH EMAIL & PASSWORD */}
         <View style={styles.content}>
@@ -270,10 +291,10 @@ export default function PengaturanKeamananScreen() {
             </View>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* Button Footer - Fixed di bawah */}
-      <View style={styles.buttonFooter}>
+        {/* Button Footer - Fixed di bawah */}
+        <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
         <TouchableOpacity 
           style={styles.saveButton}
           onPress={handleUpdateProfile}
@@ -281,7 +302,8 @@ export default function PengaturanKeamananScreen() {
           <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
           <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
         </TouchableOpacity>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -361,16 +383,11 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   buttonFooter: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    borderTopColor: '#E0E0E0',
   },
   infoCard: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, View, Text, TextInput, TouchableOpacity, 
-  Alert, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, Modal, Animated, PanResponder, Dimensions 
+  Alert, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, Modal, Animated, PanResponder, Dimensions, Keyboard 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -29,6 +29,7 @@ export default function AddDataPegawaiForm() {
   const [loading, setLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [existingEmails, setExistingEmails] = useState<string[]>([]);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   
   // New states for improvements
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
@@ -95,6 +96,18 @@ export default function AddDataPegawaiForm() {
   useEffect(() => {
     fetchExistingEmails();
     loadDraftData();
+
+    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardShow.remove();
+      keyboardHide.remove();
+    };
   }, []);
 
   // Auto-save draft every 30 seconds
@@ -475,7 +488,11 @@ export default function AddDataPegawaiForm() {
         fallbackRoute="/pegawai-akun/data-pegawai-admin"
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             
             {/* Informasi Pribadi */}
             <View style={styles.sectionHeader}>
@@ -668,8 +685,7 @@ export default function AddDataPegawaiForm() {
 
         </ScrollView>
 
-        {/* Button Footer - Fixed di bawah seperti header */}
-        <View style={styles.buttonFooter}>
+        <View style={[styles.buttonContainer, { marginBottom: keyboardHeight }]}>
           <TouchableOpacity 
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
             onPress={handleSubmit}
@@ -688,6 +704,7 @@ export default function AddDataPegawaiForm() {
             )}
           </TouchableOpacity>
         </View>
+      </KeyboardAvoidingView>
 
         {/* Calendar Modal - Bottom Sheet */}
         <Modal 
@@ -846,13 +863,13 @@ export default function AddDataPegawaiForm() {
           </View>
         </Modal>
 
-
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
+  keyboardView: { flex: 1 },
 
   content: {
     flex: 1,
@@ -958,37 +975,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F8F0'
   },
 
+  buttonContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
   submitBtn: {
     backgroundColor: '#004643',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    paddingHorizontal: 16,
     borderRadius: 12,
-    minHeight: 50
+    gap: 8,
   },
   submitBtnDisabled: {
     backgroundColor: '#999'
   },
   submitText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 6,
-    textAlign: 'center'
-  },
-  buttonFooter: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
   },
 
   inputError: {

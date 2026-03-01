@@ -229,31 +229,53 @@ export default function DataPegawaiAdminScreen() {
         fallbackRoute="/admin/dashboard-admin"
       />
 
-      {loading ? (
-        <SkeletonLoader type="list" count={5} message="Memuat data pegawai..." />
-      ) : (
-        <View style={styles.contentContainer}>
-          <View style={styles.content}>
-            {/* Search Container */}
-            <View style={styles.searchContainer}>
-              <View style={styles.searchInputWrapper}>
-                <Ionicons name="search-outline" size={20} color="#666" />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Cari Pegawai..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholderTextColor="#999"
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={20} color="#999" />
-                  </TouchableOpacity>
-                )}
-              </View>
+      <View style={styles.contentContainer}>
+        <View style={styles.content}>
+          {/* Search Container */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputWrapper}>
+              <Ionicons name="search-outline" size={20} color="#666" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cari Pegawai..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#999"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
             </View>
+          </View>
 
-            {/* Scrollable List */}
+          {/* ========================================
+               SKELETON LOADING STATE
+          ======================================== */}
+          {loading ? (
+            <View style={styles.listContent}>
+              {[1, 2, 3, 4, 5].map((item) => (
+                <View key={item} style={styles.pegawaiCard}>
+                  {/* Skeleton Avatar */}
+                  <View style={styles.skeletonAvatar} />
+                  
+                  {/* Skeleton Info */}
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.skeletonName} />
+                    <View style={styles.skeletonEmail} />
+                    <View style={styles.skeletonNip} />
+                  </View>
+                  
+                  {/* Skeleton More Button */}
+                  <View style={styles.skeletonMoreBtn} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            /* ========================================
+               ACTUAL DATA LIST
+            ======================================== */
             <FlatList
             data={currentData}
             keyExtractor={(item) =>
@@ -385,9 +407,9 @@ export default function DataPegawaiAdminScreen() {
               </View>
             }
           />
-          </View>
+          )}
         </View>
-      )}
+      </View>
 
       {/* Action Modal - Bottom Sheet Style */}
       <Modal
@@ -834,6 +856,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#fff',
+  },
+  
+  /* ========================================
+     SKELETON STYLES
+  ======================================== */
+  skeletonAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E0E0E0',
+    marginRight: 16,
+  },
+  skeletonName: {
+    width: '60%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonEmail: {
+    width: '80%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonNip: {
+    width: '40%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonMoreBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E0E0E0',
   },
 });
 

@@ -231,7 +231,7 @@ export default function AdminDashboard() {
             <View style={styles.mainMenuRow}>
               {[
                 { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/menu-admin/pegawai-akun' },
-                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/admin/pengajuan.png'), route: '/menu-admin/pusat-validasi', params: { initialTab: 'pengajuan' } },
+                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/admin/pengajuan.png'), route: '/menu-admin/pusat-validasi' },
                 { id: 3, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/menu-admin/kelola-dinas' },
                 { id: 4, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/menu-admin/laporan/laporan-admin' },
               ].map((item) => (
@@ -239,13 +239,7 @@ export default function AdminDashboard() {
                   key={item.id} 
                   style={styles.mainMenuItem}
                   activeOpacity={0.7}
-                  onPress={() => {
-                    if (item.params) {
-                      router.push({ pathname: item.route, params: item.params } as any);
-                    } else {
-                      router.push(item.route as any);
-                    }
-                  }}
+                  onPress={() => router.push(item.route as any)}
                 >
                   <Image source={item.image} style={styles.menuIcon} />
                   <Text style={styles.menuLabel}>{item.name}</Text>

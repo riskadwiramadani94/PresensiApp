@@ -87,9 +87,106 @@ export default function DetailPegawai() {
           translucent={true}
           backgroundColor="transparent"
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat data pegawai...</Text>
+        
+        {/* HEADER */}
+        <AppHeader
+          title="Detail Pegawai"
+          showBack={true}
+          fallbackRoute="/pegawai-akun/data-pegawai-admin"
+        />
+
+        <View style={styles.contentWrapper}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* ========================================
+                 SKELETON LOADING STATE
+            ======================================== */}
+            
+            {/* Skeleton - Profile Section */}
+            <View style={styles.skeletonProfileSection}>
+              <View style={styles.skeletonProfileCard}>
+                {/* Skeleton Photo */}
+                <View style={styles.skeletonPhoto} />
+                {/* Skeleton Info */}
+                <View style={{ flex: 1 }}>
+                  <View style={styles.skeletonName} />
+                  <View style={styles.skeletonEmail} />
+                  <View style={styles.skeletonNip} />
+                </View>
+              </View>
+            </View>
+
+            {/* Skeleton - Info Cards */}
+            <View style={styles.infoSection}>
+              {/* Skeleton Card 1 - Informasi Pribadi */}
+              <View style={styles.infoCard}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="person-outline" size={20} color="#004643" />
+                  <Text style={styles.cardTitle}>Informasi Pribadi</Text>
+                </View>
+                <View style={styles.cardContent}>
+                  {[1, 2, 3].map((item) => (
+                    <View key={item} style={styles.infoRow}>
+                      <View style={styles.infoItem}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonValue} />
+                      </View>
+                      <View style={styles.infoItem}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonValue} />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* Skeleton Card 2 - Informasi Kepegawaian */}
+              <View style={styles.infoCard}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="briefcase-outline" size={20} color="#004643" />
+                  <Text style={styles.cardTitle}>Informasi Kepegawaian</Text>
+                </View>
+                <View style={styles.cardContent}>
+                  {[1, 2].map((item) => (
+                    <View key={item} style={styles.infoRow}>
+                      <View style={styles.infoItem}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonValue} />
+                      </View>
+                      <View style={styles.infoItem}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonValue} />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* Skeleton Card 3 - Akun Login */}
+              <View style={styles.infoCard}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="key-outline" size={20} color="#004643" />
+                  <Text style={styles.cardTitle}>Akun Login</Text>
+                </View>
+                <View style={styles.cardContent}>
+                  {[1, 2].map((item) => (
+                    <View key={item} style={styles.infoRow}>
+                      <View style={styles.infoItem}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonValue} />
+                      </View>
+                      <View style={styles.infoItem}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonValue} />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </ScrollView>
         </View>
       </View>
     );
@@ -137,6 +234,10 @@ export default function DetailPegawai() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+          {/* ========================================
+               ACTUAL DETAIL DATA
+          ======================================== */}
+          
           {/* Profile Section */}
           <LinearGradient
             colors={['#004643', '#2E7D32']}
@@ -514,5 +615,62 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+  },
+  
+  /* ========================================
+     SKELETON STYLES
+  ======================================== */
+  skeletonProfileSection: {
+    marginTop: 10,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#E0E0E0',
+  },
+  skeletonProfileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+  },
+  skeletonPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#D0D0D0',
+    marginRight: 16,
+  },
+  skeletonName: {
+    width: '60%',
+    height: 16,
+    backgroundColor: '#D0D0D0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonEmail: {
+    width: '80%',
+    height: 12,
+    backgroundColor: '#D0D0D0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonNip: {
+    width: '40%',
+    height: 12,
+    backgroundColor: '#D0D0D0',
+    borderRadius: 4,
+  },
+  skeletonLabel: {
+    width: '50%',
+    height: 12,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonValue: {
+    width: '70%',
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
   },
 });

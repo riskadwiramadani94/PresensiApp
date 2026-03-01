@@ -532,7 +532,7 @@ export default function LaporanDetailAbsenScreen() {
         onPress={() => {
           const queryParams = buildDetailParams();
           router.push(
-            `/laporan/detail-absen/${item.id_pegawai}?${queryParams}` as any,
+            `/menu-admin/laporan/detail-absen/${item.id_pegawai}?${queryParams}` as any,
           );
         }}
       >
@@ -584,9 +584,70 @@ export default function LaporanDetailAbsenScreen() {
       />
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat data absen...</Text>
+        /* ========================================
+             SKELETON LOADING STATE - LAPORAN DETAIL ABSEN
+        ======================================== */
+        <View style={styles.contentContainer}>
+          {/* Skeleton Sticky Header */}
+          <View style={styles.stickyHeader}>
+            {/* Skeleton Filter Row */}
+            <View style={styles.header}>
+              <View style={styles.filterRow}>
+                <View style={[styles.filterBtn, styles.skeletonFilterBtn]} />
+                <View style={[styles.filterBtn, styles.skeletonFilterBtn]} />
+              </View>
+            </View>
+
+            {/* Skeleton Stats Container */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statsRow}>
+                {[1, 2, 3].map((item) => (
+                  <View key={item} style={styles.statCard}>
+                    <View style={styles.skeletonStatIndicator} />
+                    <View style={styles.skeletonStatLabel} />
+                    <View style={styles.skeletonStatValue} />
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Skeleton Search Container */}
+            <View style={styles.searchContainer}>
+              <View style={styles.skeletonSearchInput} />
+            </View>
+
+            {/* Skeleton Sort Section */}
+            <View style={styles.sortSection}>
+              <View style={styles.skeletonSortHeader} />
+            </View>
+          </View>
+
+          {/* Skeleton List Content */}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {[1, 2, 3, 4].map((item) => (
+              <View key={item} style={styles.pegawaiCard}>
+                {/* Skeleton Card Header */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.skeletonAvatar} />
+                  <View style={styles.employeeInfo}>
+                    <View style={styles.skeletonEmployeeName} />
+                    <View style={styles.skeletonEmployeeNip} />
+                  </View>
+                  <View style={styles.skeletonDetailBtn} />
+                </View>
+                {/* Skeleton Status Container */}
+                <View style={styles.statusContainer}>
+                  <View style={styles.skeletonStatusBadge} />
+                  <View style={styles.skeletonStatusBadge} />
+                  <View style={styles.skeletonStatusBadge} />
+                </View>
+              </View>
+            ))}
+          </ScrollView>
         </View>
       ) : (
         <View style={styles.contentContainer}>
@@ -1317,5 +1378,86 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 16,
     textAlign: "center",
+  },
+
+  /* ========================================
+     SKELETON STYLES - LAPORAN DETAIL ABSEN
+  ======================================== */
+  // Skeleton untuk Filter Button
+  skeletonFilterBtn: {
+    backgroundColor: '#F0F0F0',
+    height: 40,
+  },
+  // Skeleton untuk Stat Card
+  skeletonStatIndicator: {
+    width: 30,
+    height: 3,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  skeletonStatLabel: {
+    width: '60%',
+    height: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonStatValue: {
+    width: '40%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Search Input
+  skeletonSearchInput: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+  },
+  // Skeleton untuk Sort Header
+  skeletonSortHeader: {
+    width: '100%',
+    height: 40,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+  },
+  // Skeleton untuk Avatar
+  skeletonAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  // Skeleton untuk Employee Name
+  skeletonEmployeeName: {
+    width: '70%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  // Skeleton untuk Employee NIP
+  skeletonEmployeeNip: {
+    width: '50%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Detail Button
+  skeletonDetailBtn: {
+    width: 32,
+    height: 32,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+  },
+  // Skeleton untuk Status Badge
+  skeletonStatusBadge: {
+    width: 80,
+    height: 24,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
   },
 });

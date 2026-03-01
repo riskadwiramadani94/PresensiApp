@@ -13,6 +13,9 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { AppHeader } from '../../components';
 import { PusatValidasiAPI } from '../../constants/config';
 
+/* ========================================
+   TYPES & INTERFACES
+======================================== */
 interface InboxItem {
   id: string;
   type: 'absen_dinas' | 'pengajuan';
@@ -25,6 +28,9 @@ interface InboxItem {
   isProcessed: boolean;
 }
 
+/* ========================================
+   MAIN COMPONENT
+======================================== */
 export default function InboxAdmin() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -33,6 +39,9 @@ export default function InboxAdmin() {
   const [totalCount, setTotalCount] = useState(0);
   const [unprocessedCount, setUnprocessedCount] = useState(0);
 
+  /* ========================================
+     DATA FETCHING
+  ======================================== */
   useFocusEffect(
     useCallback(() => {
       fetchInboxData();
@@ -98,6 +107,9 @@ export default function InboxAdmin() {
     }
   };
 
+  /* ========================================
+     UTILITY FUNCTIONS
+  ======================================== */
   const formatJenisPengajuan = (jenis: string) => {
     const jenisMap: { [key: string]: string } = {
       'cuti_sakit': 'Cuti Sakit',
@@ -123,6 +135,9 @@ export default function InboxAdmin() {
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  /* ========================================
+     EVENT HANDLERS
+  ======================================== */
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchInboxData();
@@ -146,6 +161,9 @@ export default function InboxAdmin() {
     }
   };
 
+  /* ========================================
+     RENDER FUNCTIONS
+  ======================================== */
   const renderInboxItem = ({ item }: { item: InboxItem }) => {
     const isAbsenDinas = item.type === 'absen_dinas';
     const statusText = item.isProcessed ? 
@@ -200,6 +218,9 @@ export default function InboxAdmin() {
     );
   };
 
+  /* ========================================
+     MAIN RENDER
+  ======================================== */
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
@@ -210,9 +231,21 @@ export default function InboxAdmin() {
       />
       
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat kotak masuk...</Text>
+        <View style={styles.content}>
+          {/* ========================================
+               SKELETON LOADING STATE - KOTAK MASUK
+          ======================================== */}
+          {[1, 2, 3, 4, 5].map((item) => (
+            <View key={item} style={styles.skeletonCard}>
+              <View style={styles.skeletonIcon} />
+              <View style={styles.skeletonContent}>
+                <View style={styles.skeletonTitle} />
+                <View style={styles.skeletonSubtitle} />
+                <View style={styles.skeletonTime} />
+              </View>
+              <View style={styles.skeletonChevron} />
+            </View>
+          ))}
         </View>
       ) : (
         <FlatList
@@ -243,6 +276,9 @@ export default function InboxAdmin() {
   );
 }
 
+/* ========================================
+   STYLES
+======================================== */
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
@@ -266,16 +302,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
+    padding: 15,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: '#E0E0E0',
   },
   iconCircle: {
     width: 48,
@@ -318,13 +349,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
     marginBottom: 2,
   },
@@ -357,5 +388,58 @@ const styles = StyleSheet.create({
     color: '#D1D5DB',
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+
+  /* ========================================
+     SKELETON STYLES - KOTAK MASUK
+  ======================================== */
+  loadingContent: {
+    padding: 16,
+  },
+  skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  skeletonIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  skeletonContent: {
+    flex: 1,
+  },
+  skeletonTitle: {
+    width: '70%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonSubtitle: {
+    width: '50%',
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonTime: {
+    width: '40%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonChevron: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
   },
 });

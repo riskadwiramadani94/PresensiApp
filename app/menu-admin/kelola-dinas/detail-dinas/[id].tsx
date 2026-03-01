@@ -140,7 +140,73 @@ export default function DetailDinasScreen() {
           showBack={true}
           fallbackRoute="/menu-admin/kelola-dinas"
         />
-        <SkeletonLoader type="detail" count={1} message="Memuat detail dinas..." />
+        {/* ========================================
+             SKELETON LOADING STATE - DETAIL DINAS
+        ======================================== */}
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Skeleton Header Card */}
+          <View style={styles.headerCard}>
+            <View style={styles.headerTop}>
+              <View style={styles.titleSection}>
+                <View style={styles.skeletonKegiatanTitle} />
+                <View style={styles.skeletonSptNumber} />
+              </View>
+              <View style={styles.skeletonStatusBadge} />
+            </View>
+            <View style={styles.skeletonCreatedDate} />
+          </View>
+
+          {/* Skeleton Info Card - Informasi Kegiatan */}
+          <View style={styles.infoCard}>
+            <View style={styles.skeletonCardTitle} />
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.infoRow}>
+                <View style={styles.skeletonInfoIcon} />
+                <View style={styles.infoContent}>
+                  <View style={styles.skeletonInfoLabel} />
+                  <View style={styles.skeletonInfoValue} />
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Skeleton Info Card - Waktu & Jadwal */}
+          <View style={styles.infoCard}>
+            <View style={styles.skeletonCardTitle} />
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.infoRow}>
+                <View style={styles.skeletonInfoIcon} />
+                <View style={styles.infoContent}>
+                  <View style={styles.skeletonInfoLabel} />
+                  <View style={styles.skeletonInfoValue} />
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Skeleton Info Card - Dokumen SPT */}
+          <View style={styles.infoCard}>
+            <View style={styles.skeletonCardTitle} />
+            <View style={styles.skeletonDocumentRow} />
+          </View>
+
+          {/* Skeleton Pegawai Section */}
+          <View style={styles.pegawaiSection}>
+            <View style={styles.skeletonCardTitle} />
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.pegawaiCard}>
+                <View style={styles.pegawaiHeader}>
+                  <View style={styles.skeletonAvatar} />
+                  <View style={styles.pegawaiInfo}>
+                    <View style={styles.skeletonPegawaiName} />
+                    <View style={styles.skeletonPegawaiNip} />
+                    <View style={styles.skeletonPegawaiJabatan} />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -528,5 +594,97 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#004643',
     fontWeight: '500',
+  },
+
+  /* ========================================
+     SKELETON STYLES - DETAIL DINAS
+  ======================================== */
+  // Skeleton untuk Header Card
+  skeletonKegiatanTitle: {
+    width: '80%',
+    height: 18,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonSptNumber: {
+    width: '50%',
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonStatusBadge: {
+    width: 100,
+    height: 28,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 16,
+  },
+  skeletonCreatedDate: {
+    width: '60%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Info Card
+  skeletonCardTitle: {
+    width: '50%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 16,
+  },
+  skeletonInfoIcon: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 10,
+  },
+  skeletonInfoLabel: {
+    width: '40%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonInfoValue: {
+    width: '70%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Dokumen Row
+  skeletonDocumentRow: {
+    width: '100%',
+    height: 60,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+  },
+  // Skeleton untuk Pegawai Card
+  skeletonAvatar: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  skeletonPegawaiName: {
+    width: '70%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonPegawaiNip: {
+    width: '50%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonPegawaiJabatan: {
+    width: '40%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
   },
 });

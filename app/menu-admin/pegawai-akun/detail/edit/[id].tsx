@@ -9,6 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +24,7 @@ export default function EditPegawai() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [formData, setFormData] = useState({
     nama_lengkap: '',
     email: '',
@@ -39,6 +42,19 @@ export default function EditPegawai() {
   useEffect(() => {
     fetchPegawaiDetail();
   }, [id]);
+
+  useEffect(() => {
+    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      keyboardShow.remove();
+      keyboardHide.remove();
+    };
+  }, []);
 
   const fetchPegawaiDetail = async () => {
     try {
@@ -104,10 +120,81 @@ export default function EditPegawai() {
     return (
       <View style={styles.container}>
         <StatusBar style="light" translucent={true} backgroundColor="transparent" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat data pegawai...</Text>
-        </View>
+        
+        {/* HEADER */}
+        <AppHeader 
+          title="Edit Pegawai"
+          showBack={true}
+          fallbackRoute="/pegawai-akun/data-pegawai-admin"
+        />
+
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* ========================================
+                 SKELETON LOADING STATE
+            ======================================== */}
+            
+            {/* Skeleton - Informasi Pribadi */}
+            <View style={styles.sectionHeader}>
+              <Ionicons name="person-outline" size={20} color="#004643" />
+              <Text style={styles.sectionTitle}>Informasi Pribadi</Text>
+            </View>
+            <View style={styles.divider} />
+            
+            <View style={styles.formContent}>
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <View key={item} style={styles.inputGroup}>
+                  {/* Skeleton Label */}
+                  <View style={styles.skeletonLabel} />
+                  {/* Skeleton Input */}
+                  <View style={styles.skeletonInput} />
+                </View>
+              ))}
+            </View>
+
+            {/* Skeleton - Informasi Kepegawaian */}
+            <View style={styles.sectionHeader}>
+              <Ionicons name="briefcase-outline" size={20} color="#004643" />
+              <Text style={styles.sectionTitle}>Informasi Kepegawaian</Text>
+            </View>
+            <View style={styles.divider} />
+            
+            <View style={styles.formContent}>
+              {[1, 2, 3].map((item) => (
+                <View key={item} style={styles.inputGroup}>
+                  {/* Skeleton Label */}
+                  <View style={styles.skeletonLabel} />
+                  {/* Skeleton Input */}
+                  <View style={styles.skeletonInput} />
+                </View>
+              ))}
+            </View>
+
+            {/* Skeleton - Informasi Akun Login */}
+            <View style={styles.sectionHeader}>
+              <Ionicons name="key-outline" size={20} color="#004643" />
+              <Text style={styles.sectionTitle}>Informasi Akun Login</Text>
+            </View>
+            <View style={styles.divider} />
+            
+            <View style={styles.formContent}>
+              {[1, 2].map((item) => (
+                <View key={item} style={styles.inputGroup}>
+                  {/* Skeleton Label */}
+                  <View style={styles.skeletonLabel} />
+                  {/* Skeleton Input */}
+                  <View style={styles.skeletonInput} />
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     );
   }
@@ -123,10 +210,18 @@ export default function EditPegawai() {
         fallbackRoute="/pegawai-akun/data-pegawai-admin"
       />
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={styles.scrollContent}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={styles.scrollContent}
+        >
+        {/* ========================================
+             ACTUAL FORM DATA
+        ======================================== */}
+        
         {/* Informasi Pribadi */}
         <View style={styles.sectionHeader}>
           <Ionicons name="person-outline" size={20} color="#004643" />
@@ -297,10 +392,10 @@ export default function EditPegawai() {
             </View>
           </View>
 
-      </ScrollView>
+        </ScrollView>
       
-      {/* Button Footer - Fixed di bawah seperti header */}
-      <View style={styles.buttonFooter}>
+        {/* Button Footer - Fixed di bawah seperti header */}
+        <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
         <TouchableOpacity 
           style={styles.saveButton}
           onPress={handleSave}
@@ -316,6 +411,7 @@ export default function EditPegawai() {
           )}
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -450,15 +546,27 @@ const styles = StyleSheet.create({
     marginLeft: 8
   },
   buttonFooter: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    borderTopColor: '#E0E0E0',
+  },
+  
+  /* ========================================
+     SKELETON STYLES
+  ======================================== */
+  skeletonLabel: {
+    width: '30%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonInput: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
   },
 });

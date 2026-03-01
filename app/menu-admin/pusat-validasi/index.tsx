@@ -140,9 +140,11 @@ export default function PusatValidasiScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Set initial tab dari params jika ada
+      // Set initial tab dari params jika ada, default ke 'absen_dinas'
       if (params.initialTab) {
         setActiveTab(params.initialTab as string);
+      } else {
+        setActiveTab('absen_dinas');
       }
       fetchAllData();
       // Set navigation bar translucent
@@ -575,13 +577,103 @@ export default function PusatValidasiScreen() {
     
     if (loading) {
       return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat data...</Text>
+        <View style={styles.listContent}>
+          {/* ========================================
+               SKELETON LOADING STATE - TAB ABSEN DINAS
+          ======================================== */}
+          
+          {activeTab === 'absen_dinas' ? (
+            /* Skeleton - Absen Dinas Cards */
+            [1, 2, 3].map((item) => (
+              <View key={item} style={styles.dinasCard}>
+                {/* Skeleton Header - Nama Kegiatan & Badges */}
+                <View style={styles.dinasCardHeader}>
+                  <View style={styles.dinasCardTitle}>
+                    {/* Skeleton Nama Kegiatan */}
+                    <View style={styles.skeletonDinasName} />
+                    {/* Skeleton Nomor SPT */}
+                    <View style={styles.skeletonDinasSpt} />
+                  </View>
+                  {/* Skeleton Status Badges */}
+                  <View style={styles.badgeContainer}>
+                    <View style={styles.skeletonBadge} />
+                    <View style={styles.skeletonBadge} />
+                    <View style={styles.skeletonBadge} />
+                  </View>
+                </View>
+                
+                {/* Skeleton Info Section */}
+                <View style={styles.dinasCardInfo}>
+                  {/* Skeleton Jenis Dinas */}
+                  <View style={styles.dinasInfoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '35%' }]} />
+                  </View>
+                  {/* Skeleton Lokasi */}
+                  <View style={styles.dinasInfoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '60%' }]} />
+                  </View>
+                  {/* Skeleton Jam Kerja */}
+                  <View style={styles.dinasInfoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '40%' }]} />
+                  </View>
+                  {/* Skeleton Tanggal */}
+                  <View style={styles.dinasInfoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '55%' }]} />
+                  </View>
+                  {/* Skeleton Jumlah Pegawai */}
+                  <View style={styles.dinasInfoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '45%' }]} />
+                  </View>
+                </View>
+              </View>
+            ))
+          ) : (
+            /* ========================================
+                 SKELETON LOADING STATE - TAB PENGAJUAN
+            ======================================== */
+            [1, 2, 3, 4].map((item) => (
+              <View key={item} style={styles.itemCard}>
+                {/* Skeleton Card Accent */}
+                <View style={styles.cardAccent} />
+                
+                <View style={styles.itemContent}>
+                  {/* Skeleton Header - Nama & Badge */}
+                  <View style={styles.statusRow}>
+                    <View style={styles.skeletonUserName} />
+                    <View style={styles.skeletonPengajuanBadge} />
+                  </View>
+                  {/* Skeleton NIP & Jabatan */}
+                  <View style={styles.skeletonUserDetail} />
+                  {/* Skeleton Tanggal */}
+                  <View style={[styles.skeletonInfoLine, { width: '50%' }]} />
+                  {/* Skeleton Jam */}
+                  <View style={[styles.skeletonInfoLine, { width: '35%' }]} />
+                  {/* Skeleton Alasan */}
+                  <View style={styles.skeletonReason} />
+                  {/* Skeleton Dokumen Button */}
+                  <View style={styles.skeletonDocumentBtn} />
+                </View>
+                
+                {/* Skeleton Action Buttons */}
+                <View style={styles.actionButtons}>
+                  <View style={styles.skeletonActionBtn} />
+                  <View style={styles.skeletonActionBtn} />
+                </View>
+              </View>
+            ))
+          )}
         </View>
       );
     }
 
+    /* ========================================
+         ACTUAL DATA LIST
+    ======================================== */
     if (data.length === 0) {
       return (
         <View style={styles.emptyContainer}>
@@ -1456,6 +1548,103 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',
+  },
+
+  /* ========================================
+     SKELETON STYLES - TAB ABSEN DINAS
+  ======================================== */
+  // Skeleton untuk Card Header
+  skeletonDinasName: {
+    width: '70%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonDinasSpt: {
+    width: '45%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Status Badges (3 badges: hijau, kuning, merah)
+  skeletonBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E0E0E0',
+  },
+  // Skeleton untuk Info Icon (business, location, time, calendar, people)
+  skeletonInfoIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#E0E0E0',
+  },
+  // Skeleton untuk Info Text (jenis dinas, lokasi, jam kerja, tanggal, jumlah pegawai)
+  skeletonInfoText: {
+    height: 13,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  
+  /* ========================================
+     SKELETON STYLES - TAB PENGAJUAN
+  ======================================== */
+  // Skeleton untuk Nama Pegawai
+  skeletonUserName: {
+    flex: 1,
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  // Skeleton untuk Badge Jenis Pengajuan
+  skeletonPengajuanBadge: {
+    width: 80,
+    height: 24,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+  },
+  // Skeleton untuk NIP & Jabatan
+  skeletonUserDetail: {
+    width: '60%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  // Skeleton untuk Info Lines (tanggal, jam)
+  skeletonInfoLine: {
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  // Skeleton untuk Alasan Text
+  skeletonReason: {
+    width: '90%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  // Skeleton untuk Dokumen Button
+  skeletonDocumentBtn: {
+    width: 120,
+    height: 28,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  // Skeleton untuk Action Buttons (Setuju & Tolak)
+  skeletonActionBtn: {
+    flex: 1,
+    height: 36,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 8,
   },
 
 });

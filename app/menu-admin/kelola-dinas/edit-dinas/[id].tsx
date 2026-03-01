@@ -825,19 +825,59 @@ export default function EditDinasScreen() {
       />
 
       {loadingData ? (
-        <View
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            padding: 20,
-          }}
+        /* ========================================
+             SKELETON LOADING STATE - EDIT DINAS
+        ======================================== */
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
         >
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={{ marginTop: 10, color: "#666" }}>
-            Memuat data dinas...
-          </Text>
-        </View>
+          {/* Skeleton Section 1 - Informasi Dasar */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.skeletonSectionIcon} />
+            <View style={styles.skeletonSectionTitle} />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.formContent}>
+            {[1, 2, 3, 4].map((item) => (
+              <View key={item} style={styles.inputGroup}>
+                <View style={styles.skeletonInputLabel} />
+                <View style={styles.skeletonTextInput} />
+              </View>
+            ))}
+          </View>
+
+          {/* Skeleton Section 2 - Waktu & Jadwal */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.skeletonSectionIcon} />
+            <View style={styles.skeletonSectionTitle} />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.formContent}>
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.inputGroup}>
+                <View style={styles.skeletonInputLabel} />
+                <View style={styles.skeletonTextInput} />
+              </View>
+            ))}
+          </View>
+
+          {/* Skeleton Section 3 - Lokasi & Pegawai */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.skeletonSectionIcon} />
+            <View style={styles.skeletonSectionTitle} />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.formContent}>
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.inputGroup}>
+                <View style={styles.skeletonInputLabel} />
+                <View style={styles.skeletonTextInput} />
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       ) : (
         <ScrollView
           style={styles.content}
@@ -2056,5 +2096,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
     marginLeft: 12,
+  },
+
+  /* ========================================
+     SKELETON STYLES - EDIT DINAS
+  ======================================== */
+  // Skeleton untuk Section Header
+  skeletonSectionIcon: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 10,
+  },
+  skeletonSectionTitle: {
+    width: '50%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  // Skeleton untuk Input Fields
+  skeletonInputLabel: {
+    width: '40%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonTextInput: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
   },
 });
