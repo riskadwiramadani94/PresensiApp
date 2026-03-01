@@ -24,6 +24,7 @@ const kegiatanPegawaiRoutes = require('./src/routes/kegiatan-pegawai');
 const performaPegawaiRoutes = require('./src/routes/performa-pegawai');
 const lemburRoutes = require('./src/routes/lembur');
 const inboxPegawaiRoutes = require('./src/routes/inbox-pegawai');
+const faqRoutes = require('./src/routes/faq');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,6 +57,7 @@ app.use('/pegawai/kegiatan', kegiatanPegawaiRoutes);
 app.use('/pegawai/api', performaPegawaiRoutes);
 app.use('/pegawai/lembur/api', lemburRoutes);
 app.use('/pegawai/inbox/api', inboxPegawaiRoutes);
+app.use('/api/faq', faqRoutes);
 
 // Health check
 app.get('/', (req, res) => {
@@ -137,6 +139,8 @@ const startServer = async () => {
       console.log(`   GET  /pegawai/pengajuan/api/pengajuan`);
       console.log(`   POST /pegawai/pengajuan/api/pengajuan`);
       console.log(`   GET  /pegawai/pengajuan/api/pengajuan/izin-hari-ini`);
+      console.log(`   GET  /api/faq`);
+      console.log(`   GET  /api/faq/search`);
       console.log(`\n🔄 Ready to serve HadirinApp mobile app\n`);
     });
   } catch (error) {

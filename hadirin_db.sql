@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 24, 2026 at 07:42 AM
+-- Generation Time: Mar 01, 2026 at 11:00 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -89,6 +89,7 @@ CREATE TABLE `dinas` (
   `jenis_dinas` enum('lokal','luar_kota','luar_negeri') NOT NULL,
   `tanggal_mulai` date NOT NULL,
   `tanggal_selesai` date NOT NULL,
+  `tipe_jam_kerja` enum('default','custom') DEFAULT 'default' COMMENT 'Tipe jam kerja: default=pakai jam_kerja_history, custom=pakai jam_mulai & jam_selesai',
   `alamat_lengkap` text NOT NULL,
   `lintang` decimal(10,8) NOT NULL,
   `bujur` decimal(11,8) NOT NULL,
@@ -117,21 +118,6 @@ CREATE TABLE `dinas_lokasi` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `id_lokasi` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `dinas_lokasi`
---
-
-INSERT INTO `dinas_lokasi` (`id`, `id_dinas`, `id_lokasi_kantor`, `urutan`, `is_lokasi_utama`, `created_at`, `id_lokasi`) VALUES
-(1, 10, 6, 1, 0, '2026-01-20 04:00:49', 6),
-(2, 11, 6, 1, 1, '2026-02-06 08:25:52', 6),
-(4, 11, 1, 2, 0, '2026-02-06 08:49:54', 1),
-(9, 12, 6, 1, 1, '2026-02-15 15:02:07', 6),
-(10, 14, 6, 1, 1, '2026-02-15 15:45:33', 6),
-(11, 14, 9, 2, 0, '2026-02-15 15:45:33', 9),
-(12, 15, 9, 1, 1, '2026-02-17 03:03:42', 9),
-(13, 17, 6, 1, 1, '2026-02-24 02:03:24', 6),
-(14, 18, 1, 1, 1, '2026-02-24 02:05:22', 1);
 
 -- --------------------------------------------------------
 
@@ -162,28 +148,6 @@ CREATE TABLE `hari_libur` (
   `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `hari_libur`
---
-
-INSERT INTO `hari_libur` (`id`, `tanggal`, `nama_libur`, `jenis`, `is_active`) VALUES
-(1, '2026-01-15', 'Isra mi\'raj', 'keagamaan', 0),
-(2, '2025-12-31', 'Libur', 'nasional', 0),
-(3, '2026-01-15', 'Isra mi\'raj', 'keagamaan', 0),
-(4, '2026-01-16', 'Isra Mi\'raj', 'keagamaan', 0),
-(5, '2026-01-16', 'Isra Mi\'raj', 'keagamaan', 0),
-(6, '2026-01-01', 'Tahun Baru 2026', 'nasional', 0),
-(7, '2026-01-14', 'Libur', 'nasional', 0),
-(8, '2026-01-01', 'Tahun Baru', 'nasional', 0),
-(9, '2026-01-01', 'Tahun Baru', 'nasional', 0),
-(10, '2026-01-01', 'Tahun baru', 'nasional', 1),
-(11, '2026-02-05', 'Tes', 'nasional', 0),
-(12, '2026-02-11', 'idul fitri', 'nasional', 0),
-(13, '2026-02-13', 'Libur', 'nasional', 0),
-(14, '2026-02-13', 'Libur', 'nasional', 0),
-(15, '2026-02-13', 'Libur', 'nasional', 1),
-(16, '2026-02-27', 'Tes', 'perusahaan', 1);
-
 -- --------------------------------------------------------
 
 --
@@ -199,18 +163,23 @@ CREATE TABLE `jam_kerja_hari` (
   `is_kerja` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `jam_kerja_hari`
+-- Table structure for table `jam_kerja_history`
 --
 
-INSERT INTO `jam_kerja_hari` (`id`, `hari`, `jam_masuk`, `batas_absen`, `jam_pulang`, `is_kerja`) VALUES
-(1, 'Senin', '08:00:00', '08:30:00', '17:00:00', 1),
-(2, 'Selasa', '08:00:00', '08:30:00', '17:00:00', 1),
-(3, 'Rabu', '08:00:00', '08:30:00', '17:00:00', 1),
-(4, 'Kamis', '08:00:00', '08:30:00', '17:00:00', 1),
-(5, 'Jumat', '08:00:00', '08:30:00', '16:30:00', 1),
-(6, 'Sabtu', '08:00:00', '08:30:00', '12:00:00', 0),
-(7, 'Minggu', '08:00:00', '08:30:00', '17:00:00', 0);
+CREATE TABLE `jam_kerja_history` (
+  `id` int(11) NOT NULL,
+  `hari` enum('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu') NOT NULL,
+  `jam_masuk` time NOT NULL,
+  `batas_absen` time NOT NULL,
+  `jam_pulang` time NOT NULL,
+  `is_kerja` tinyint(1) NOT NULL DEFAULT 1,
+  `tanggal_mulai_berlaku` date NOT NULL,
+  `tanggal_selesai_berlaku` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -233,21 +202,6 @@ CREATE TABLE `lokasi_kantor` (
   `keterangan` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `lokasi_kantor`
---
-
-INSERT INTO `lokasi_kantor` (`id`, `nama_lokasi`, `alamat`, `lintang`, `bujur`, `radius`, `status`, `jenis_lokasi`, `is_active`, `tanggal_mulai_dinas`, `tanggal_selesai_dinas`, `keterangan`) VALUES
-(1, 'ITB SUMARECON', 'Jalan Bulevar Raya, Cisaranten Kidul, Kecamatan Gedebage, Jawa Barat', -6.95317191, 107.69658610, 100, 'aktif', 'tetap', 1, NULL, NULL, NULL),
-(6, 'Itb Ganesha', 'Jalan Ganesa 10, Lebak Siliwangi, Kecamatan Coblong, Jawa Barat', -6.89036170, 107.61019120, 300, 'aktif', 'dinas', 1, NULL, NULL, NULL),
-(8, 'ITB Innovation Park (IIP) Bandung Technopolis di Summarecon Bandung', 'Jalan Sentra Niaga II, Cisaranten Kidul, Gedebage, Kota Bandung, Jawa Barat, Jawa, 40295, Indonesia', -6.95346850, 107.69637540, 300, 'aktif', 'tetap', 0, NULL, NULL, NULL),
-(9, 'Kantor', 'kp sukahayu, No. No.48, Cinunuk, Kecamatan Cileunyi, Jawa Barat, 40624', -6.92468330, 107.73865170, 100, 'aktif', 'tetap', 1, NULL, NULL, NULL),
-(10, 'Kantor Cabang', 'Jalan Jakarta, Kebonwaru, Kecamatan Batununggal, Jawa Barat', -6.91558281, 107.63843782, 100, 'aktif', 'tetap', 0, NULL, NULL, NULL),
-(11, 'Kiara Artha', 'Kebonwaru, Kecamatan Batununggal, Jawa Barat', -6.91655802, 107.64228109, 100, 'aktif', 'tetap', 1, NULL, NULL, NULL),
-(12, 'Tes', 'Cimenyan, Bandung, West Java', -6.86441171, 107.67373938, 100, 'aktif', 'dinas', 1, NULL, NULL, NULL),
-(13, 'Tes', 'Cibeunying, Kecamatan Cimenyan, Jawa Barat', -6.88636649, 107.63615761, 100, 'aktif', 'tetap', 0, NULL, NULL, NULL),
-(14, 'Itb dkst', 'Jalan Tamansari, Lebak Siliwangi, Kecamatan Coblong, Jawa Barat', -6.89411335, 107.60900594, 100, 'aktif', 'tetap', 1, NULL, NULL, NULL);
-
 -- --------------------------------------------------------
 
 --
@@ -261,17 +215,6 @@ CREATE TABLE `lokasi_realtime` (
   `bujur` double NOT NULL,
   `last_update` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `lokasi_realtime`
---
-
-INSERT INTO `lokasi_realtime` (`id`, `id_user`, `lintang`, `bujur`, `last_update`) VALUES
-(1, 6, -6.894127, 107.6089701, '2026-02-24 02:26:23'),
-(2, 5, -6.9535981, 107.6963557, '2026-02-18 05:54:23'),
-(3, 4, -6.894136, 107.6089837, '2026-02-24 06:34:47'),
-(29, 14, -6.9534807, 107.6963987, '2026-02-23 07:49:59'),
-(40, 2, -6.894127, 107.6089701, '2026-02-24 02:27:35');
 
 -- --------------------------------------------------------
 
@@ -297,21 +240,6 @@ CREATE TABLE `pegawai` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `pegawai`
---
-
-INSERT INTO `pegawai` (`id_pegawai`, `id_user`, `nama_lengkap`, `nip`, `jenis_kelamin`, `tanggal_lahir`, `alamat`, `no_telepon`, `jabatan`, `divisi`, `tanggal_masuk`, `foto_profil`, `status_pegawai`, `created_at`, `updated_at`) VALUES
-(1, 2, 'Budi Santoso', 'NIP001', 'Laki-laki', '1990-05-15', 'Jl. Merdeka No. 123, Jakarta', '081234567890', 'Manager IT', 'IT', '2020-01-15', NULL, 'Aktif', '2026-01-15 01:29:42', '2026-01-15 01:29:42'),
-(3, 4, 'Ahmad Fauzi Rahman', 'NIP003', 'Laki-laki', '1988-12-04', 'Jl. Gatot Subroto No. 789, Jakarta', '081234567892', 'Supervisor Finance', 'Finance', '2019-06-01', 'uploads/pegawai/pegawai-1770869195075-145906349.jpeg', 'Aktif', '2026-01-15 01:29:42', '2026-02-12 04:06:35'),
-(4, 5, 'Dewi Lestari', 'NIP004', 'Perempuan', '1995-03-25', 'Jl. Thamrin No. 321, Jakarta', '081234567893', 'Staff Marketing', 'Marketing', '2021-02-15', NULL, 'Aktif', '2026-01-15 01:29:42', '2026-01-15 01:29:42'),
-(5, 6, 'Eko Prasetyo', 'NIP005', 'Laki-laki', '1991-07-18', 'Jl. Kuningan No. 654, Jakarta', '081234567894', 'Staff IT', 'IT', '2021-08-20', NULL, 'Aktif', '2026-01-15 01:29:42', '2026-01-15 01:29:42'),
-(11, 12, 'Riska Dwi Ramadani ', 'R00233', 'Perempuan', '0000-00-00', '', '', 'IT', 'IT', '2026-01-19', NULL, 'Aktif', '2026-01-19 03:46:32', '2026-01-19 03:46:32'),
-(12, 9, 'Riska', 'PEG000009', '', NULL, '', '', 'Staff', 'Umum', NULL, NULL, 'Aktif', '2026-01-22 02:26:42', '2026-01-22 02:26:42'),
-(13, 13, 'Cindy Yuliani ', 'C0001', 'Perempuan', '0000-00-00', 'Cisarua', '08379157216', 'IT', 'IT', '2026-02-04', NULL, 'Aktif', '2026-02-04 02:39:32', '2026-02-04 02:39:32'),
-(14, 14, 'Riska Fauziah', 'R0002', '', '0000-00-00', '', '', 'IT', 'IT', '2026-02-15', 'uploads/pegawai/pegawai-1771165140496-25793115.jpeg', 'Aktif', '2026-02-15 11:41:14', '2026-02-15 14:19:01'),
-(15, 15, 'Razka', 'R0001', 'Laki-laki', '0000-00-00', 'Ciborelang ', '083187554543', 'It', 'It', '2026-02-18', NULL, 'Aktif', '2026-02-18 12:40:37', '2026-02-18 12:40:37');
-
 -- --------------------------------------------------------
 
 --
@@ -336,18 +264,6 @@ CREATE TABLE `pengajuan` (
   `waktu_persetujuan` timestamp NULL DEFAULT NULL,
   `catatan_persetujuan` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `pengajuan`
---
-
-INSERT INTO `pengajuan` (`id_pengajuan`, `id_user`, `id_pegawai`, `jenis_pengajuan`, `tanggal_mulai`, `tanggal_selesai`, `jam_mulai`, `jam_selesai`, `alasan_text`, `dokumen_foto`, `status`, `is_retrospektif`, `disetujui_oleh`, `tanggal_pengajuan`, `waktu_persetujuan`, `catatan_persetujuan`) VALUES
-(1, 4, 3, 'izin_datang_terlambat', '2026-02-23', NULL, '08:30:00', NULL, 'Ada acara ', NULL, 'disetujui', 0, 10, '2026-02-22 13:13:33', '2026-02-22 13:21:07', NULL),
-(2, 4, 3, 'izin_datang_terlambat', '2026-02-23', NULL, '08:40:00', NULL, 'Macet', NULL, 'disetujui', 0, 10, '2026-02-23 01:36:34', '2026-02-23 01:37:01', NULL),
-(3, 4, 3, 'izin_datang_terlambat', '2026-02-23', NULL, '09:30:00', NULL, 'Macet', NULL, 'disetujui', 0, 10, '2026-02-23 01:40:39', '2026-02-23 01:40:54', NULL),
-(4, 4, 3, 'lembur', '2026-02-24', '2026-02-24', '11:44:00', '09:32:00', 'lembur\n\n', NULL, 'disetujui', 0, 10, '2026-02-24 02:34:15', '2026-02-24 05:05:25', NULL),
-(5, 4, 3, 'izin_datang_terlambat', '2015-12-24', NULL, '09:36:00', NULL, 'tes', NULL, 'menunggu', 0, NULL, '2026-02-24 02:39:37', NULL, NULL),
-(6, 4, 3, 'lembur', '2026-02-24', '2026-02-24', '00:09:00', '09:43:00', 'tes\n', NULL, 'disetujui', NULL, 12, '2026-02-24 02:46:17', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -391,13 +307,34 @@ CREATE TABLE `presensi` (
   `dinas_id` int(11) DEFAULT NULL COMMENT 'ID dinas jika absen dinas'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `presensi`
+-- Table structure for table `presensi_backup_before_fix`
 --
 
-INSERT INTO `presensi` (`id_presensi`, `id_user`, `tanggal`, `jam_masuk`, `lintang_masuk`, `bujur_masuk`, `foto_masuk`, `status`, `alasan_luar_lokasi`, `jam_pulang`, `lintang_pulang`, `bujur_pulang`, `foto_pulang`, `status_validasi`, `divalidasi_oleh`, `catatan_validasi`, `waktu_validasi`, `lokasi_id`, `jenis_presensi`, `dinas_id`) VALUES
-(42, 6, '2026-02-17', '10:28:36', -6.9245228, 107.7386607, 'presensi-1771298912200-807782190.jpeg', 'Terlambat', NULL, NULL, NULL, NULL, NULL, 'disetujui', NULL, NULL, NULL, 9, 'kantor', NULL),
-(43, 6, '2026-02-24', '09:11:27', -6.8940433, 107.6089633, 'presensi-1771899087360-439894972.jpeg', 'Terlambat', NULL, NULL, NULL, NULL, NULL, 'disetujui', NULL, NULL, NULL, 14, 'kantor', NULL);
+CREATE TABLE `presensi_backup_before_fix` (
+  `id_presensi` int(11) NOT NULL DEFAULT 0,
+  `id_user` int(11) DEFAULT NULL,
+  `tanggal` date DEFAULT NULL,
+  `jam_masuk` time DEFAULT NULL,
+  `lintang_masuk` double DEFAULT NULL,
+  `bujur_masuk` double DEFAULT NULL,
+  `foto_masuk` varchar(255) DEFAULT NULL,
+  `status` enum('Hadir','Tidak Hadir','Terlambat','Izin','Sakit','Cuti','Pulang Cepat','Dinas Luar/ Perjalanan Dinas') DEFAULT NULL,
+  `alasan_luar_lokasi` text DEFAULT NULL,
+  `jam_pulang` time DEFAULT NULL,
+  `lintang_pulang` double DEFAULT NULL,
+  `bujur_pulang` double DEFAULT NULL,
+  `foto_pulang` varchar(255) DEFAULT NULL,
+  `status_validasi` enum('menunggu','disetujui','ditolak') DEFAULT 'disetujui',
+  `divalidasi_oleh` int(11) DEFAULT NULL,
+  `catatan_validasi` text DEFAULT NULL,
+  `waktu_validasi` timestamp NULL DEFAULT NULL,
+  `lokasi_id` int(11) DEFAULT NULL COMMENT 'ID lokasi tempat absen',
+  `jenis_presensi` enum('kantor','dinas') DEFAULT 'kantor' COMMENT 'Jenis presensi',
+  `dinas_id` int(11) DEFAULT NULL COMMENT 'ID dinas jika absen dinas'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -416,22 +353,6 @@ CREATE TABLE `users` (
   `device_id` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id_user`, `email`, `password`, `role`, `nama_lengkap`, `foto_profil`, `no_telepon`, `device_id`, `created_at`) VALUES
-(2, 'budi@itb.ac.id', '$2y$10$ghBDG.IOG/dPTExfmkFIRuRU9E9Fpg2BBw5Jm26vdv2yREJSXKekS', 'pegawai', NULL, NULL, NULL, 'device_001', '2026-01-15 01:29:42'),
-(4, 'ahmad@itb.ac.id', '$2a$10$modElJESC/0h0CcpUcFf4u51wgwDFh3MixwTjKSEfaosE9tuKihO.', 'pegawai', NULL, NULL, NULL, 'device_003', '2026-01-15 01:29:42'),
-(5, 'dewi@itb.ac.id', '$2y$10$ghBDG.IOG/dPTExfmkFIRuRU9E9Fpg2BBw5Jm26vdv2yREJSXKekS', 'pegawai', NULL, NULL, NULL, 'device_004', '2026-01-15 01:29:42'),
-(6, 'eko@itb.ac.id', '$2y$10$ghBDG.IOG/dPTExfmkFIRuRU9E9Fpg2BBw5Jm26vdv2yREJSXKekS', 'pegawai', NULL, NULL, NULL, 'device_005', '2026-01-15 01:29:42'),
-(9, 'riska@itb.ac.id', '$2y$10$ghBDG.IOG/dPTExfmkFIRuRU9E9Fpg2BBw5Jm26vdv2yREJSXKekS', 'pegawai', NULL, NULL, NULL, NULL, '2026-01-22 02:26:42'),
-(10, 'admin@itb.ac.id', '$2a$10$aQi1P4jBnkDDAlozVBlyvuahJOA8dvDMcjTtCLKpFIJro3EKm4sha', 'admin', 'Riska Dwi Ramadani ', 'uploads/admin/admin-1770902307358-417074526.jpeg', '083176266583', NULL, '2025-01-15 01:00:00'),
-(12, 'riskadwiramadani94@gmail.com', '$2y$10$ghBDG.IOG/dPTExfmkFIRuRU9E9Fpg2BBw5Jm26vdv2yREJSXKekS', 'pegawai', NULL, NULL, NULL, NULL, '2026-01-19 03:46:32'),
-(13, 'cindy@itb.ac.id', '$2a$10$YpT5K4qo6mWzTlSZb5SS2uLhsXB6gFV2IgBzXtkGw14XYnd293R0O', 'pegawai', NULL, NULL, NULL, NULL, '2026-02-04 02:39:32'),
-(14, 'fauziah@itb.ac.id', '$2a$10$tDcOTzrAHRpjnHVKD3hDu.gpaZxv5dAl.old3W4tBpS1qbueXl6y2', 'pegawai', NULL, NULL, NULL, NULL, '2026-02-15 11:41:14'),
-(15, 'razka@itb.ac.id', '$2a$10$z41HrrW1NoReZjKMTDJbXuuZj9qYG6oXlEeA9eG4rY1HenyCKTPTG', 'pegawai', NULL, NULL, NULL, NULL, '2026-02-18 12:40:37');
 
 --
 -- Indexes for dumped tables
@@ -495,6 +416,13 @@ ALTER TABLE `jam_kerja_hari`
   ADD UNIQUE KEY `hari` (`hari`);
 
 --
+-- Indexes for table `jam_kerja_history`
+--
+ALTER TABLE `jam_kerja_history`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_hari_tanggal` (`hari`,`tanggal_mulai_berlaku`);
+
+--
 -- Indexes for table `lokasi_kantor`
 --
 ALTER TABLE `lokasi_kantor`
@@ -538,7 +466,7 @@ ALTER TABLE `pengaturan_sistem`
 --
 ALTER TABLE `presensi`
   ADD PRIMARY KEY (`id_presensi`),
-  ADD KEY `fk_user_presensi` (`id_user`),
+  ADD UNIQUE KEY `unique_user_date` (`id_user`,`tanggal`),
   ADD KEY `fk_presensi_lokasi` (`lokasi_id`),
   ADD KEY `fk_presensi_dinas` (`dinas_id`);
 
@@ -557,7 +485,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `absen_dinas`
 --
 ALTER TABLE `absen_dinas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `absen_lembur`
@@ -569,55 +497,61 @@ ALTER TABLE `absen_lembur`
 -- AUTO_INCREMENT for table `dinas`
 --
 ALTER TABLE `dinas`
-  MODIFY `id_dinas` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id_dinas` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `dinas_lokasi`
 --
 ALTER TABLE `dinas_lokasi`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `dinas_pegawai`
 --
 ALTER TABLE `dinas_pegawai`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `hari_libur`
 --
 ALTER TABLE `hari_libur`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `jam_kerja_hari`
 --
 ALTER TABLE `jam_kerja_hari`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=316;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `jam_kerja_history`
+--
+ALTER TABLE `jam_kerja_history`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `lokasi_kantor`
 --
 ALTER TABLE `lokasi_kantor`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `lokasi_realtime`
 --
 ALTER TABLE `lokasi_realtime`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=204;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `pegawai`
 --
 ALTER TABLE `pegawai`
-  MODIFY `id_pegawai` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id_pegawai` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `pengajuan`
 --
 ALTER TABLE `pengajuan`
-  MODIFY `id_pengajuan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id_pengajuan` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `pengaturan_sistem`
@@ -629,13 +563,13 @@ ALTER TABLE `pengaturan_sistem`
 -- AUTO_INCREMENT for table `presensi`
 --
 ALTER TABLE `presensi`
-  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id_presensi` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -703,3 +637,119 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+
+-- ========================================
+-- INSERT FAQ DATA - HADIRINAPP
+-- Total: 80 FAQ
+-- ========================================
+
+-- ========================================
+-- FAQ KATEGORI: PRESENSI (15 FAQ)
+-- ========================================
+INSERT INTO faq (kategori, pertanyaan, jawaban, urutan) VALUES
+('presensi', 'Bagaimana cara melakukan presensi masuk?', 'Buka menu Presensi (tombol tengah), pastikan GPS aktif, ambil foto selfie, lalu tekan tombol Absen Masuk. Pastikan Anda berada dalam radius lokasi kantor.', 1),
+('presensi', 'Bagaimana cara melakukan presensi pulang?', 'Buka menu Presensi, ambil foto selfie, lalu tekan tombol Absen Pulang. Presensi pulang hanya bisa dilakukan setelah Anda melakukan presensi masuk.', 2),
+('presensi', 'Berapa radius lokasi yang diperbolehkan untuk absen?', 'Radius lokasi ditentukan oleh admin, biasanya 50-200 meter dari titik lokasi kantor. Anda akan melihat notifikasi jika berada di luar radius.', 3),
+('presensi', 'Apa yang harus dilakukan jika lupa absen masuk?', 'Segera hubungi admin/HRD untuk melakukan pengajuan retrospektif. Anda perlu memberikan alasan dan bukti pendukung.', 4),
+('presensi', 'Apa yang harus dilakukan jika lupa absen pulang?', 'Hubungi admin/HRD untuk koreksi data presensi. Sistem akan mencatat jam pulang default jika tidak ada absen pulang.', 5),
+('presensi', 'Mengapa foto selfie diperlukan saat presensi?', 'Foto selfie digunakan untuk verifikasi kehadiran dan memastikan bahwa yang melakukan presensi adalah pegawai yang bersangkutan.', 6),
+('presensi', 'Apa perbedaan status Hadir dan Terlambat?', 'Status Hadir jika absen sebelum batas waktu yang ditentukan. Status Terlambat jika absen setelah batas waktu (biasanya 08:30).', 7),
+('presensi', 'Bagaimana jika lokasi GPS tidak akurat?', 'Pastikan GPS aktif dan izin lokasi diberikan ke aplikasi. Coba keluar ruangan atau restart aplikasi. Jika masih bermasalah, hubungi admin.', 8),
+('presensi', 'Jam berapa batas waktu absen masuk?', 'Batas waktu absen masuk biasanya 08:30 WIB. Setelah jam tersebut, status akan berubah menjadi Terlambat. Cek jam kerja di dashboard.', 9),
+('presensi', 'Apakah bisa absen jika sedang dinas?', 'Ya, gunakan menu Dinas untuk absen saat perjalanan dinas. Lokasi absen akan disesuaikan dengan lokasi dinas yang ditentukan.', 10),
+('presensi', 'Bagaimana cara melihat riwayat presensi?', 'Buka menu Presensi dari dashboard, pilih "Riwayat Presensi". Anda bisa filter berdasarkan harian, mingguan, bulanan, atau tahunan.', 11),
+('presensi', 'Apa itu status "Belum Waktunya"?', 'Status ini muncul untuk tanggal yang belum tiba atau di luar jam kerja. Presensi hanya bisa dilakukan pada hari dan jam kerja yang ditentukan.', 12),
+('presensi', 'Bagaimana cara melihat laporan presensi bulanan?', 'Buka Riwayat Presensi, pilih "Laporan Bulanan", lalu pilih bulan dan tahun yang diinginkan. Anda akan melihat statistik lengkap.', 13),
+('presensi', 'Apa yang dimaksud dengan total jam kerja?', 'Total jam kerja adalah akumulasi waktu dari absen masuk hingga absen pulang dalam periode tertentu (harian/bulanan).', 14),
+('presensi', 'Bagaimana cara filter riwayat presensi?', 'Di halaman Riwayat Presensi, klik tombol filter di atas. Pilih jenis laporan (harian/mingguan/bulanan/tahunan) dan periode yang diinginkan.', 15);
+
+-- ========================================
+-- FAQ KATEGORI: PENGAJUAN (18 FAQ)
+-- ========================================
+INSERT INTO faq (kategori, pertanyaan, jawaban, urutan) VALUES
+('pengajuan', 'Bagaimana cara mengajukan izin datang terlambat?', 'Buka menu Pengajuan > Tambah Pengajuan, pilih "Izin Datang Terlambat", isi tanggal, jam rencana datang, dan alasan. Klik Kirim Pengajuan.', 1),
+('pengajuan', 'Bagaimana cara mengajukan izin pulang cepat?', 'Buka menu Pengajuan > Tambah Pengajuan, pilih "Izin Pulang Cepat", isi tanggal, jam rencana pulang, dan alasan. Klik Kirim Pengajuan.', 2),
+('pengajuan', 'Bagaimana cara mengajukan cuti sakit?', 'Buka menu Pengajuan > Tambah Pengajuan, pilih "Cuti Sakit", isi periode cuti, upload surat dokter (opsional), dan alasan. Klik Kirim.', 3),
+('pengajuan', 'Bagaimana cara mengajukan cuti tahunan?', 'Buka menu Pengajuan > Tambah Pengajuan, pilih "Cuti Tahunan", isi periode cuti dan alasan. Pastikan kuota cuti tahunan Anda masih tersedia.', 4),
+('pengajuan', 'Bagaimana cara mengajukan cuti alasan penting?', 'Buka menu Pengajuan > Tambah Pengajuan, pilih "Cuti Alasan Penting", isi periode dan alasan yang jelas. Contoh: acara keluarga, keperluan mendesak.', 5),
+('pengajuan', 'Bagaimana cara mengajukan lembur?', 'Buka menu Pengajuan > Tambah Pengajuan, pilih "Lembur", isi periode lembur, jam mulai-selesai, dan alasan. Tunggu persetujuan sebelum melakukan absen lembur.', 6),
+('pengajuan', 'Berapa lama proses persetujuan pengajuan?', 'Proses persetujuan biasanya 1-3 hari kerja. Anda akan mendapat notifikasi di Kotak Masuk saat pengajuan disetujui atau ditolak.', 7),
+('pengajuan', 'Apakah bisa membatalkan pengajuan yang sudah diajukan?', 'Pengajuan yang masih berstatus "Menunggu" bisa dibatalkan dengan menghubungi admin. Pengajuan yang sudah disetujui/ditolak tidak bisa dibatalkan.', 8),
+('pengajuan', 'Apa itu pengajuan retrospektif?', 'Pengajuan retrospektif adalah pengajuan yang dibuat setelah tanggal kejadian berlalu. Ditandai dengan badge "Telat Ngajuin" dan memerlukan persetujuan khusus.', 9),
+('pengajuan', 'Apakah perlu melampirkan dokumen untuk pengajuan?', 'Untuk Cuti Sakit, disarankan melampirkan surat dokter. Untuk pengajuan lain, dokumen bersifat opsional tergantung kebijakan perusahaan.', 10),
+('pengajuan', 'Bagaimana cara melihat status pengajuan?', 'Buka menu Pengajuan, Anda akan melihat daftar pengajuan dengan status: Menunggu (orange), Disetujui (hijau), atau Ditolak (merah).', 11),
+('pengajuan', 'Apa yang harus dilakukan jika pengajuan ditolak?', 'Lihat catatan admin di detail pengajuan untuk mengetahui alasan penolakan. Anda bisa mengajukan ulang dengan perbaikan sesuai catatan.', 12),
+('pengajuan', 'Bagaimana cara upload surat dokter untuk cuti sakit?', 'Saat mengisi form Cuti Sakit, klik tombol "Upload Surat Dokter", pilih foto dari galeri atau ambil foto langsung. Ukuran maksimal 5MB.', 13),
+('pengajuan', 'Apa perbedaan cuti sakit dan cuti alasan penting?', 'Cuti Sakit untuk kondisi kesehatan (perlu surat dokter). Cuti Alasan Penting untuk keperluan mendesak non-kesehatan (acara keluarga, dll).', 14),
+('pengajuan', 'Bagaimana cara melihat catatan admin pada pengajuan?', 'Klik pengajuan yang ingin dilihat, scroll ke bawah ke bagian "Catatan Admin". Catatan akan muncul jika admin memberikan keterangan.', 15),
+('pengajuan', 'Apa yang dimaksud dengan "Telat Ngajuin"?', 'Badge ini muncul jika Anda mengajukan izin/cuti setelah tanggal kejadian. Contoh: mengajukan izin tanggal 1 pada tanggal 3.', 16),
+('pengajuan', 'Bagaimana cara filter pengajuan berdasarkan status?', 'Di halaman Pengajuan, klik icon filter (3 garis horizontal), pilih status: Semua, Menunggu, Disetujui, atau Ditolak.', 17),
+('pengajuan', 'Bagaimana cara mencari pengajuan tertentu?', 'Gunakan kolom pencarian di atas daftar pengajuan. Anda bisa cari berdasarkan jenis pengajuan, tanggal, atau kata kunci dalam alasan.', 18);
+
+-- ========================================
+-- FAQ KATEGORI: DINAS (12 FAQ)
+-- ========================================
+INSERT INTO faq (kategori, pertanyaan, jawaban, urutan) VALUES
+('dinas', 'Apa itu kegiatan dinas?', 'Kegiatan dinas adalah penugasan resmi dari perusahaan untuk melakukan pekerjaan di luar lokasi kantor, bisa lokal, luar kota, atau luar negeri.', 1),
+('dinas', 'Bagaimana cara melihat jadwal dinas saya?', 'Buka menu Dinas dari dashboard. Anda akan melihat daftar kegiatan dinas dengan status: Akan Datang, Berlangsung, atau Selesai.', 2),
+('dinas', 'Apa perbedaan dinas lokal, luar kota, dan luar negeri?', 'Dinas Lokal: dalam kota. Dinas Luar Kota: antar kota/provinsi. Dinas Luar Negeri: ke negara lain. Perbedaan ada pada tunjangan dan prosedur.', 3),
+('dinas', 'Apa itu Nomor SPT?', 'SPT (Surat Perintah Tugas) adalah nomor resmi penugasan dinas. Setiap kegiatan dinas memiliki nomor SPT unik sebagai bukti penugasan resmi.', 4),
+('dinas', 'Bagaimana cara absen saat dinas?', 'Saat berada di lokasi dinas, buka menu Dinas, pilih kegiatan yang sedang berlangsung, lalu klik Absen Masuk/Pulang sesuai jadwal.', 5),
+('dinas', 'Apakah bisa absen dinas di beberapa lokasi?', 'Ya, jika kegiatan dinas mencakup beberapa lokasi, admin akan mengatur multiple lokasi. Anda bisa absen di lokasi mana saja yang sudah ditentukan.', 6),
+('dinas', 'Bagaimana jika lokasi dinas berbeda dengan yang tertera?', 'Hubungi admin segera untuk update lokasi dinas. Absen di luar lokasi yang ditentukan akan ditolak sistem atau perlu validasi manual.', 7),
+('dinas', 'Apa yang dimaksud status "Akan Datang", "Berlangsung", dan "Selesai"?', 'Akan Datang: dinas belum dimulai. Berlangsung: dinas sedang berjalan (bisa absen). Selesai: dinas sudah berakhir (tidak bisa absen).', 8),
+('dinas', 'Bagaimana cara melihat detail kegiatan dinas?', 'Klik card kegiatan dinas di daftar. Anda akan melihat detail lengkap: nama kegiatan, nomor SPT, periode, lokasi, dan peserta.', 9),
+('dinas', 'Bagaimana cara filter kegiatan dinas?', 'Klik icon filter di halaman Dinas, pilih status: Semua, Akan Datang, Berlangsung, atau Selesai untuk melihat dinas sesuai kategori.', 10),
+('dinas', 'Apakah absen dinas perlu validasi?', 'Ya, absen dinas akan divalidasi oleh admin untuk memastikan kehadiran sesuai dengan lokasi dan jadwal yang ditentukan.', 11),
+('dinas', 'Bagaimana jika tidak bisa mengikuti dinas yang sudah dijadwalkan?', 'Segera hubungi admin/atasan untuk memberitahu. Anda mungkin perlu mengajukan izin atau akan ada penggantian peserta dinas.', 12);
+
+-- ========================================
+-- FAQ KATEGORI: LEMBUR (15 FAQ)
+-- ========================================
+INSERT INTO faq (kategori, pertanyaan, jawaban, urutan) VALUES
+('lembur', 'Bagaimana cara mengajukan lembur?', 'Buka menu Pengajuan > Tambah Pengajuan, pilih "Lembur", isi periode lembur, jam mulai-selesai, dan alasan. Tunggu persetujuan sebelum absen.', 1),
+('lembur', 'Bagaimana cara absen lembur masuk?', 'Setelah pengajuan disetujui, buka menu Lembur pada hari H, pastikan dalam radius lokasi dan sesuai jadwal, lalu klik Absen Masuk dan ambil foto.', 2),
+('lembur', 'Bagaimana cara absen lembur pulang?', 'Setelah selesai lembur, buka menu Lembur, klik Absen Pulang pada card lembur yang aktif, ambil foto selfie. Jam lembur akan dihitung otomatis.', 3),
+('lembur', 'Apakah jam lembur dihitung otomatis?', 'Ya, sistem akan menghitung total jam lembur berdasarkan selisih waktu absen masuk dan absen pulang secara otomatis.', 4),
+('lembur', 'Apa perbedaan lembur kantor dan lembur dinas?', 'Lembur Kantor: dilakukan di lokasi kantor. Lembur Dinas: dilakukan di lokasi dinas. Lokasi absen akan disesuaikan dengan jenis lembur.', 5),
+('lembur', 'Berapa lama proses persetujuan lembur?', 'Proses persetujuan lembur biasanya 1-2 hari kerja. Pastikan mengajukan minimal H-1 sebelum jadwal lembur.', 6),
+('lembur', 'Bagaimana cara melihat riwayat lembur?', 'Buka menu Lembur, pilih tab "Riwayat". Anda akan melihat semua riwayat lembur dengan total jam dan periode.', 7),
+('lembur', 'Apa yang dimaksud "Siap Absen"?', 'Status ini muncul jika Anda berada dalam radius lokasi dan sesuai jadwal lembur. Tombol absen akan aktif dan bisa diklik.', 8),
+('lembur', 'Apa yang dimaksud "Di Luar Radius"?', 'Status ini muncul jika Anda berada di luar radius lokasi yang ditentukan. Anda perlu mendekati lokasi untuk bisa absen.', 9),
+('lembur', 'Apa yang dimaksud "Belum Waktunya"?', 'Status ini muncul jika waktu saat ini belum sesuai jadwal lembur. Absen hanya bisa dilakukan sesuai jam yang diajukan.', 10),
+('lembur', 'Apakah bisa lembur tanpa pengajuan?', 'Tidak, semua lembur harus melalui pengajuan dan mendapat persetujuan terlebih dahulu. Absen lembur tanpa pengajuan tidak akan tercatat.', 11),
+('lembur', 'Bagaimana jika lupa absen lembur?', 'Segera hubungi admin untuk koreksi data. Anda perlu memberikan bukti pendukung bahwa benar-benar melakukan lembur.', 12),
+('lembur', 'Berapa radius lokasi untuk absen lembur?', 'Radius lokasi lembur sama dengan radius presensi normal, biasanya 50-200 meter. Cek jarak Anda di card lembur (ditampilkan dalam meter).', 13),
+('lembur', 'Apakah perlu foto selfie saat absen lembur?', 'Ya, foto selfie wajib untuk verifikasi kehadiran saat absen masuk dan pulang lembur, sama seperti presensi normal.', 14),
+('lembur', 'Bagaimana cara melihat total jam lembur?', 'Total jam lembur ditampilkan di card riwayat lembur. Anda juga bisa melihat akumulasi jam lembur bulanan di dashboard.', 15);
+
+-- ========================================
+-- FAQ KATEGORI: PROFIL (8 FAQ)
+-- ========================================
+INSERT INTO faq (kategori, pertanyaan, jawaban, urutan) VALUES
+('profil', 'Bagaimana cara mengubah foto profil?', 'Buka menu Profil, klik foto profil, pilih "Ubah Foto". Anda bisa ambil foto baru atau pilih dari galeri. Ukuran maksimal 2MB.', 1),
+('profil', 'Bagaimana cara mengubah data pribadi?', 'Buka menu Profil, klik tombol Edit. Anda bisa mengubah nomor telepon dan data lain yang diizinkan. Data seperti NIP tidak bisa diubah sendiri.', 2),
+('profil', 'Bagaimana cara mengganti password?', 'Buka menu Profil, scroll ke bawah, klik "Ubah Password". Masukkan password lama, password baru, dan konfirmasi password baru.', 3),
+('profil', 'Bagaimana cara mengubah nomor telepon?', 'Buka menu Profil, klik Edit, ubah nomor telepon di field yang tersedia, lalu klik Simpan. Nomor telepon digunakan untuk notifikasi penting.', 4),
+('profil', 'Apakah bisa mengubah email?', 'Email tidak bisa diubah sendiri karena digunakan untuk login. Jika perlu mengubah email, hubungi admin/HRD dengan alasan yang jelas.', 5),
+('profil', 'Bagaimana cara melihat informasi jabatan dan divisi?', 'Buka menu Profil, informasi jabatan dan divisi ditampilkan di bagian atas profil di bawah nama Anda.', 6),
+('profil', 'Data apa saja yang bisa saya ubah sendiri?', 'Anda bisa mengubah: foto profil, nomor telepon, dan password. Data lain seperti nama, NIP, jabatan, divisi hanya bisa diubah oleh admin.', 7),
+('profil', 'Bagaimana jika data pribadi saya salah?', 'Hubungi admin/HRD untuk koreksi data. Berikan informasi yang benar dan dokumen pendukung jika diperlukan.', 8);
+
+-- ========================================
+-- FAQ KATEGORI: UMUM (12 FAQ)
+-- ========================================
+INSERT INTO faq (kategori, pertanyaan, jawaban, urutan) VALUES
+('umum', 'Bagaimana cara menghubungi admin/HRD?', 'Buka menu Bantuan, pilih salah satu metode kontak: WhatsApp, Email, atau Telepon. Anda juga bisa menghubungi langsung ke kantor HRD.', 1),
+('umum', 'Apa yang harus dilakukan jika aplikasi error?', 'Coba restart aplikasi atau clear cache. Jika masih error, uninstall dan install ulang aplikasi. Jika tetap bermasalah, hubungi admin IT.', 2),
+('umum', 'Bagaimana cara logout dari aplikasi?', 'Buka menu Profil, scroll ke bawah, klik tombol "Keluar" atau "Logout". Anda akan diminta konfirmasi sebelum logout.', 3),
+('umum', 'Apakah aplikasi bisa digunakan offline?', 'Tidak, aplikasi memerlukan koneksi internet untuk sinkronisasi data. Pastikan Anda terhubung ke internet saat menggunakan aplikasi.', 4),
+('umum', 'Mengapa aplikasi meminta izin lokasi?', 'Izin lokasi diperlukan untuk verifikasi kehadiran saat presensi. Sistem akan memastikan Anda berada di lokasi yang ditentukan saat absen.', 5),
+('umum', 'Mengapa aplikasi meminta izin kamera?', 'Izin kamera diperlukan untuk mengambil foto selfie saat presensi sebagai bukti kehadiran dan verifikasi identitas pegawai.', 6),
+('umum', 'Bagaimana cara update aplikasi?', 'Buka Play Store (Android) atau App Store (iOS), cari "HadirinApp", klik Update jika ada versi baru. Atau aktifkan auto-update di pengaturan store.', 7),
+('umum', 'Apa yang harus dilakukan jika lupa password?', 'Di halaman login, klik "Lupa Password", masukkan email Anda. Link reset password akan dikirim ke email. Ikuti instruksi untuk reset password.', 8),
+('umum', 'Bagaimana cara melihat notifikasi di kotak masuk?', 'Buka menu Kotak Masuk (icon amplop di bottom navigation). Anda akan melihat semua notifikasi: persetujuan pengajuan, pengumuman, dll.', 9),
+('umum', 'Apakah data saya aman di aplikasi ini?', 'Ya, semua data dienkripsi dan disimpan dengan aman. Aplikasi menggunakan protokol keamanan standar industri untuk melindungi data pribadi Anda.', 10),
+('umum', 'Bagaimana cara menggunakan fitur search/pencarian?', 'Setiap halaman yang memiliki fitur search akan menampilkan kolom pencarian di atas. Ketik kata kunci minimal 2 karakter untuk mencari.', 11),
+('umum', 'Apa fungsi dashboard pegawai?', 'Dashboard menampilkan ringkasan: status absensi hari ini, jam kerja, dan akses cepat ke menu utama (Presensi, Pengajuan, Dinas, Lembur).', 12);

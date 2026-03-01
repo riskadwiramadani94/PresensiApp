@@ -27,6 +27,11 @@ export default function PresensiScreen() {
   const [lastCheckedDate, setLastCheckedDate] = useState<string>('');
   const [izinHariIni, setIzinHariIni] = useState<any>(null);
   
+  // State untuk hari libur
+  const [isHoliday, setIsHoliday] = useState(false);
+  const [holidayReason, setHolidayReason] = useState<string>('');
+  const [isWorkDay, setIsWorkDay] = useState(true);
+  
   // State untuk collapsible panel
   const [panelHeight, setPanelHeight] = useState(screenHeight * 0.33);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -41,6 +46,7 @@ export default function PresensiScreen() {
     fetchLocations();
     checkTodayAttendance();
     fetchIzinHariIni();
+    checkWorkDay();
     
     const timer = setInterval(() => {
       const now = new Date();
@@ -62,6 +68,7 @@ export default function PresensiScreen() {
         setTimeout(() => {
           checkTodayAttendance();
           fetchLocations();
+          checkWorkDay();
         }, 100);
       }
     }, 1000);
@@ -152,6 +159,32 @@ export default function PresensiScreen() {
       }
     } catch (error) {
       console.error('Error fetching izin hari ini:', error);
+    }
+  };
+
+  const checkWorkDay = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (!userData) return;
+      
+      const user = JSON.parse(userData);
+      const userId = user.id_user || user.id;
+      const today = new Date().toISOString().split('T')[0];
+      
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-work-day?user_id=${userId}&date=${today}`
+      );
+      const data = await response.json();
+      
+      console.log('📅 Check work day response:', data);
+      
+      if (data.success) {
+        setIsWorkDay(data.is_work_day);
+        setIsHoliday(data.is_holiday || !data.is_work_day);
+        setHolidayReason(data.reason || '');
+      }
+    } catch (error) {
+      console.error('Error checking work day:', error);
     }
   };
 
@@ -803,60 +836,73 @@ export default function PresensiScreen() {
 
               {/* Button Absen - Lebih Besar */}
               <View style={styles.actionContainer}>
-                {(() => {
-                  const validation = validateLocation();
-                  const isValidLocation = validation.valid;
-                  
-                  return (
-                    <>
-                      {!hasCheckedIn ? (
-                        <TouchableOpacity 
-                          style={[
-                            styles.mainButton,
-                            isValidLocation ? styles.checkInButton : styles.disabledButton
-                          ]}
-                          onPress={isValidLocation ? handleAbsenMasuk : undefined}
-                          disabled={isProcessing || !isValidLocation}
-                        >
-                          <Ionicons 
-                            name="camera" 
-                            size={24} 
-                            color={isValidLocation ? "#fff" : "#9E9E9E"}
-                          />
-                          <Text style={[
-                            styles.mainButtonText,
-                            isValidLocation ? styles.checkInButtonText : styles.disabledButtonText
-                          ]}>
-                            {isProcessing ? 'Memproses...' : 
-                             isValidLocation ? 'Absen Masuk' : 'Tidak Bisa Absen'}
-                          </Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity 
-                          style={[
-                            styles.mainButton,
-                            isValidLocation ? styles.checkOutButton : styles.disabledButton
-                          ]}
-                          onPress={isValidLocation ? handleAbsenPulang : undefined}
-                          disabled={isProcessing || !isValidLocation}
-                        >
-                          <Ionicons 
-                            name="camera" 
-                            size={24} 
-                            color={isValidLocation ? "#fff" : "#9E9E9E"}
-                          />
-                          <Text style={[
-                            styles.mainButtonText,
-                            isValidLocation ? styles.checkOutButtonText : styles.disabledButtonText
-                          ]}>
-                            {isProcessing ? 'Memproses...' : 
-                             isValidLocation ? 'Absen Pulang' : 'Tidak Bisa Absen'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  );
-                })()}
+                {isHoliday ? (
+                  // Tampilan Hari Libur
+                  <View style={styles.holidayContainer}>
+                    <Ionicons name="calendar-outline" size={48} color="#999" />
+                    <Text style={styles.holidayTitle}>HARI LIBUR</Text>
+                    <Text style={styles.holidayReason}>{holidayReason}</Text>
+                    <Text style={styles.holidaySubtext}>
+                      Anda tidak perlu melakukan presensi hari ini
+                    </Text>
+                  </View>
+                ) : (
+                  // Tampilan Normal (Hari Kerja)
+                  (() => {
+                    const validation = validateLocation();
+                    const isValidLocation = validation.valid;
+                    
+                    return (
+                      <>
+                        {!hasCheckedIn ? (
+                          <TouchableOpacity 
+                            style={[
+                              styles.mainButton,
+                              isValidLocation ? styles.checkInButton : styles.disabledButton
+                            ]}
+                            onPress={isValidLocation ? handleAbsenMasuk : undefined}
+                            disabled={isProcessing || !isValidLocation}
+                          >
+                            <Ionicons 
+                              name="camera" 
+                              size={24} 
+                              color={isValidLocation ? "#fff" : "#9E9E9E"}
+                            />
+                            <Text style={[
+                              styles.mainButtonText,
+                              isValidLocation ? styles.checkInButtonText : styles.disabledButtonText
+                            ]}>
+                              {isProcessing ? 'Memproses...' : 
+                               isValidLocation ? 'Absen Masuk' : 'Tidak Bisa Absen'}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity 
+                            style={[
+                              styles.mainButton,
+                              isValidLocation ? styles.checkOutButton : styles.disabledButton
+                            ]}
+                            onPress={isValidLocation ? handleAbsenPulang : undefined}
+                            disabled={isProcessing || !isValidLocation}
+                          >
+                            <Ionicons 
+                              name="camera" 
+                              size={24} 
+                              color={isValidLocation ? "#fff" : "#9E9E9E"}
+                            />
+                            <Text style={[
+                              styles.mainButtonText,
+                              isValidLocation ? styles.checkOutButtonText : styles.disabledButtonText
+                            ]}>
+                              {isProcessing ? 'Memproses...' : 
+                               isValidLocation ? 'Absen Pulang' : 'Tidak Bisa Absen'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    );
+                  })()
+                )}
               </View>
 
               {hasCheckedIn && checkInTime && (
@@ -1279,5 +1325,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
     marginTop: 2,
+  },
+  holidayContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+  holidayTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#666',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  holidayReason: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  holidaySubtext: {
+    fontSize: 12,
+    color: '#AAA',
+    textAlign: 'center',
   },
 });

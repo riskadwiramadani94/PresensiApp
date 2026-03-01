@@ -15,6 +15,107 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return earthRadius * c; // Distance in meters
 };
 
+// NEW: Check work day (hari libur atau hari kerja)
+const checkWorkDay = async (req, res) => {
+  try {
+    const { user_id, date } = req.query;
+    
+    if (!user_id || !date) {
+      return res.json({ 
+        success: false, 
+        message: 'user_id dan date diperlukan' 
+      });
+    }
+    
+    const db = await getConnection();
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dateObj = new Date(date);
+    const dayName = dayNames[dateObj.getDay()];
+    
+    // PRIORITAS 1: Cek kalender libur
+    const [hariLiburRows] = await db.execute(
+      'SELECT nama_libur, jenis FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+      [date]
+    );
+    
+    if (hariLiburRows.length > 0) {
+      const jenisMap = {
+        'nasional': 'Libur Nasional',
+        'keagamaan': 'Libur Keagamaan',
+        'perusahaan': 'Libur Perusahaan'
+      };
+      const jenisLabel = jenisMap[hariLiburRows[0].jenis] || 'Libur';
+      
+      return res.json({
+        success: true,
+        is_work_day: false,
+        is_holiday: true,
+        holiday_info: {
+          nama_libur: hariLiburRows[0].nama_libur,
+          jenis: hariLiburRows[0].jenis
+        },
+        reason: `${hariLiburRows[0].nama_libur} (${jenisLabel})`
+      });
+    }
+    
+    // PRIORITAS 2: Cek apakah pegawai sedang dinas
+    const [dinasRows] = await db.execute(`
+      SELECT d.id_dinas, d.tipe_jam_kerja
+      FROM dinas d
+      INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
+      WHERE dp.id_user = ?
+        AND ? BETWEEN d.tanggal_mulai AND d.tanggal_selesai
+        AND d.status = 'aktif'
+        AND dp.status_konfirmasi = 'konfirmasi'
+      LIMIT 1
+    `, [user_id, date]);
+    
+    if (dinasRows.length > 0 && dinasRows[0].tipe_jam_kerja === 'custom') {
+      // Dinas custom = semua hari kerja (skip cek is_kerja)
+      return res.json({
+        success: true,
+        is_work_day: true,
+        is_holiday: false,
+        is_dinas: true,
+        tipe_jam_kerja: 'custom'
+      });
+    }
+    
+    // PRIORITAS 3: Cek is_kerja di jam_kerja_history
+    const [jamKerjaRows] = await db.execute(`
+      SELECT is_kerja 
+      FROM jam_kerja_history 
+      WHERE hari = ? 
+      AND ? BETWEEN tanggal_mulai_berlaku AND IFNULL(tanggal_selesai_berlaku, '9999-12-31')
+      ORDER BY tanggal_mulai_berlaku DESC
+      LIMIT 1
+    `, [dayName, date]);
+    
+    if (jamKerjaRows.length === 0 || jamKerjaRows[0].is_kerja === 0) {
+      return res.json({
+        success: true,
+        is_work_day: false,
+        is_holiday: false,
+        reason: `Hari ${dayName} - Libur`
+      });
+    }
+    
+    // Hari kerja
+    return res.json({
+      success: true,
+      is_work_day: true,
+      is_holiday: false
+    });
+    
+  } catch (error) {
+    console.error('Check work day error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 // NEW: Check dinas status and return valid locations
 const checkDinasStatus = async (req, res) => {
   try {
@@ -36,6 +137,7 @@ const checkDinasStatus = async (req, res) => {
         d.nama_kegiatan,
         d.tanggal_mulai,
         d.tanggal_selesai,
+        d.tipe_jam_kerja,
         d.jam_mulai,
         d.jam_selesai
       FROM dinas d
@@ -76,7 +178,10 @@ const checkDinasStatus = async (req, res) => {
           id_dinas: dinas.id_dinas,
           nama_kegiatan: dinas.nama_kegiatan,
           tanggal_mulai: dinas.tanggal_mulai,
-          tanggal_selesai: dinas.tanggal_selesai
+          tanggal_selesai: dinas.tanggal_selesai,
+          tipe_jam_kerja: dinas.tipe_jam_kerja,
+          jam_mulai: dinas.jam_mulai,
+          jam_selesai: dinas.jam_selesai
         },
         lokasi_valid: lokasiDinasRows
       });
@@ -836,4 +941,4 @@ const getAllPresensi = async (req, res) => {
   }
 };
 
-module.exports = { getPresensi, submitPresensi, checkDinasStatus, getRiwayatGabungan, checkDinasAttendance, getAllPresensiToday, getAllPresensi };
+module.exports = { getPresensi, submitPresensi, checkDinasStatus, checkWorkDay, getRiwayatGabungan, checkDinasAttendance, getAllPresensiToday, getAllPresensi };

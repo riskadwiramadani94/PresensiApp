@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   summarySection: {
-    marginBottom: 40,
+    marginBottom: 60,
     paddingHorizontal: 8,
   },
   infoCard: {

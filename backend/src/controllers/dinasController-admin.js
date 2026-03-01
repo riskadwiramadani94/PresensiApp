@@ -208,9 +208,13 @@ const createDinasAdmin = async (req, res) => {
       });
     }
     
+    // Tentukan tipe_jam_kerja berdasarkan jam_mulai & jam_selesai
+    const tipe_jam_kerja = (jam_mulai && jam_selesai) ? 'custom' : 'default';
+    
     // Get file info dari multer
     const dokumen_spt = req.file ? req.file.filename : null;
     console.log('📄 Dokumen SPT:', dokumen_spt);
+    console.log('⏰ Tipe Jam Kerja:', tipe_jam_kerja);
 
     // Validate required fields
     const required_fields = ['nama_kegiatan', 'nomor_spt', 'tanggal_mulai', 'tanggal_selesai', 'pegawai_ids', 'lokasi_ids'];
@@ -280,18 +284,19 @@ const createDinasAdmin = async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      // Insert dinas data dengan dokumen_spt
+      // Insert dinas data dengan dokumen_spt dan tipe_jam_kerja
       const [result] = await connection.execute(`
         INSERT INTO dinas (
           nama_kegiatan, nomor_spt, jenis_dinas, tanggal_mulai, tanggal_selesai,
-          jam_mulai, jam_selesai, deskripsi, dokumen_spt, status, created_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif', ?, NOW())
+          tipe_jam_kerja, jam_mulai, jam_selesai, deskripsi, dokumen_spt, status, created_by, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aktif', ?, NOW())
       `, [
         nama_kegiatan.trim(),
         nomor_spt.trim(),
         jenis_dinas || 'lokal',
         tanggal_mulai,
         tanggal_selesai,
+        tipe_jam_kerja,
         jam_mulai || null,
         jam_selesai || null,
         deskripsi || '',
@@ -655,6 +660,8 @@ const updateDinas = async (req, res) => {
       });
     }
 
+    // Tentukan tipe_jam_kerja berdasarkan jam_mulai & jam_selesai
+    const tipe_jam_kerja = (jam_mulai && jam_selesai) ? 'custom' : 'default';
     const dokumen_spt = req.file ? req.file.filename : null;
 
     const db = await getConnection();
@@ -668,7 +675,7 @@ const updateDinas = async (req, res) => {
           UPDATE dinas SET
             nama_kegiatan = ?, nomor_spt = ?, jenis_dinas = ?,
             tanggal_mulai = ?, tanggal_selesai = ?,
-            jam_mulai = ?, jam_selesai = ?, deskripsi = ?, dokumen_spt = ?
+            tipe_jam_kerja = ?, jam_mulai = ?, jam_selesai = ?, deskripsi = ?, dokumen_spt = ?
           WHERE id_dinas = ?
         `, [
           nama_kegiatan.trim(),
@@ -676,6 +683,7 @@ const updateDinas = async (req, res) => {
           jenis_dinas || 'lokal',
           tanggal_mulai,
           tanggal_selesai,
+          tipe_jam_kerja,
           jam_mulai || null,
           jam_selesai || null,
           deskripsi || '',
@@ -687,7 +695,7 @@ const updateDinas = async (req, res) => {
           UPDATE dinas SET
             nama_kegiatan = ?, nomor_spt = ?, jenis_dinas = ?,
             tanggal_mulai = ?, tanggal_selesai = ?,
-            jam_mulai = ?, jam_selesai = ?, deskripsi = ?
+            tipe_jam_kerja = ?, jam_mulai = ?, jam_selesai = ?, deskripsi = ?
           WHERE id_dinas = ?
         `, [
           nama_kegiatan.trim(),
@@ -695,6 +703,7 @@ const updateDinas = async (req, res) => {
           jenis_dinas || 'lokal',
           tanggal_mulai,
           tanggal_selesai,
+          tipe_jam_kerja,
           jam_mulai || null,
           jam_selesai || null,
           deskripsi || '',

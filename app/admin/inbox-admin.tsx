@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffc400',
   },
   iconPengajuan: {
-    backgroundColor: '#1282c3',
+    backgroundColor: '#004643',
   },
   iconProcessed: {
     opacity: 0.6,

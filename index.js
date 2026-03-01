@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 if (Platform.OS === 'web') {
   // Web-specific polyfills
   if (typeof global === 'undefined') {
-    (window as any).global = window;
+    window.global = window;
   }
 }
 
