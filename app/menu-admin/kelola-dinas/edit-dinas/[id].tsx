@@ -20,7 +20,7 @@ import {
     Dimensions
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { AppHeader, CustomCalendar } from "../../../../components";
+import { AppHeader, CustomCalendar, AnalogTimePicker } from "../../../../components";
 import {
     KelolaDinasAPI as DinasAPI,
     PegawaiAkunAPI,
@@ -712,16 +712,12 @@ export default function EditDinasScreen() {
     closeDateSelesaiPicker();
   };
 
-  const handleJamMulaiSelect = (time: Date) => {
-    const formattedTime = formatTime(time);
-    setFormData({ ...formData, jamMulai: formattedTime });
-    setShowJamMulaiPicker(false);
+  const handleJamMulaiSelect = (time: string) => {
+    setFormData({ ...formData, jamMulai: time });
   };
 
-  const handleJamSelesaiSelect = (time: Date) => {
-    const formattedTime = formatTime(time);
-    setFormData({ ...formData, jamSelesai: formattedTime });
-    setShowJamSelesaiPicker(false);
+  const handleJamSelesaiSelect = (time: string) => {
+    setFormData({ ...formData, jamSelesai: time });
   };
 
   const formatTime = (time: Date) => {
@@ -1144,52 +1140,24 @@ export default function EditDinasScreen() {
 
               {!useDefaultJam && (
                 <View style={styles.jamKhususContainer}>
-                  <View style={styles.jamInputGroup}>
-                    <Text style={styles.jamLabel}>Jam Mulai</Text>
-                    <View style={styles.dateInputContainer}>
-                      <TextInput
-                        style={styles.textInput}
-                        placeholder="08:00"
-                        value={formData.jamMulai}
-                        onChangeText={(text) =>
-                          setFormData({
-                            ...formData,
-                            jamMulai: formatJam(text),
-                          })
-                        }
-                        keyboardType="numeric"
-                        maxLength={5}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowJamMulaiPicker(true)}
-                        style={styles.calendarButton}
-                      >
-                        <Ionicons name="time" size={20} color="#004643" />
+                  <View style={styles.jamRow}>
+                    <View style={styles.jamInputGroup}>
+                      <Text style={styles.jamLabel}>Jam Masuk</Text>
+                      <TouchableOpacity onPress={() => setShowJamMulaiPicker(true)} style={styles.jamPickerButton}>
+                        <Text style={[styles.jamPickerText, !formData.jamMulai && styles.jamPickerPlaceholder]}>
+                          {formData.jamMulai || '08:00'}
+                        </Text>
+                        <Ionicons name="time" size={18} color="#004643" />
                       </TouchableOpacity>
                     </View>
-                  </View>
 
-                  <View style={styles.jamInputGroup}>
-                    <Text style={styles.jamLabel}>Jam Selesai</Text>
-                    <View style={styles.dateInputContainer}>
-                      <TextInput
-                        style={styles.textInput}
-                        placeholder="17:00"
-                        value={formData.jamSelesai}
-                        onChangeText={(text) =>
-                          setFormData({
-                            ...formData,
-                            jamSelesai: formatJam(text),
-                          })
-                        }
-                        keyboardType="numeric"
-                        maxLength={5}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowJamSelesaiPicker(true)}
-                        style={styles.calendarButton}
-                      >
-                        <Ionicons name="time" size={20} color="#004643" />
+                    <View style={styles.jamInputGroup}>
+                      <Text style={styles.jamLabel}>Jam Pulang</Text>
+                      <TouchableOpacity onPress={() => setShowJamSelesaiPicker(true)} style={styles.jamPickerButton}>
+                        <Text style={[styles.jamPickerText, !formData.jamSelesai && styles.jamPickerPlaceholder]}>
+                          {formData.jamSelesai || '17:00'}
+                        </Text>
+                        <Ionicons name="time" size={18} color="#004643" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1493,22 +1461,18 @@ export default function EditDinasScreen() {
         </View>
       </Modal>
 
-      <DateTimePickerModal
-        isVisible={showJamMulaiPicker}
-        mode="time"
-        onConfirm={handleJamMulaiSelect}
-        onCancel={() => setShowJamMulaiPicker(false)}
-        is24Hour={true}
-        display="default"
+      <AnalogTimePicker
+        visible={showJamMulaiPicker}
+        initialTime={formData.jamMulai}
+        onTimeSelect={handleJamMulaiSelect}
+        onClose={() => setShowJamMulaiPicker(false)}
       />
 
-      <DateTimePickerModal
-        isVisible={showJamSelesaiPicker}
-        mode="time"
-        onConfirm={handleJamSelesaiSelect}
-        onCancel={() => setShowJamSelesaiPicker(false)}
-        is24Hour={true}
-        display="default"
+      <AnalogTimePicker
+        visible={showJamSelesaiPicker}
+        initialTime={formData.jamSelesai}
+        onTimeSelect={handleJamSelesaiSelect}
+        onClose={() => setShowJamSelesaiPicker(false)}
       />
 
       {/* Button Footer - Fixed di bawah seperti header */}
@@ -2102,7 +2066,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 12,
   },
+  jamRow: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  jamPickerButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  jamPickerText: {
+    fontSize: 14,
+    color: '#333'
+  },
   jamInputGroup: {
+    flex: 1,
     gap: 6,
   },
   jamLabel: {

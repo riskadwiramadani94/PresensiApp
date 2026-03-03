@@ -151,21 +151,32 @@ export default function AdminDashboard() {
         // Format recent activities untuk menggabungkan pengajuan dan presensi
         const recentActivities: RecentActivity[] = [];
         
+        // Cek apakah sudah lewat jam 12 malam (reset aktivitas)
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
         // Tambahkan data presensi (hanya yang ada aktivitas)
         if (result.recent) {
           result.recent.forEach((item: any) => {
             // Filter: hanya tampilkan jika ada aktivitas nyata (bukan "Tidak Hadir")
             if (item.status !== 'Tidak Hadir' && item.jam_masuk) {
-              recentActivities.push({
-                id: `presensi-${item.nama_lengkap}-${item.jam_masuk}`,
-                type: 'presensi',
-                nama_lengkap: item.nama_lengkap,
-                jam: item.jam_masuk, // Backend sudah mengirim format HH:MM:SS
-                jenis: 'Presensi Masuk',
-                status: item.status,
-                tanggal: new Date().toISOString(),
-                foto_profil: item.foto_profil
-              });
+              // Cek apakah aktivitas ini masih hari ini
+              const activityDate = new Date(item.tanggal_absen || new Date());
+              const activityDay = new Date(activityDate.getFullYear(), activityDate.getMonth(), activityDate.getDate());
+              
+              // Hanya tampilkan aktivitas hari ini
+              if (activityDay.getTime() === today.getTime()) {
+                recentActivities.push({
+                  id: `presensi-${item.nama_lengkap}-${item.jam_masuk}`,
+                  type: 'presensi',
+                  nama_lengkap: item.nama_lengkap,
+                  jam: item.jam_masuk, // Backend sudah mengirim format HH:MM:SS
+                  jenis: 'Presensi Masuk',
+                  status: item.status,
+                  tanggal: item.tanggal_absen || new Date().toISOString(),
+                  foto_profil: item.foto_profil
+                });
+              }
             }
           });
         }
@@ -173,32 +184,39 @@ export default function AdminDashboard() {
         // Tambahkan data pengajuan (semua pengajuan adalah aktivitas nyata)
         if (result.pengajuan) {
           result.pengajuan.forEach((item: any) => {
-            // Format jam dengan detik untuk pengajuan
-            let jamFormatted = item.jam_pengajuan;
-            if (jamFormatted && jamFormatted.length >= 5) {
-              if (jamFormatted.length >= 8) {
-                jamFormatted = jamFormatted.substring(0, 8);
+            // Cek apakah pengajuan ini masih hari ini
+            const pengajuanDate = new Date(item.tanggal_pengajuan || new Date());
+            const pengajuanDay = new Date(pengajuanDate.getFullYear(), pengajuanDate.getMonth(), pengajuanDate.getDate());
+            
+            // Hanya tampilkan pengajuan hari ini
+            if (pengajuanDay.getTime() === today.getTime()) {
+              // Format jam dengan detik untuk pengajuan
+              let jamFormatted = item.jam_pengajuan;
+              if (jamFormatted && jamFormatted.length >= 5) {
+                if (jamFormatted.length >= 8) {
+                  jamFormatted = jamFormatted.substring(0, 8);
+                } else {
+                  jamFormatted = jamFormatted + ':00';
+                }
               } else {
-                jamFormatted = jamFormatted + ':00';
+                jamFormatted = new Date().toLocaleTimeString('id-ID', { 
+                  hour: '2-digit', 
+                  minute: '2-digit', 
+                  second: '2-digit' 
+                });
               }
-            } else {
-              jamFormatted = new Date().toLocaleTimeString('id-ID', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                second: '2-digit' 
+              
+              recentActivities.push({
+                id: `pengajuan-${item.id_pengajuan}`,
+                type: 'pengajuan',
+                nama_lengkap: item.nama_lengkap,
+                jam: jamFormatted,
+                jenis: formatJenisPengajuan(item.jenis_pengajuan),
+                status: item.status === 'menunggu' ? 'Menunggu' : item.status === 'disetujui' ? 'Disetujui' : 'Ditolak',
+                tanggal: item.tanggal_pengajuan || new Date().toISOString(),
+                foto_profil: item.foto_profil
               });
             }
-            
-            recentActivities.push({
-              id: `pengajuan-${item.id_pengajuan}`,
-              type: 'pengajuan',
-              nama_lengkap: item.nama_lengkap,
-              jam: jamFormatted,
-              jenis: formatJenisPengajuan(item.jenis_pengajuan),
-              status: item.status === 'menunggu' ? 'Menunggu' : item.status === 'disetujui' ? 'Disetujui' : 'Ditolak',
-              tanggal: item.tanggal_pengajuan || new Date().toISOString(),
-              foto_profil: item.foto_profil
-            });
           });
         }
         

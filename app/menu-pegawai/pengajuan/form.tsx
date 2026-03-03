@@ -6,9 +6,9 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader } from '../../../components';
 import { PegawaiAPI } from '../../../constants/config';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import CustomCalendar from '../../../components/CustomCalendar';
+import AnalogTimePicker from '../../../components/AnalogTimePicker';
 
 export default function PengajuanScreen() {
   const router = useRouter();
@@ -16,11 +16,12 @@ export default function PengajuanScreen() {
   const [jenisPengajuan, setJenisPengajuan] = useState('');
   const [tanggalMulai, setTanggalMulai] = useState(new Date());
   const [tanggalSelesai, setTanggalSelesai] = useState(new Date());
-  const [jamMulai, setJamMulai] = useState(new Date());
-  const [jamSelesai, setJamSelesai] = useState(new Date());
+  const [jamMulai, setJamMulai] = useState('08:00');
+  const [jamSelesai, setJamSelesai] = useState('17:00');
   const [alasan, setAlasan] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'mulai' | 'selesai'>('mulai');
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [calendarMode, setCalendarMode] = useState<'single' | 'range'>('single');
@@ -76,8 +77,8 @@ export default function PengajuanScreen() {
         jenis_pengajuan: jenisPengajuan,
         tanggal_mulai: formatDateForDB(tanggalMulai),
         tanggal_selesai: (selectedJenis?.needDateRange || jenisPengajuan === 'lembur') ? formatDateForDB(tanggalSelesai) : null,
-        jam_mulai: (selectedJenis?.needSingleTime || selectedJenis?.needTimeRange) ? formatTimeForDB(jamMulai) : null,
-        jam_selesai: selectedJenis?.needTimeRange ? formatTimeForDB(jamSelesai) : null,
+        jam_mulai: (selectedJenis?.needSingleTime || selectedJenis?.needTimeRange) ? jamMulai + ':00' : null,
+        jam_selesai: selectedJenis?.needTimeRange ? jamSelesai + ':00' : null,
         alasan_text: alasan,
         dokumen_foto: dokumenFoto ? dokumenFoto.uri : null,
       };
@@ -105,11 +106,7 @@ export default function PengajuanScreen() {
     return `${year}-${month}-${day}`;
   };
 
-  const formatTimeForDB = (date: Date) => {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}:00`;
-  };
+
 
   const formatDate = (date: Date) => {
     const day = String(date.getDate()).padStart(2, '0');
@@ -118,11 +115,7 @@ export default function PengajuanScreen() {
     return `${day}/${month}/${year}`;
   };
 
-  const formatTime = (date: Date) => {
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
+
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -331,7 +324,7 @@ export default function PengajuanScreen() {
               onPress={() => setShowTimePicker(true)}
             >
               <Ionicons name="time-outline" size={20} color="#666" />
-              <Text style={styles.dateText}>{formatTime(jamMulai)}</Text>
+              <Text style={styles.dateText}>{jamMulai}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -343,24 +336,18 @@ export default function PengajuanScreen() {
             <View style={styles.dateRow}>
               <TouchableOpacity 
                 style={styles.dateInput}
-                onPress={() => {
-                  setTimePickerMode('mulai');
-                  setShowTimePicker(true);
-                }}
+                onPress={() => setShowTimePicker(true)}
               >
                 <Ionicons name="time-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatTime(jamMulai)}</Text>
+                <Text style={styles.dateText}>{jamMulai}</Text>
               </TouchableOpacity>
               <Text style={styles.dateSeparator}>s/d</Text>
               <TouchableOpacity 
                 style={styles.dateInput}
-                onPress={() => {
-                  setTimePickerMode('selesai');
-                  setShowTimePicker(true);
-                }}
+                onPress={() => setShowTimePickerSelesai(true)}
               >
                 <Ionicons name="time-outline" size={20} color="#666" />
-                <Text style={styles.dateText}>{formatTime(jamSelesai)}</Text>
+                <Text style={styles.dateText}>{jamSelesai}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -463,24 +450,26 @@ export default function PengajuanScreen() {
         </View>
       </Modal>
 
-      {/* Time Picker */}
-      {showTimePicker && (
-        <DateTimePicker
-          value={timePickerMode === 'mulai' ? jamMulai : jamSelesai}
-          mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, selectedTime) => {
-            setShowTimePicker(Platform.OS === 'ios');
-            if (selectedTime) {
-              if (timePickerMode === 'mulai') {
-                setJamMulai(selectedTime);
-              } else {
-                setJamSelesai(selectedTime);
-              }
-            }
-          }}
-        />
-      )}
+      {/* Custom Time Pickers */}
+      <AnalogTimePicker
+        visible={showTimePicker}
+        initialTime={jamMulai}
+        onTimeSelect={(time) => {
+          setJamMulai(time);
+          setShowTimePicker(false);
+        }}
+        onClose={() => setShowTimePicker(false)}
+      />
+
+      <AnalogTimePicker
+        visible={showTimePickerSelesai}
+        initialTime={jamSelesai}
+        onTimeSelect={(time) => {
+          setJamSelesai(time);
+          setShowTimePickerSelesai(false);
+        }}
+        onClose={() => setShowTimePickerSelesai(false)}
+      />
 
       {/* Bottom Sheet Picker */}
       <Modal

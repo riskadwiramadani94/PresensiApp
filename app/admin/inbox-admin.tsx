@@ -110,6 +110,18 @@ export default function InboxAdmin() {
   /* ========================================
      UTILITY FUNCTIONS
   ======================================== */
+  const getJenisPengajuanColor = (jenis: string) => {
+    const colorMap: { [key: string]: string } = {
+      'izin_datang_terlambat': '#FF9800', // Orange
+      'izin_pulang_cepat': '#2196F3', // Blue
+      'cuti_sakit': '#9C27B0', // Purple
+      'cuti_tahunan': '#4CAF50', // Green
+      'cuti_alasan_penting': '#FF5722', // Deep Orange
+      'lembur': '#795548', // Brown
+    };
+    
+    return colorMap[jenis] || '#004643'; // Default hijau
+  };
   const formatJenisPengajuan = (jenis: string) => {
     const jenisMap: { [key: string]: string } = {
       'cuti_sakit': 'Cuti Sakit',
@@ -190,7 +202,9 @@ export default function InboxAdmin() {
         {/* Icon */}
         <View style={[
           styles.iconCircle,
-          isAbsenDinas ? styles.iconAbsenDinas : styles.iconPengajuan,
+          isAbsenDinas ? 
+            { backgroundColor: '#ffc400' } : 
+            { backgroundColor: getJenisPengajuanColor(item.data.jenis_pengajuan) },
           item.isProcessed && styles.iconProcessed
         ]}>
           <Ionicons 
@@ -327,12 +341,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  iconAbsenDinas: {
-    backgroundColor: '#ffc400',
-  },
-  iconPengajuan: {
-    backgroundColor: '#004643',
-  },
+
   iconProcessed: {
     opacity: 0.6,
   },

@@ -20,6 +20,7 @@ import {
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { AppHeader } from "../../../components";
 import { CustomAlert } from "../../../components/CustomAlert";
+import AnalogTimePicker from "../../../components/AnalogTimePicker";
 import { useCustomAlert } from "../../../hooks/useCustomAlert";
 import {
     API_CONFIG,
@@ -397,21 +398,25 @@ export default function JamKerjaScreen() {
                 {editIndex >= 0 ? jamKerjaList[editIndex].hari : ""}
               </Text>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Jam Masuk</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="08:00"
-                    value={editJamMasuk}
-                    onChangeText={(text) => setEditJamMasuk(formatJam(text))}
-                    keyboardType="numeric"
-                    maxLength={5}
-                  />
+              <View style={styles.timeRowGroup}>
+                <View style={styles.timeInputHalf}>
+                  <Text style={styles.label}>Jam Masuk</Text>
                   <TouchableOpacity
-                    style={styles.iconButton}
+                    style={styles.timeButton}
                     onPress={() => setShowJamMasukPicker(true)}
                   >
+                    <Text style={styles.timeButtonText}>{editJamMasuk}</Text>
+                    <Ionicons name="time" size={20} color="#004643" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.timeInputHalf}>
+                  <Text style={styles.label}>Jam Pulang</Text>
+                  <TouchableOpacity
+                    style={styles.timeButton}
+                    onPress={() => setShowJamPulangPicker(true)}
+                  >
+                    <Text style={styles.timeButtonText}>{editJamPulang}</Text>
                     <Ionicons name="time" size={20} color="#004643" />
                   </TouchableOpacity>
                 </View>
@@ -419,42 +424,13 @@ export default function JamKerjaScreen() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Batas Absen</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="08:30"
-                    value={editBatasAbsen}
-                    onChangeText={(text) => setEditBatasAbsen(formatJam(text))}
-                    keyboardType="numeric"
-                    maxLength={5}
-                  />
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => setShowBatasAbsenPicker(true)}
-                  >
-                    <Ionicons name="time" size={20} color="#004643" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Jam Pulang</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="17:00"
-                    value={editJamPulang}
-                    onChangeText={(text) => setEditJamPulang(formatJam(text))}
-                    keyboardType="numeric"
-                    maxLength={5}
-                  />
-                  <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => setShowJamPulangPicker(true)}
-                  >
-                    <Ionicons name="time" size={20} color="#004643" />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={styles.timeButton}
+                  onPress={() => setShowBatasAbsenPicker(true)}
+                >
+                  <Text style={styles.timeButtonText}>{editBatasAbsen}</Text>
+                  <Ionicons name="time" size={20} color="#004643" />
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit}>
@@ -465,31 +441,25 @@ export default function JamKerjaScreen() {
         </View>
       </Modal>
 
-      <DateTimePickerModal
-        isVisible={showJamMasukPicker}
-        mode="time"
-        onConfirm={handleJamMasukConfirm}
-        onCancel={() => setShowJamMasukPicker(false)}
-        is24Hour={true}
-        display="default"
+      <AnalogTimePicker
+        visible={showJamMasukPicker}
+        initialTime={editJamMasuk}
+        onTimeSelect={(time) => setEditJamMasuk(time)}
+        onClose={() => setShowJamMasukPicker(false)}
       />
 
-      <DateTimePickerModal
-        isVisible={showBatasAbsenPicker}
-        mode="time"
-        onConfirm={handleBatasAbsenConfirm}
-        onCancel={() => setShowBatasAbsenPicker(false)}
-        is24Hour={true}
-        display="default"
+      <AnalogTimePicker
+        visible={showBatasAbsenPicker}
+        initialTime={editBatasAbsen}
+        onTimeSelect={(time) => setEditBatasAbsen(time)}
+        onClose={() => setShowBatasAbsenPicker(false)}
       />
 
-      <DateTimePickerModal
-        isVisible={showJamPulangPicker}
-        mode="time"
-        onConfirm={handleJamPulangConfirm}
-        onCancel={() => setShowJamPulangPicker(false)}
-        is24Hour={true}
-        display="default"
+      <AnalogTimePicker
+        visible={showJamPulangPicker}
+        initialTime={editJamPulang}
+        onTimeSelect={(time) => setEditJamPulang(time)}
+        onClose={() => setShowJamPulangPicker(false)}
       />
 
       <CustomAlert
@@ -613,6 +583,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   formGroup: { marginBottom: 16 },
+  timeRowGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 12,
+  },
+  timeInputHalf: {
+    flex: 1,
+  },
+  timeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  timeButtonText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
   label: {
     fontSize: 14,
     fontWeight: "600",
