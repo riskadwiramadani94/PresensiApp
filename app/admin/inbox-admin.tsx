@@ -115,14 +115,25 @@ export default function InboxAdmin() {
       'cuti_sakit': 'Cuti Sakit',
       'cuti_tahunan': 'Cuti Tahunan',
       'izin_pribadi': 'Izin Pribadi',
-      'pulang_cepat_terencana': 'Pulang Cepat',
-      'pulang_cepat_mendadak': 'Pulang Cepat',
+      'izin_datang_terlambat': 'Izin Datang Terlambat',
+      'pulang_cepat_terencana': 'Pulang Cepat Terencana',
+      'pulang_cepat_mendadak': 'Pulang Cepat Mendadak',
       'koreksi_presensi': 'Koreksi Presensi',
       'lembur_hari_kerja': 'Lembur Hari Kerja',
       'lembur_akhir_pekan': 'Lembur Akhir Pekan',
       'lembur_hari_libur': 'Lembur Hari Libur',
     };
-    return jenisMap[jenis] || jenis;
+    
+    // Jika tidak ada di mapping, format otomatis dari underscore
+    if (jenisMap[jenis]) {
+      return jenisMap[jenis];
+    }
+    
+    // Format otomatis: ubah underscore jadi spasi dan capitalize setiap kata
+    return jenis
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   const formatWaktu = (dateString: string) => {

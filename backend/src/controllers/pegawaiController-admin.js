@@ -360,7 +360,7 @@ const updatePegawai = async (req, res) => {
   let connection;
   try {
     const { id } = req.params;
-    const { nama_lengkap, nip, email, jenis_kelamin, jabatan, divisi, no_telepon, alamat, tanggal_lahir } = req.body;
+    const { nama_lengkap, nip, email, jenis_kelamin, jabatan, divisi, no_telepon, alamat, tanggal_lahir, status_pegawai } = req.body;
 
     const db = await getConnection();
 
@@ -385,9 +385,9 @@ const updatePegawai = async (req, res) => {
       await connection.execute(`
         UPDATE pegawai SET 
           nama_lengkap = ?, nip = ?, jenis_kelamin = ?, jabatan = ?, 
-          divisi = ?, no_telepon = ?, alamat = ?, tanggal_lahir = ?
+          divisi = ?, no_telepon = ?, alamat = ?, tanggal_lahir = ?, status_pegawai = ?
         WHERE id_pegawai = ?
-      `, [nama_lengkap, nip, jenis_kelamin, jabatan, divisi, no_telepon, alamat, tanggal_lahir, id]);
+      `, [nama_lengkap, nip, jenis_kelamin, jabatan, divisi, no_telepon, alamat, tanggal_lahir, status_pegawai || null, id]);
 
       await connection.commit();
 

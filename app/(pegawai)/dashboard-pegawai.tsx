@@ -28,6 +28,18 @@ interface UserData {
   totalJamKerja: string;
 }
 
+interface HolidayData {
+  date: string;
+  name: string;
+  type: 'national' | 'company';
+}
+
+interface WorkSchedule {
+  jam_masuk: string;
+  jam_pulang: string;
+  hari_kerja: string[];
+}
+
 export default function BerandaScreen() {
   const router = useRouter();
   const [userData, setUserData] = useState<UserData>({
@@ -41,12 +53,27 @@ export default function BerandaScreen() {
   });
   const [loading, setLoading] = useState(true);
   const [lastCheckDate, setLastCheckDate] = useState(new Date());
-
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [holidays, setHolidays] = useState<HolidayData[]>([]);
+  const [workSchedule, setWorkSchedule] = useState<WorkSchedule>({
+    jam_masuk: '08:00',
+    jam_pulang: '17:00',
+    hari_kerja: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat']
+  });
+  const [workDays, setWorkDays] = useState<{[key: string]: boolean}>({});
+  const [todayWorkSchedule, setTodayWorkSchedule] = useState<{hari: string, jam_masuk: string, jam_pulang: string}>({
+    hari: '',
+    jam_masuk: '08:00',
+    jam_pulang: '17:00'
+  });
 
   useEffect(() => {
     loadUserDataFirst();
     fetchUserData();
+    fetchWorkSchedule();
+    fetchTodayWorkSchedule();
+    fetchHolidays();
     startLocationTracking();
     
     // Update waktu setiap 1 detik untuk menampilkan detik
@@ -177,6 +204,78 @@ export default function BerandaScreen() {
     }
   };
 
+  const fetchTodayWorkSchedule = async () => {
+    try {
+      const hariIni = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date().getDay()];
+      const response = await fetch(getApiUrl(`/api/work-schedule/today?hari=${hariIni}`));
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setTodayWorkSchedule({
+          hari: hariIni,
+          jam_masuk: result.data.jam_masuk?.substring(0, 5) || '08:00',
+          jam_pulang: result.data.jam_pulang?.substring(0, 5) || '17:00'
+        });
+      } else {
+        setTodayWorkSchedule({
+          hari: hariIni,
+          jam_masuk: '08:00',
+          jam_pulang: '17:00'
+        });
+      }
+    } catch (error) {
+      console.log('Error fetching today work schedule:', error);
+      const hariIni = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date().getDay()];
+      setTodayWorkSchedule({
+        hari: hariIni,
+        jam_masuk: '08:00',
+        jam_pulang: '17:00'
+      });
+    }
+  };
+
+  const fetchWorkSchedule = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/work-schedule'));
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setWorkSchedule({
+          jam_masuk: result.data.jam_masuk.substring(0, 5) || '08:00',
+          jam_pulang: result.data.jam_pulang.substring(0, 5) || '17:00',
+          hari_kerja: result.data.hari_kerja || ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat']
+        });
+        
+        // Set work days mapping
+        const workDaysMap: {[key: string]: boolean} = {};
+        const allDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        allDays.forEach(day => {
+          workDaysMap[day] = result.data.hari_kerja.includes(day);
+        });
+        setWorkDays(workDaysMap);
+      }
+    } catch (error) {
+      console.log('Error fetching work schedule:', error);
+    }
+  };
+
+  const fetchHolidays = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/holidays'));
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setHolidays(result.data.map((item: any) => ({
+          date: item.tanggal,
+          name: item.nama,
+          type: item.jenis || 'nasional'
+        })));
+      }
+    } catch (error) {
+      console.log('Error fetching holidays:', error);
+    }
+  };
+
   const startLocationTracking = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -220,6 +319,136 @@ export default function BerandaScreen() {
     }
   };
 
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const isHoliday = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return holidays.some(holiday => holiday.date === dateStr);
+  };
+
+  const isWeekend = (date: Date) => {
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dayName = dayNames[date.getDay()];
+    return workDays[dayName] === false;
+  };
+
+  const isWorkDay = (date: Date) => {
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dayName = dayNames[date.getDay()];
+    return workDays[dayName] === true;
+  };
+
+  const renderCalendar = () => {
+    const daysInMonth = getDaysInMonth(currentDate);
+    const firstDay = getFirstDayOfMonth(currentDate);
+    const today = new Date();
+    
+    const days = [];
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    
+    const headerDays = dayNames.map((day, index) => (
+      <View key={`header-${index}`} style={styles.calendarDayHeader}>
+        <Text style={styles.calendarDayHeaderText}>{day}</Text>
+      </View>
+    ));
+    
+    for (let i = 0; i < firstDay; i++) {
+      days.push(
+        <View key={`empty-${i}`} style={styles.calendarDay}>
+          <Text style={styles.calendarDayText}></Text>
+        </View>
+      );
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const isToday = date.toDateString() === today.toDateString();
+      const isHol = isHoliday(date);
+      const isWeek = isWeekend(date);
+      const isWork = isWorkDay(date);
+      
+      let dayStyle = [styles.calendarDay];
+      let textStyle = [styles.calendarDayText];
+      
+      if (isToday) {
+        dayStyle.push(styles.calendarDayToday);
+        textStyle.push(styles.calendarDayTodayText);
+      } else if (isHol) {
+        dayStyle.push(styles.calendarDayHoliday);
+        textStyle.push(styles.calendarDayHolidayText);
+      } else if (isWeek || !isWork) {
+        dayStyle.push(styles.calendarDayWeekend);
+        textStyle.push(styles.calendarDayWeekendText);
+      }
+      
+      days.push(
+        <TouchableOpacity key={day} style={dayStyle} activeOpacity={0.7}>
+          <Text style={textStyle}>{day}</Text>
+          {(isHol || isWeek || !isWork) && (
+            <View style={styles.calendarDayDot} />
+          )}
+        </TouchableOpacity>
+      );
+    }
+    
+    return (
+      <View style={styles.calendarContainer}>
+        <View style={styles.calendarHeader}>
+          <TouchableOpacity 
+            onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+            style={styles.calendarNavButton}
+          >
+            <Ionicons name="chevron-back" size={20} color="#004643" />
+          </TouchableOpacity>
+          
+          <Text style={styles.calendarTitle}>
+            {currentDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+          </Text>
+          
+          <TouchableOpacity 
+            onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
+            style={styles.calendarNavButton}
+          >
+            <Ionicons name="chevron-forward" size={20} color="#004643" />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.calendarGrid}>
+          {headerDays}
+          {days}
+        </View>
+        
+        <View style={styles.calendarLegend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#004643' }]} />
+            <Text style={styles.legendText}>Hari Ini</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#FFA726' }]} />
+            <Text style={styles.legendText}>Libur</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#EF5350' }]} />
+            <Text style={styles.legendText}>Weekend</Text>
+          </View>
+        </View>
+        
+        <View style={styles.workScheduleInfo}>
+          <Text style={styles.workScheduleTitle}>Jam Kerja {todayWorkSchedule.hari}</Text>
+          <Text style={styles.workScheduleText}>
+            {todayWorkSchedule.jam_masuk} - {todayWorkSchedule.jam_pulang} WIB
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -237,99 +466,219 @@ export default function BerandaScreen() {
             <RefreshControl refreshing={loading} onRefresh={fetchUserData} />
           }
         >
-          <View style={styles.dashboardHeader}>
-            <View style={styles.backgroundPattern}>
-              <View style={styles.bubble1} />
-              <View style={styles.bubble2} />
-              <View style={styles.bubble3} />
-            </View>
+          {loading ? (
+            /* ========================================
+                 SKELETON LOADING STATE - DASHBOARD PEGAWAI
+            ======================================== */
+            <>
+              <View style={styles.dashboardHeader}>
+                <View style={styles.backgroundPattern}>
+                  <View style={styles.bubble1} />
+                  <View style={styles.bubble2} />
+                  <View style={styles.bubble3} />
+                </View>
 
-            <View style={styles.headerSection}>
-              <View style={styles.adminInfo}>
-                <Text style={styles.greetingText}>Selamat datang,</Text>
-                <Text style={styles.userName}>{userData.nama || 'Memuat...'}</Text>
-              </View>
-              <View style={styles.dateTimeContainer}>
-                <Text style={styles.dateTimeText}>
-                  {currentTime.toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </Text>
-                <Text style={styles.timeText}>
-                  {currentTime.toLocaleTimeString('id-ID', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  })} WIB
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.summarySection}>
-              <View style={styles.infoCard}>
-                <View style={styles.statusRow}>
-                  <View style={[styles.statusDot, 
-                    userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
-                    userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
-                  ]} />
-                  <View style={styles.statusContent}>
-                    <Text style={styles.statusTitle}>Status Absensi</Text>
-                    <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
+                <View style={styles.headerSection}>
+                  <View style={styles.adminInfo}>
+                    <View style={styles.skeletonGreeting} />
+                    <View style={styles.skeletonUserName} />
+                  </View>
+                  <View style={styles.dateTimeContainer}>
+                    <View style={styles.skeletonDateTime} />
+                    <View style={styles.skeletonTime} />
                   </View>
                 </View>
 
-                <View style={styles.dividerLine} />
+                <View style={styles.summarySection}>
+                  <View style={styles.infoCard}>
+                    <View style={styles.statusRow}>
+                      <View style={styles.skeletonStatusDot} />
+                      <View style={styles.statusContent}>
+                        <View style={styles.skeletonStatusTitle} />
+                        <View style={styles.skeletonStatusText} />
+                      </View>
+                    </View>
 
-                <View style={styles.jamKerjaRow}>
-                  <View style={styles.jamItem}>
-                    <View style={styles.jamIconBox}>
-                      <Ionicons name="log-in-outline" size={18} color="#fff" />
+                    <View style={styles.dividerLine} />
+
+                    <View style={styles.jamKerjaRow}>
+                      <View style={styles.jamItem}>
+                        <View style={styles.skeletonJamIcon} />
+                        <View style={styles.skeletonJamLabel} />
+                        <View style={styles.skeletonJamValue} />
+                      </View>
+                      
+                      <View style={styles.verticalDivider} />
+                      
+                      <View style={styles.jamItem}>
+                        <View style={styles.skeletonJamIcon} />
+                        <View style={styles.skeletonJamLabel} />
+                        <View style={styles.skeletonJamValue} />
+                      </View>
                     </View>
-                    <Text style={styles.jamLabel}>Jam Masuk</Text>
-                    <Text style={styles.jamValue}>{userData.jamMasuk}</Text>
-                  </View>
-                  
-                  <View style={styles.verticalDivider} />
-                  
-                  <View style={styles.jamItem}>
-                    <View style={styles.jamIconBox}>
-                      <Ionicons name="log-out-outline" size={18} color="#fff" />
-                    </View>
-                    <Text style={styles.jamLabel}>Jam Pulang</Text>
-                    <Text style={styles.jamValue}>{userData.jamKeluar}</Text>
                   </View>
                 </View>
               </View>
-            </View>
-          </View>
 
-          <View style={styles.menuSection}>
-            <View style={styles.mainMenuRow}>
-              {[
-                { id: 1, name: 'Presensi', image: require('../../assets/images/icons/pegawai/presensi.png'), route: '/menu-pegawai/presensi' },
-                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/menu-pegawai/pengajuan' },
-                { id: 3, name: 'Dinas', image: require('../../assets/images/icons/pegawai/kegiatan.png'), route: '/menu-pegawai/kegiatan' },
-                { id: 4, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png'), route: '/menu-pegawai/lembur' },
-              ].map((item) => (
-                <TouchableOpacity 
-                  key={item.id} 
-                  style={styles.mainMenuItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    if (item.route) {
-                      router.push(item.route as any);
-                    }
-                  }}
-                >
-                  <Image source={item.image} style={styles.menuIcon} />
-                  <Text style={styles.menuLabel}>{item.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+              <View style={styles.menuSection}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.skeletonSectionTitle} />
+                </View>
+                <View style={styles.mainMenuRow}>
+                  {[1, 2, 3, 4].map((item) => (
+                    <View key={item} style={styles.mainMenuItem}>
+                      <View style={styles.skeletonMenuIcon} />
+                      <View style={styles.skeletonMenuLabel} />
+                    </View>
+                  ))}
+                </View>
+                
+                {/* Skeleton Kalender */}
+                <View style={styles.calendarSection}>
+                  <View style={styles.sectionHeader}>
+                    <View style={styles.skeletonSectionTitle} />
+                  </View>
+                  <View style={styles.calendarContainer}>
+                    <View style={styles.calendarHeader}>
+                      <View style={styles.skeletonCalendarNav} />
+                      <View style={styles.skeletonCalendarTitle} />
+                      <View style={styles.skeletonCalendarNav} />
+                    </View>
+                    
+                    <View style={styles.calendarGrid}>
+                      {[...Array(42)].map((_, index) => (
+                        <View key={index} style={styles.skeletonCalendarDay} />
+                      ))}
+                    </View>
+                    
+                    <View style={styles.calendarLegend}>
+                      {[1, 2, 3].map((item) => (
+                        <View key={item} style={styles.legendItem}>
+                          <View style={styles.skeletonLegendDot} />
+                          <View style={styles.skeletonLegendText} />
+                        </View>
+                      ))}
+                    </View>
+                    
+                    <View style={styles.workScheduleInfo}>
+                      <View style={styles.skeletonWorkTitle} />
+                      <View style={styles.skeletonWorkText} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : (
+            /* ========================================
+                 ACTUAL CONTENT
+            ======================================== */
+            <>
+              <View style={styles.dashboardHeader}>
+                <View style={styles.backgroundPattern}>
+                  <View style={styles.bubble1} />
+                  <View style={styles.bubble2} />
+                  <View style={styles.bubble3} />
+                </View>
+
+                <View style={styles.headerSection}>
+                  <View style={styles.adminInfo}>
+                    <Text style={styles.greetingText}>Selamat datang,</Text>
+                    <Text style={styles.userName}>{userData.nama || 'Memuat...'}</Text>
+                  </View>
+                  <View style={styles.dateTimeContainer}>
+                    <Text style={styles.dateTimeText}>
+                      {currentTime.toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                    <Text style={styles.timeText}>
+                      {currentTime.toLocaleTimeString('id-ID', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })} WIB
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.summarySection}>
+                  <View style={styles.infoCard}>
+                    <View style={styles.statusRow}>
+                      <View style={[styles.statusDot, 
+                        userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
+                        userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
+                      ]} />
+                      <View style={styles.statusContent}>
+                        <Text style={styles.statusTitle}>Status Absensi</Text>
+                        <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.dividerLine} />
+
+                    <View style={styles.jamKerjaRow}>
+                      <View style={styles.jamItem}>
+                        <View style={styles.jamIconBox}>
+                          <Ionicons name="log-in-outline" size={18} color="#fff" />
+                        </View>
+                        <Text style={styles.jamLabel}>Jam Masuk</Text>
+                        <Text style={styles.jamValue}>{userData.jamMasuk}</Text>
+                      </View>
+                      
+                      <View style={styles.verticalDivider} />
+                      
+                      <View style={styles.jamItem}>
+                        <View style={styles.jamIconBox}>
+                          <Ionicons name="log-out-outline" size={18} color="#fff" />
+                        </View>
+                        <Text style={styles.jamLabel}>Jam Pulang</Text>
+                        <Text style={styles.jamValue}>{userData.jamKeluar}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.menuSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Menu Utama</Text>
+                </View>
+                <View style={styles.mainMenuRow}>
+                  {[
+                    { id: 1, name: 'Presensi', image: require('../../assets/images/icons/pegawai/presensi.png'), route: '/menu-pegawai/presensi' },
+                    { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/pegawai/pengajuan.png'), route: '/menu-pegawai/pengajuan' },
+                    { id: 3, name: 'Dinas', image: require('../../assets/images/icons/pegawai/kegiatan.png'), route: '/menu-pegawai/kegiatan' },
+                    { id: 4, name: 'Lembur', image: require('../../assets/images/icons/pegawai/lembur.png'), route: '/menu-pegawai/lembur' },
+                  ].map((item) => (
+                    <TouchableOpacity 
+                      key={item.id} 
+                      style={styles.mainMenuItem}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        if (item.route) {
+                          router.push(item.route as any);
+                        }
+                      }}
+                    >
+                      <Image source={item.image} style={styles.menuIcon} />
+                      <Text style={styles.menuLabel}>{item.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                {/* Kalender Mini */}
+                <View style={styles.calendarSection}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Kalender & Jam Kerja</Text>
+                  </View>
+                  {renderCalendar()}
+                </View>
+              </View>
+            </>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -512,6 +861,18 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     flex: 1,
   },
+  sectionHeader: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#004643',
+    paddingLeft: 12,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#004643',
+    letterSpacing: 0.5,
+  },
   mainMenuRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -527,5 +888,264 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     marginBottom: 8,
   },
-  menuLabel: { fontSize: 11, color: '#444', fontWeight: '500', textAlign: 'center' }
+  menuLabel: { fontSize: 11, color: '#444', fontWeight: '500', textAlign: 'center' },
+  
+  // Calendar Section
+  calendarSection: {
+    marginTop: 30,
+  },
+  calendarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    padding: 16,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarNavButton: {
+    padding: 8,
+  },
+  calendarTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#004643',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  calendarDayHeader: {
+    width: '14.28%',
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarDayHeaderText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  calendarDay: {
+    width: '14.28%',
+    height: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  calendarDayText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  calendarDayToday: {
+    backgroundColor: '#004643',
+    borderRadius: 17.5,
+  },
+  calendarDayTodayText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  calendarDayHoliday: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 17.5,
+  },
+  calendarDayHolidayText: {
+    color: '#FFA726',
+    fontWeight: '600',
+  },
+  calendarDayWeekend: {
+    backgroundColor: '#FFEBEE',
+    borderRadius: 17.5,
+  },
+  calendarDayWeekendText: {
+    color: '#EF5350',
+    fontWeight: '600',
+  },
+  calendarDayDot: {
+    position: 'absolute',
+    bottom: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#999',
+  },
+  calendarLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 10,
+    color: '#666',
+  },
+  workScheduleInfo: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    padding: 12,
+  },
+  workScheduleTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#004643',
+    marginBottom: 4,
+  },
+  workScheduleText: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 2,
+  },
+
+  /* ========================================
+     SKELETON STYLES - DASHBOARD PEGAWAI
+  ======================================== */
+  skeletonGreeting: {
+    width: 100,
+    height: 14,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonUserName: {
+    width: 140,
+    height: 18,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 4,
+  },
+  skeletonDateTime: {
+    width: 80,
+    height: 10,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  skeletonTime: {
+    width: 60,
+    height: 12,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 4,
+  },
+  skeletonStatusDot: {
+    width: 8,
+    height: 8,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    marginTop: 4,
+    marginRight: 10,
+  },
+  skeletonStatusTitle: {
+    width: 80,
+    height: 10,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    marginBottom: 3,
+  },
+  skeletonStatusText: {
+    width: 120,
+    height: 13,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 4,
+  },
+  skeletonJamIcon: {
+    width: 32,
+    height: 32,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 16,
+    marginBottom: 6,
+  },
+  skeletonJamLabel: {
+    width: 50,
+    height: 10,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    marginBottom: 3,
+  },
+  skeletonJamValue: {
+    width: 40,
+    height: 18,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 4,
+  },
+  skeletonSectionTitle: {
+    width: 120,
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonMenuIcon: {
+    width: 35,
+    height: 35,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  skeletonMenuLabel: {
+    width: 50,
+    height: 11,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonCalendarNav: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 8,
+  },
+  skeletonCalendarTitle: {
+    width: 120,
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonCalendarDay: {
+    width: '14.28%',
+    height: 35,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 17.5,
+    marginBottom: 6,
+  },
+  skeletonLegendDot: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  skeletonLegendText: {
+    width: 40,
+    height: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonWorkTitle: {
+    width: 80,
+    height: 12,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonWorkText: {
+    width: 100,
+    height: 11,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 2,
+  },
 });

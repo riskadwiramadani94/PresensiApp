@@ -54,6 +54,7 @@ export default function TambahDinasScreen() {
   const [useDefaultJam, setUseDefaultJam] = useState(true);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [jamKerjaDefault, setJamKerjaDefault] = useState<any>(null);
 
@@ -61,6 +62,7 @@ export default function TambahDinasScreen() {
 
   const totalSteps = 5;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const successModalScale = useRef(new Animated.Value(0)).current;
 
   const pickDocument = async () => {
     try {
@@ -836,27 +838,13 @@ export default function TambahDinasScreen() {
       
       if (response.success) {
         await clearDraftData();
-        Alert.alert('Sukses', 'Data dinas berhasil ditambahkan!', [
-          { text: 'OK', onPress: () => {
-              setFormData({
-                namaKegiatan: '',
-                nomorSpt: '',
-                jenisDinas: 'lokal',
-                tanggalMulai: '',
-                tanggalSelesai: '',
-                jamMulai: '',
-                jamSelesai: '',
-                deskripsi: '',
-                pegawaiIds: []
-              });
-              setUseDefaultJam(true);
-              setSelectedPegawai([]);
-              setSelectedLokasi([]);
-              setSelectedFile(null);
-              router.back();
-            }
-          }
-        ]);
+        setShowSuccessModal(true);
+        Animated.spring(successModalScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11
+        }).start();
       } else {
         Alert.alert('Error', response.message || 'Gagal menambahkan data dinas');
       }
@@ -867,11 +855,37 @@ export default function TambahDinasScreen() {
     }
   };
 
+  const closeSuccessModal = () => {
+    Animated.timing(successModalScale, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setShowSuccessModal(false);
+      setFormData({
+        namaKegiatan: '',
+        nomorSpt: '',
+        jenisDinas: 'lokal',
+        tanggalMulai: '',
+        tanggalSelesai: '',
+        jamMulai: '',
+        jamSelesai: '',
+        deskripsi: '',
+        pegawaiIds: []
+      });
+      setUseDefaultJam(true);
+      setSelectedPegawai([]);
+      setSelectedLokasi([]);
+      setSelectedFile(null);
+      router.push('/menu-admin/kelola-dinas?refresh=true');
+    });
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       <AppHeader 
-        title="Tambah Dinas Baru"
+        title="Tambah Dinas"
         showBack={true}
         fallbackRoute="/menu-admin/kelola-dinas"
       />
@@ -965,34 +979,36 @@ export default function TambahDinasScreen() {
           <View style={styles.divider} />
           
           <View style={styles.formContent}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Tanggal Mulai *</Text>
-                <TouchableOpacity onPress={openDateMulaiPicker} style={styles.datePickerButton}>
-                  <Text style={[styles.datePickerText, !formData.tanggalMulai && styles.datePickerPlaceholder]}>
-                    {formData.tanggalMulai || 'DD/MM/YYYY'}
-                  </Text>
-                  <View style={styles.calendarIconButton}>
-                    <Ionicons name="calendar" size={20} color="#004643" />
-                  </View>
-                </TouchableOpacity>
-                {validationErrors.tanggalMulai && (
-                  <Text style={styles.errorText}>{validationErrors.tanggalMulai}</Text>
-                )}
-              </View>
+              <View style={styles.dateRow}>
+                <View style={styles.dateInputHalf}>
+                  <Text style={styles.inputLabel}>Tanggal Mulai *</Text>
+                  <TouchableOpacity onPress={openDateMulaiPicker} style={styles.datePickerButton}>
+                    <Text style={[styles.datePickerText, !formData.tanggalMulai && styles.datePickerPlaceholder]}>
+                      {formData.tanggalMulai || 'DD/MM/YYYY'}
+                    </Text>
+                    <View style={styles.calendarIconButton}>
+                      <Ionicons name="calendar" size={20} color="#004643" />
+                    </View>
+                  </TouchableOpacity>
+                  {validationErrors.tanggalMulai && (
+                    <Text style={styles.errorText}>{validationErrors.tanggalMulai}</Text>
+                  )}
+                </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Tanggal Selesai *</Text>
-                <TouchableOpacity onPress={openDateSelesaiPicker} style={styles.datePickerButton}>
-                  <Text style={[styles.datePickerText, !formData.tanggalSelesai && styles.datePickerPlaceholder]}>
-                    {formData.tanggalSelesai || 'DD/MM/YYYY'}
-                  </Text>
-                  <View style={styles.calendarIconButton}>
-                    <Ionicons name="calendar" size={20} color="#004643" />
-                  </View>
-                </TouchableOpacity>
-                {validationErrors.tanggalSelesai && (
-                  <Text style={styles.errorText}>{validationErrors.tanggalSelesai}</Text>
-                )}
+                <View style={styles.dateInputHalf}>
+                  <Text style={styles.inputLabel}>Tanggal Selesai *</Text>
+                  <TouchableOpacity onPress={openDateSelesaiPicker} style={styles.datePickerButton}>
+                    <Text style={[styles.datePickerText, !formData.tanggalSelesai && styles.datePickerPlaceholder]}>
+                      {formData.tanggalSelesai || 'DD/MM/YYYY'}
+                    </Text>
+                    <View style={styles.calendarIconButton}>
+                      <Ionicons name="calendar" size={20} color="#004643" />
+                    </View>
+                  </TouchableOpacity>
+                  {validationErrors.tanggalSelesai && (
+                    <Text style={styles.errorText}>{validationErrors.tanggalSelesai}</Text>
+                  )}
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -1764,6 +1780,36 @@ export default function TambahDinasScreen() {
         </View>
       </Modal>
 
+      {/* Success Modal */}
+      <Modal 
+        visible={showSuccessModal} 
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeSuccessModal}
+      >
+        <View style={styles.successModalOverlay}>
+          <Animated.View style={[styles.successModalContainer, {
+            transform: [{ scale: successModalScale }]
+          }]}>
+            <View style={styles.successIconContainer}>
+              <Ionicons name="checkmark-circle" size={48} color="#fff" />
+            </View>
+            
+            <Text style={styles.successModalMessage}>
+              Data dinas berhasil ditambahkan!
+            </Text>
+            
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={closeSuccessModal}
+            >
+              <Text style={styles.successButtonText}>OK</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
+
       {/* Input Modal */}
       <Modal visible={showInputModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
@@ -2152,6 +2198,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  dateRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16
+  },
+  dateInputHalf: {
+    flex: 1
+  },
   inputError: {
     borderColor: '#F44336',
     borderWidth: 2
@@ -2473,5 +2527,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     marginLeft: 12
-  }
+  },
+  
+  // Success Modal Styles
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  successModalContainer: {
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successModalMessage: {
+    fontSize: 18,
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 28,
+    fontWeight: '600',
+  },
+  successButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  successButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#004643',
+  },
 });

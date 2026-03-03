@@ -549,7 +549,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
     backgroundColor: '#fff',
   },
   searchInputWrapper: {

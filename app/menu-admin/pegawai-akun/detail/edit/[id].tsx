@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   View,
@@ -11,12 +11,18 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
+  Modal,
+  Animated,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
 import { getApiUrl, API_CONFIG } from '../../../../../constants/config';
-import { AppHeader } from '../../../../../components';
+import { AppHeader, CustomCalendar } from '../../../../../components';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function EditPegawai() {
   const { id } = useLocalSearchParams();
@@ -25,6 +31,10 @@ export default function EditPegawai() {
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const calendarTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const successModalScale = useRef(new Animated.Value(0)).current;
   const [formData, setFormData] = useState({
     nama_lengkap: '',
     email: '',
@@ -70,7 +80,7 @@ export default function EditPegawai() {
           password: '', // Kosongkan password untuk reset
           nip: result.data.nip || '',
           no_telepon: result.data.no_telepon || '',
-          tanggal_lahir: result.data.tanggal_lahir || '',
+          tanggal_lahir: formatDateFromISO(result.data.tanggal_lahir) || '',
           jenis_kelamin: result.data.jenis_kelamin || '',
           jabatan: result.data.jabatan || '',
           divisi: result.data.divisi || '',
@@ -87,25 +97,120 @@ export default function EditPegawai() {
     }
   };
 
+  // Format tanggal dari ISO ke DD/MM/YYYY
+  const formatDateFromISO = (isoDate: string) => {
+    if (!isoDate) return '';
+    try {
+      const date = new Date(isoDate);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Format tanggal dari DD/MM/YYYY ke YYYY-MM-DD untuk database
+  const formatDateForDB = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const [day, month, year] = dateStr.split('/');
+      if (day && month && year) {
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      return dateStr;
+    } catch (error) {
+      return dateStr;
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const handleDateSelect = (date: Date) => {
+    const formattedDate = formatDate(date);
+    setFormData({...formData, tanggal_lahir: formattedDate});
+    closeCalendarModal();
+  };
+
+  const showCalendarModal = () => {
+    setShowCalendar(true);
+    Animated.spring(calendarTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const parseSelectedDate = () => {
+    if (!formData.tanggal_lahir) return undefined;
+    
+    const [day, month, year] = formData.tanggal_lahir.split('/');
+    if (day && month && year) {
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    return undefined;
+  };
+
+  const closeCalendarModal = () => {
+    Animated.timing(calendarTranslateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowCalendar(false);
+    });
+  };
+
+  const calendarPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        calendarTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeCalendarModal();
+      } else {
+        Animated.spring(calendarTranslateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
   const handleSave = async () => {
     try {
       setSaving(true);
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.UPDATE_PEGAWAI), {
-        method: 'POST',
+      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.UPDATE_PEGAWAI)}/${id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: id,
-          ...formData
+          ...formData,
+          tanggal_lahir: formatDateForDB(formData.tanggal_lahir)
         }),
       });
       const result = await response.json();
       
       if (result.success) {
-        Alert.alert('Berhasil', 'Data pegawai berhasil diperbarui', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+        setShowSuccessModal(true);
+        Animated.spring(successModalScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11
+        }).start();
       } else {
         Alert.alert('Error', result.message || 'Gagal memperbarui data pegawai');
       }
@@ -114,6 +219,17 @@ export default function EditPegawai() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const closeSuccessModal = () => {
+    Animated.timing(successModalScale, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setShowSuccessModal(false);
+      router.back();
+    });
   };
 
   if (loading) {
@@ -263,12 +379,14 @@ export default function EditPegawai() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Tanggal Lahir</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.tanggal_lahir}
-                onChangeText={(text) => setFormData({...formData, tanggal_lahir: text})}
-                placeholder="YYYY-MM-DD"
-              />
+              <TouchableOpacity onPress={showCalendarModal} style={styles.datePickerButton}>
+                <Text style={[styles.datePickerText, !formData.tanggal_lahir && styles.datePickerPlaceholder]}>
+                  {formData.tanggal_lahir || 'DD/MM/YYYY'}
+                </Text>
+                <View style={styles.calendarIconButton}>
+                  <Ionicons name="calendar" size={20} color="#004643" />
+                </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.inputGroup}>
@@ -336,12 +454,24 @@ export default function EditPegawai() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Status Kepegawaian</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.status_pegawai}
-                onChangeText={(text) => setFormData({...formData, status_pegawai: text})}
-                placeholder="Masukkan status kepegawaian"
-              />
+              <View style={styles.genderContainer}>
+                <TouchableOpacity 
+                  style={[styles.genderBtn, formData.status_pegawai === 'Aktif' && styles.genderBtnActive]}
+                  onPress={() => setFormData({...formData, status_pegawai: 'Aktif'})}
+                >
+                  <Text style={[styles.genderText, formData.status_pegawai === 'Aktif' && styles.genderTextActive]}>
+                    Aktif
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.genderBtn, formData.status_pegawai === 'Tidak Aktif' && styles.genderBtnActive]}
+                  onPress={() => setFormData({...formData, status_pegawai: 'Tidak Aktif'})}
+                >
+                  <Text style={[styles.genderText, formData.status_pegawai === 'Tidak Aktif' && styles.genderTextActive]}>
+                    Tidak Aktif
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -412,6 +542,63 @@ export default function EditPegawai() {
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
+
+      {/* Calendar Modal */}
+      <Modal 
+        visible={showCalendar} 
+        transparent
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={closeCalendarModal}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeCalendarModal} />
+          <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: calendarTranslateY }] }]}>
+            <View {...calendarPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            <View style={styles.calendarSheetContent}>
+              <Text style={styles.calendarSheetTitle}>Pilih Tanggal Lahir</Text>
+              <CustomCalendar 
+                onDatePress={(date) => handleDateSelect(date)}
+                initialDate={parseSelectedDate()}
+                weekendDays={[0, 6]}
+                showWeekends={false}
+              />
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal 
+        visible={showSuccessModal} 
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeSuccessModal}
+      >
+        <View style={styles.successModalOverlay}>
+          <Animated.View style={[styles.successModalContainer, {
+            transform: [{ scale: successModalScale }]
+          }]}>
+            <View style={styles.successIconContainer}>
+              <Ionicons name="checkmark-circle" size={48} color="#fff" />
+            </View>
+            
+            <Text style={styles.successModalMessage}>
+              Data pegawai berhasil diperbarui!
+            </Text>
+            
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={closeSuccessModal}
+            >
+              <Text style={styles.successButtonText}>OK</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -568,5 +755,121 @@ const styles = StyleSheet.create({
     height: 48,
     backgroundColor: '#F0F0F0',
     borderRadius: 8,
+  },
+  datePickerButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1
+  },
+  datePickerPlaceholder: {
+    color: '#999'
+  },
+  calendarIconButton: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: '#F0F8F0'
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  modalBackdrop: { 
+    flex: 1 
+  },
+  calendarBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2
+  },
+  calendarSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16
+  },
+  calendarSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center'
+  },
+  
+  // Success Modal Styles
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  successModalContainer: {
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successModalMessage: {
+    fontSize: 18,
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 28,
+    fontWeight: '600',
+  },
+  successButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  successButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#004643',
   },
 });

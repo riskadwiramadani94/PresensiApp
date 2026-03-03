@@ -66,7 +66,7 @@ interface Statistics {
   };
 }
 
-export default function PusatValidasiScreen() {
+export default function PengajuanScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [activeTab, setActiveTab] = useState('absen_dinas');
@@ -708,7 +708,7 @@ export default function PusatValidasiScreen() {
       
       {/* HEADER */}
       <AppHeader 
-        title="Pusat Validasi"
+        title="Pengajuan"
         showBack={true}
         showHistoryButton={true}
         onHistoryPress={() => Alert.alert('History', 'Fitur history akan segera hadir')}

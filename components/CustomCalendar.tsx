@@ -189,7 +189,7 @@ export default function CustomCalendar({
     const hasBirthday = events.some(e => e.type === 'birthday');
     const hasEvent = events.some(e => e.type === 'event');
 
-    if (hasHoliday) return { backgroundColor: '#FFEBEE', borderColor: '#FFD6D6' };
+    if (hasHoliday) return { backgroundColor: '#FFF3E0', borderColor: '#FFD6D6' };
     if (hasBirthday) return { backgroundColor: '#E8F5E8', borderColor: '#C8E6C9' };
     if (hasEvent) return { backgroundColor: '#E3F2FD', borderColor: '#BBDEFB' };
     return {};
@@ -201,7 +201,7 @@ export default function CustomCalendar({
     const hasBirthday = events.some(e => e.type === 'birthday');
     const hasEvent = events.some(e => e.type === 'event');
 
-    if (hasHoliday) return { color: '#E53E3E', fontWeight: '600' as const };
+    if (hasHoliday) return { color: '#FFA726', fontWeight: '600' as const };
     if (hasBirthday) return { color: '#4CAF50', fontWeight: '600' as const };
     if (hasEvent) return { color: '#2196F3', fontWeight: '600' as const };
     return {};
@@ -213,7 +213,7 @@ export default function CustomCalendar({
     const hasBirthday = events.some(e => e.type === 'birthday');
     const hasEvent = events.some(e => e.type === 'event');
 
-    if (hasHoliday) return '#E53E3E';
+    if (hasHoliday) return '#FFA726';
     if (hasBirthday) return '#4CAF50';
     if (hasEvent) return '#2196F3';
     return '#666';
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent'
   },
   weekendCell: {
-    backgroundColor: '#FFF0F0',
+    backgroundColor: '#FFEBEE',
     borderWidth: 1,
     borderColor: '#FFD6D6',
     borderRadius: 20
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     fontWeight: '500'
   },
   weekendText: {
-    color: '#E53E3E',
+    color: '#EF5350',
     fontWeight: '600'
   },
   todayText: {

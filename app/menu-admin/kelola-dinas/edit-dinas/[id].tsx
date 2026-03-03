@@ -4,7 +4,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -14,7 +14,10 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Animated,
+    PanResponder,
+    Dimensions
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { AppHeader, CustomCalendar } from "../../../../components";
@@ -23,6 +26,8 @@ import {
     PegawaiAkunAPI,
     PengaturanAPI,
 } from "../../../../constants/config";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function EditDinasScreen() {
   const router = useRouter();
@@ -62,6 +67,84 @@ export default function EditDinasScreen() {
   const [showJenisDinasDropdown, setShowJenisDinasDropdown] = useState(false);
   const [showDateMulaiPicker, setShowDateMulaiPicker] = useState(false);
   const [showDateSelesaiPicker, setShowDateSelesaiPicker] = useState(false);
+  const translateYDateMulai = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const translateYDateSelesai = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  const openDateMulaiPicker = () => {
+    setShowDateMulaiPicker(true);
+    Animated.spring(translateYDateMulai, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeDateMulaiPicker = () => {
+    Animated.timing(translateYDateMulai, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => setShowDateMulaiPicker(false));
+  };
+
+  const openDateSelesaiPicker = () => {
+    setShowDateSelesaiPicker(true);
+    Animated.spring(translateYDateSelesai, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeDateSelesaiPicker = () => {
+    Animated.timing(translateYDateSelesai, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => setShowDateSelesaiPicker(false));
+  };
+
+  const panResponderDateMulai = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYDateMulai.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeDateMulaiPicker();
+      } else {
+        Animated.spring(translateYDateMulai, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const panResponderDateSelesai = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYDateSelesai.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeDateSelesaiPicker();
+      } else {
+        Animated.spring(translateYDateSelesai, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
   const [showJamMulaiPicker, setShowJamMulaiPicker] = useState(false);
   const [showJamSelesaiPicker, setShowJamSelesaiPicker] = useState(false);
   const [useDefaultJam, setUseDefaultJam] = useState(true);
@@ -606,18 +689,27 @@ export default function EditDinasScreen() {
     return `${day}/${month}/${year}`;
   };
 
+  const parseDateFromString = (dateStr: string) => {
+    if (!dateStr) return undefined;
+    const [day, month, year] = dateStr.split('/');
+    if (day && month && year) {
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    return undefined;
+  };
+
   const handleDateMulaiSelect = (date: Date) => {
     const formattedDate = formatDate(date);
     setFormData({ ...formData, tanggalMulai: formattedDate });
     validateField("tanggalMulai", formattedDate);
-    setShowDateMulaiPicker(false);
+    closeDateMulaiPicker();
   };
 
   const handleDateSelesaiSelect = (date: Date) => {
     const formattedDate = formatDate(date);
     setFormData({ ...formData, tanggalSelesai: formattedDate });
     validateField("tanggalSelesai", formattedDate);
-    setShowDateSelesaiPicker(false);
+    closeDateSelesaiPicker();
   };
 
   const handleJamMulaiSelect = (time: Date) => {
@@ -938,60 +1030,21 @@ export default function EditDinasScreen() {
               )}
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Jenis Dinas *</Text>
-              <TouchableOpacity
-                style={styles.dropdownBtn}
-                onPress={() =>
-                  setShowJenisDinasDropdown(!showJenisDinasDropdown)
-                }
-              >
-                <Text style={styles.dropdownBtnText}>
-                  {formData.jenisDinas === "lokal"
-                    ? "Dinas Lokal"
-                    : formData.jenisDinas === "luar_kota"
-                      ? "Dinas Luar Kota"
-                      : "Dinas Luar Negeri"}
-                </Text>
-                <Ionicons
-                  name={showJenisDinasDropdown ? "chevron-up" : "chevron-down"}
-                  size={16}
-                  color="#666"
-                />
-              </TouchableOpacity>
-
-              {showJenisDinasDropdown && (
-                <View style={styles.dropdownContainer}>
-                  {[
-                    { key: "lokal", label: "Dinas Lokal" },
-                    { key: "luar_kota", label: "Dinas Luar Kota" },
-                    { key: "luar_negeri", label: "Dinas Luar Negeri" },
-                  ].map((item) => (
-                    <TouchableOpacity
-                      key={item.key}
-                      style={[
-                        styles.dropdownItem,
-                        formData.jenisDinas === item.key &&
-                          styles.dropdownItemSelected,
-                      ]}
-                      onPress={() => {
-                        setFormData({ ...formData, jenisDinas: item.key });
-                        setShowJenisDinasDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>{item.label}</Text>
-                      {formData.jenisDinas === item.key && (
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={20}
-                          color="#004643"
-                        />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Jenis Dinas *</Text>
+                <TouchableOpacity 
+                  style={styles.dropdownBtn}
+                  onPress={() => {
+                    setShowJenisDinasDropdown(true);
+                  }}
+                >
+                  <Text style={styles.dropdownBtnText}>
+                    {formData.jenisDinas === 'lokal' ? 'Dinas Lokal' : 
+                     formData.jenisDinas === 'luar_kota' ? 'Dinas Luar Kota' : 'Dinas Luar Negeri'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="#666" />
+                </TouchableOpacity>
+              </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Deskripsi</Text>
@@ -1016,68 +1069,40 @@ export default function EditDinasScreen() {
           <View style={styles.divider} />
 
           <View style={styles.formContent}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Tanggal Mulai *</Text>
-              <View style={styles.dateInputContainer}>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    validationErrors.tanggalMulai && styles.inputError,
-                  ]}
-                  placeholder="DD/MM/YYYY"
-                  value={formData.tanggalMulai}
-                  onChangeText={(text) => {
-                    const formatted = formatTanggal(text);
-                    setFormData({ ...formData, tanggalMulai: formatted });
-                    validateField("tanggalMulai", formatted);
-                  }}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowDateMulaiPicker(true)}
-                  style={styles.calendarButton}
-                >
-                  <Ionicons name="calendar" size={20} color="#004643" />
+            <View style={styles.dateRow}>
+              <View style={styles.dateInputHalf}>
+                <Text style={styles.inputLabel}>Tanggal Mulai *</Text>
+                <TouchableOpacity onPress={openDateMulaiPicker} style={styles.datePickerButton}>
+                  <Text style={[styles.datePickerText, !formData.tanggalMulai && styles.datePickerPlaceholder]}>
+                    {formData.tanggalMulai || 'DD/MM/YYYY'}
+                  </Text>
+                  <View style={styles.calendarIconButton}>
+                    <Ionicons name="calendar" size={20} color="#004643" />
+                  </View>
                 </TouchableOpacity>
+                {validationErrors.tanggalMulai && (
+                  <Text style={styles.errorText}>
+                    {validationErrors.tanggalMulai}
+                  </Text>
+                )}
               </View>
-              {validationErrors.tanggalMulai && (
-                <Text style={styles.errorText}>
-                  {validationErrors.tanggalMulai}
-                </Text>
-              )}
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Tanggal Selesai *</Text>
-              <View style={styles.dateInputContainer}>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    validationErrors.tanggalSelesai && styles.inputError,
-                  ]}
-                  placeholder="DD/MM/YYYY"
-                  value={formData.tanggalSelesai}
-                  onChangeText={(text) => {
-                    const formatted = formatTanggal(text);
-                    setFormData({ ...formData, tanggalSelesai: formatted });
-                    validateField("tanggalSelesai", formatted);
-                  }}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowDateSelesaiPicker(true)}
-                  style={styles.calendarButton}
-                >
-                  <Ionicons name="calendar" size={20} color="#004643" />
+              <View style={styles.dateInputHalf}>
+                <Text style={styles.inputLabel}>Tanggal Selesai *</Text>
+                <TouchableOpacity onPress={openDateSelesaiPicker} style={styles.datePickerButton}>
+                  <Text style={[styles.datePickerText, !formData.tanggalSelesai && styles.datePickerPlaceholder]}>
+                    {formData.tanggalSelesai || 'DD/MM/YYYY'}
+                  </Text>
+                  <View style={styles.calendarIconButton}>
+                    <Ionicons name="calendar" size={20} color="#004643" />
+                  </View>
                 </TouchableOpacity>
+                {validationErrors.tanggalSelesai && (
+                  <Text style={styles.errorText}>
+                    {validationErrors.tanggalSelesai}
+                  </Text>
+                )}
               </View>
-              {validationErrors.tanggalSelesai && (
-                <Text style={styles.errorText}>
-                  {validationErrors.tanggalSelesai}
-                </Text>
-              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -1426,60 +1451,45 @@ export default function EditDinasScreen() {
         </ScrollView>
       )}
 
-      {/* Calendar Modals */}
-      <Modal
-        visible={showDateMulaiPicker}
-        transparent
-        animationType="none"
-        statusBarTranslucent={true}
-      >
+      {/* Calendar Modals - Bottom Sheet */}
+      <Modal visible={showDateMulaiPicker} transparent animationType="none" statusBarTranslucent={true} onRequestClose={closeDateMulaiPicker}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowDateMulaiPicker(false)}
-          />
-          <View style={styles.calendarModalContainer}>
-            <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>Pilih Tanggal Mulai</Text>
-              <TouchableOpacity onPress={() => setShowDateMulaiPicker(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeDateMulaiPicker} />
+          <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: translateYDateMulai }] }]}>
+            <View {...panResponderDateMulai.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            <CustomCalendar
-              onDatePress={(date) => handleDateMulaiSelect(date)}
-              weekendDays={[0, 6]}
-              showWeekends={false}
-            />
-          </View>
+            <View style={styles.calendarSheetContent}>
+              <Text style={styles.calendarSheetTitle}>Pilih Tanggal Mulai</Text>
+              <CustomCalendar 
+                onDatePress={(date: Date) => handleDateMulaiSelect(date)}
+                initialDate={parseDateFromString(formData.tanggalMulai)}
+                weekendDays={[0, 6]}
+                showWeekends={false}
+              />
+            </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <Modal
-        visible={showDateSelesaiPicker}
-        transparent
-        animationType="none"
-        statusBarTranslucent={true}
-      >
+      <Modal visible={showDateSelesaiPicker} transparent animationType="none" statusBarTranslucent={true} onRequestClose={closeDateSelesaiPicker}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowDateSelesaiPicker(false)}
-          />
-          <View style={styles.calendarModalContainer}>
-            <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>Pilih Tanggal Selesai</Text>
-              <TouchableOpacity onPress={() => setShowDateSelesaiPicker(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeDateSelesaiPicker} />
+          <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: translateYDateSelesai }] }]}>
+            <View {...panResponderDateSelesai.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            <CustomCalendar
-              onDatePress={(date) => handleDateSelesaiSelect(date)}
-              weekendDays={[0, 6]}
-              showWeekends={false}
-            />
-          </View>
+            <View style={styles.calendarSheetContent}>
+              <Text style={styles.calendarSheetTitle}>Pilih Tanggal Selesai</Text>
+              <CustomCalendar 
+                onDatePress={(date: Date) => handleDateSelesaiSelect(date)}
+                initialDate={parseDateFromString(formData.tanggalSelesai)}
+                startDate={parseDateFromString(formData.tanggalMulai)}
+                weekendDays={[0, 6]}
+                showWeekends={false}
+              />
+            </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -1743,6 +1753,30 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#F0F8F0",
   },
+  datePickerButton: {
+    backgroundColor: "#F8F9FA",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: "#333",
+    flex: 1
+  },
+  datePickerPlaceholder: {
+    color: "#999"
+  },
+  calendarIconButton: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: "#F0F8F0"
+  },
   dropdownBtn: {
     backgroundColor: "#F8F9FA",
     borderRadius: 8,
@@ -1891,6 +1925,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  dateRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16
+  },
+  dateInputHalf: {
+    flex: 1
+  },
   inputError: {
     borderColor: "#F44336",
     borderWidth: 2,
@@ -1905,16 +1947,44 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)'
   },
   modalBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1
+  },
+  calendarBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+    maxHeight: SCREEN_HEIGHT * 0.7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2
+  },
+  calendarSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16
+  },
+  calendarSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center'
   },
   confirmModalContainer: {
     backgroundColor: "#fff",

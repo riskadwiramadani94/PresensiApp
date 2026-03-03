@@ -16,6 +16,7 @@ const getTracking = async (req, res) => {
         p.foto_profil,
         pr.tanggal,
         pr.jam_masuk,
+        pr.jam_pulang,
         COALESCE(lr.lintang, pr.lintang_masuk) AS latitude,
         COALESCE(lr.bujur, pr.bujur_masuk) AS longitude,
         lr.last_update,
@@ -36,15 +37,65 @@ const getTracking = async (req, res) => {
         pr.jam_masuk DESC
     `);
 
+    // Hitung jarak dari kantor terdekat untuk setiap pegawai
+    const [lokasiKantor] = await db.execute(`
+      SELECT id, nama_lokasi, lintang, bujur, radius FROM lokasi_kantor WHERE is_active = 1
+    `);
+
+    const pegawaiWithDistance = results.map(pegawai => {
+      let jarakTerdekat = null;
+      let kantorTerdekat = null;
+      
+      if (pegawai.latitude && pegawai.longitude && lokasiKantor.length > 0) {
+        // Cari kantor terdekat
+        lokasiKantor.forEach(kantor => {
+          const jarak = hitungJarak(
+            pegawai.latitude,
+            pegawai.longitude,
+            kantor.lintang,
+            kantor.bujur
+          );
+          
+          if (jarakTerdekat === null || jarak < jarakTerdekat) {
+            jarakTerdekat = jarak;
+            kantorTerdekat = kantor;
+          }
+        });
+      }
+      
+      return {
+        ...pegawai,
+        jarak_dari_kantor: jarakTerdekat,
+        kantor_terdekat: kantorTerdekat?.nama_lokasi,
+        radius_kantor: kantorTerdekat?.radius || 50
+      };
+    });
+
     res.json({
       success: true,
-      data: results
+      data: pegawaiWithDistance
     });
 
   } catch (error) {
     console.error('Tracking error:', error);
     res.json({ success: false, message: 'Database error: ' + error.message });
   }
+};
+
+// Fungsi hitung jarak menggunakan Haversine formula
+const hitungJarak = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000; // Radius bumi dalam meter
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return Math.round(R * c); // Jarak dalam meter
 };
 
 const updateLocation = async (req, res) => {

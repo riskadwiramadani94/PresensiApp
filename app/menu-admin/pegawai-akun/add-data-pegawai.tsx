@@ -34,11 +34,13 @@ export default function AddDataPegawaiForm() {
   // New states for improvements
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
   
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const calendarTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const successModalScale = useRef(new Animated.Value(0)).current;
 
   const generateEmail = (nama: string) => {
     if (!nama.trim()) return '';
@@ -451,24 +453,13 @@ export default function AddDataPegawaiForm() {
       
       if (result.success) {
         await clearDraftData();
-        Alert.alert('Sukses', 'Data pegawai berhasil ditambahkan!', [
-          { text: 'OK', onPress: () => {
-              setFormData({
-                nama_lengkap: '',
-                email: '',
-                password: '',
-                nip: '',
-                jenis_kelamin: '',
-                jabatan: '',
-                divisi: '',
-                no_telepon: '',
-                alamat: '',
-                tanggal_lahir: ''
-              });
-              router.back();
-            }
-          }
-        ]);
+        setShowSuccessModal(true);
+        Animated.spring(successModalScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11
+        }).start();
       } else {
         Alert.alert('Error', result.message || 'Gagal menambahkan data pegawai');
       }
@@ -477,6 +468,29 @@ export default function AddDataPegawaiForm() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const closeSuccessModal = () => {
+    Animated.timing(successModalScale, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setShowSuccessModal(false);
+      setFormData({
+        nama_lengkap: '',
+        email: '',
+        password: '',
+        nip: '',
+        jenis_kelamin: '',
+        jabatan: '',
+        divisi: '',
+        no_telepon: '',
+        alamat: '',
+        tanggal_lahir: ''
+      });
+      router.back();
+    });
   };
 
   return (
@@ -859,6 +873,36 @@ export default function AddDataPegawaiForm() {
                   </TouchableOpacity>
                 </View>
               </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        {/* Success Modal */}
+        <Modal 
+          visible={showSuccessModal} 
+          transparent
+          animationType="none"
+          statusBarTranslucent
+          onRequestClose={closeSuccessModal}
+        >
+          <View style={styles.successModalOverlay}>
+            <Animated.View style={[styles.successModalContainer, {
+              transform: [{ scale: successModalScale }]
+            }]}>
+              <View style={styles.successIconContainer}>
+                <Ionicons name="checkmark-circle" size={48} color="#fff" />
+              </View>
+              
+              <Text style={styles.successModalMessage}>
+                Data pegawai berhasil ditambahkan!
+              </Text>
+              
+              <TouchableOpacity
+                style={styles.successButton}
+                onPress={closeSuccessModal}
+              >
+                <Text style={styles.successButtonText}>OK</Text>
+              </TouchableOpacity>
             </Animated.View>
           </View>
         </Modal>
@@ -1362,5 +1406,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#004643'
-  }
+  },
+  
+  // Success Modal Styles
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  successModalContainer: {
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successModalMessage: {
+    fontSize: 18,
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 28,
+    fontWeight: '600',
+  },
+  successButton: {
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  successButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#004643',
+  },
 });

@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
-    Alert,
     Animated,
     Dimensions,
     KeyboardAvoidingView,
@@ -20,6 +19,8 @@ import {
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { AppHeader } from "../../../components";
+import { CustomAlert } from "../../../components/CustomAlert";
+import { useCustomAlert } from "../../../hooks/useCustomAlert";
 import {
     API_CONFIG,
     getApiUrl,
@@ -38,6 +39,7 @@ interface JamKerjaHari {
 
 export default function JamKerjaScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [loading, setLoading] = useState(false);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -137,11 +139,11 @@ export default function JamKerjaScreen() {
       if (response.ok && result.success) {
         setJamKerjaList(updated);
       } else {
-        Alert.alert("Error", result.message || "Gagal menyimpan perubahan");
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal menyimpan perubahan' });
       }
     } catch (error) {
       console.error("Toggle error:", error);
-      Alert.alert("Error", "Gagal menyimpan perubahan");
+      alert.showAlert({ type: 'error', message: 'Gagal menyimpan perubahan' });
     } finally {
       setSavingIndex(null);
     }
@@ -197,7 +199,7 @@ export default function JamKerjaScreen() {
 
   const handleSaveEdit = async () => {
     if (!editJamMasuk || !editBatasAbsen || !editJamPulang) {
-      Alert.alert("Error", "Semua jam harus diisi");
+      alert.showAlert({ type: 'error', message: 'Semua jam harus diisi' });
       return;
     }
 
@@ -220,13 +222,13 @@ export default function JamKerjaScreen() {
       if (response.ok && result.success) {
         setJamKerjaList(updated);
         closeModal();
-        Alert.alert("Sukses", "Jam kerja berhasil diperbarui");
+        alert.showAlert({ type: 'success', message: 'Jam kerja berhasil diperbarui', autoClose: true });
       } else {
-        Alert.alert("Error", result.message || "Gagal menyimpan perubahan");
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal menyimpan perubahan' });
       }
     } catch (error) {
       console.error("Save edit error:", error);
-      Alert.alert("Error", "Gagal menyimpan perubahan");
+      alert.showAlert({ type: 'error', message: 'Gagal menyimpan perubahan' });
     } finally {
       setLoading(false);
     }
@@ -488,6 +490,14 @@ export default function JamKerjaScreen() {
         onCancel={() => setShowJamPulangPicker(false)}
         is24Hour={true}
         display="default"
+      />
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
       />
     </KeyboardAvoidingView>
   );

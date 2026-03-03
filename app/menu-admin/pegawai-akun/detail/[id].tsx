@@ -22,6 +22,20 @@ export default function DetailPegawai() {
   const [pegawai, setPegawai] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Format tanggal dari ISO ke DD/MM/YYYY
+  const formatDateFromISO = (isoDate: string) => {
+    if (!isoDate) return 'Belum diisi';
+    try {
+      const date = new Date(isoDate);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      return 'Format tanggal tidak valid';
+    }
+  };
+
   // Fungsi untuk mengecek kelengkapan data
   const isDataComplete = (data: any) => {
     return (
@@ -291,7 +305,7 @@ export default function DetailPegawai() {
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Tanggal Lahir</Text>
                     <Text style={styles.infoValue}>
-                      {pegawai.tanggal_lahir || "Belum diisi"}
+                      {formatDateFromISO(pegawai.tanggal_lahir)}
                     </Text>
                   </View>
                 </View>

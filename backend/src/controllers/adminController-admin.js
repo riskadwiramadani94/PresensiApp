@@ -189,7 +189,8 @@ const getAdminData = async (req, res) => {
       SELECT 
         p.nama_lengkap,
         pr.status,
-        TIME_FORMAT(pr.jam_masuk, '%H:%i') as jam_masuk
+        TIME_FORMAT(pr.jam_masuk, '%H:%i:%s') as jam_masuk,
+        p.foto_profil
       FROM presensi pr
       LEFT JOIN users u ON pr.id_user = u.id_user
       LEFT JOIN pegawai p ON u.id_user = p.id_user

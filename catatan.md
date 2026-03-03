@@ -1,0 +1,1 @@
+nah jangan gt jadi gini misalnya aktivitas hari ini itu ahmad melakukan pengajuan dan absen berarti dua yang muncul ahmad pukul beapa absen nya hadir atau terlambat nah terus dibawahnya ahmad pengajuan apa pukul sekarang menunggu jika sudah di setujui berubah paham ga jelaskan jangan di kerjakan

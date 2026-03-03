@@ -25,6 +25,7 @@ const performaPegawaiRoutes = require('./src/routes/performa-pegawai');
 const lemburRoutes = require('./src/routes/lembur');
 const inboxPegawaiRoutes = require('./src/routes/inbox-pegawai');
 const faqRoutes = require('./src/routes/faq');
+const calendarRoutes = require('./src/routes/calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,6 +59,7 @@ app.use('/pegawai/api', performaPegawaiRoutes);
 app.use('/pegawai/lembur/api', lemburRoutes);
 app.use('/pegawai/inbox/api', inboxPegawaiRoutes);
 app.use('/api/faq', faqRoutes);
+app.use('/api', calendarRoutes);
 
 // Health check
 app.get('/', (req, res) => {

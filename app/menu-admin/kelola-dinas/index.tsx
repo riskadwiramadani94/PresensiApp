@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as NavigationBar from "expo-navigation-bar";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Alert,
     Animated,
@@ -10,6 +10,7 @@ import {
     Modal,
     PanResponder,
     Platform,
+    RefreshControl,
     StyleSheet,
     Text,
     TextInput,
@@ -40,12 +41,14 @@ interface DinasAktif {
 
 export default function KelolaDinasScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const alert = useCustomAlert();
-  const [selectedFilter, setSelectedFilter] = useState("berlangsung");
+  const [selectedFilter, setSelectedFilter] = useState("semua");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [dinasAktif, setDinasAktif] = useState<DinasAktif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedDinas, setSelectedDinas] = useState<DinasAktif | null>(null);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -151,6 +154,26 @@ export default function KelolaDinasScreen() {
 
   useEffect(() => {
     fetchDinasAktif();
+  }, [selectedFilter]);
+
+  // Listen for refresh parameter
+  useEffect(() => {
+    if (params.refresh) {
+      fetchDinasAktif();
+    }
+  }, [params.refresh]);
+
+  // Refresh when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchDinasAktif();
+    }, [])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchDinasAktif();
+    setRefreshing(false);
   }, [selectedFilter]);
 
   const fetchDinasAktif = async () => {
@@ -270,7 +293,6 @@ export default function KelolaDinasScreen() {
         alert.showAlert({ 
           type: 'success', 
           message: 'Data dinas berhasil dihapus',
-          autoClose: true,
           onConfirm: () => fetchDinasAktif()
         });
       } else {
@@ -401,7 +423,7 @@ export default function KelolaDinasScreen() {
 
       {/* HEADER */}
       <AppHeader
-        title="Data Dinas"
+        title="Dinas"
         showBack={true}
         showAddButton={true}
         onAddPress={() => router.push("/menu-admin/kelola-dinas/tambah-dinas" as any)}
@@ -486,8 +508,14 @@ export default function KelolaDinasScreen() {
             renderItem={renderDinasCard}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshing={false}
-            onRefresh={fetchDinasAktif}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#004643"]}
+                tintColor="#004643"
+              />
+            }
             ListEmptyComponent={() => (
               <View style={styles.emptyState}>
                 <Ionicons name="briefcase-outline" size={60} color="#ccc" />
