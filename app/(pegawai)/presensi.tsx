@@ -117,7 +117,7 @@ export default function PresensiScreen() {
         setHasCheckedIn(true);
         
         if (hasPresensi) {
-          setCheckInTime(response1.data.presensi_hari_ini.jam_masuk.substring(0, 5));
+          setCheckInTime(response1.data.presensi_hari_ini.jam_masuk.substring(0, 8));
         } else if (hasDinas) {
           setCheckInTime(data2.check_in_time);
         }

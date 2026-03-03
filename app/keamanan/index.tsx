@@ -18,6 +18,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { API_CONFIG, getApiUrl } from "../../constants/config";
 import AppHeader from "../../components/AppHeader";
+import { CustomAlert } from "../../components/CustomAlert";
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 
 export const unstable_settings = {
   presentation: 'modal'
@@ -25,6 +27,7 @@ export const unstable_settings = {
 
 export default function PengaturanKeamananScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [showPasswordLama, setShowPasswordLama] = useState(false);
   const [showPasswordBaru, setShowPasswordBaru] = useState(false);
   const [showKonfirmasiPassword, setShowKonfirmasiPassword] = useState(false);
@@ -78,16 +81,15 @@ export default function PengaturanKeamananScreen() {
         
         if (!userId) {
           console.warn('User ID not found in userData');
-          Alert.alert("Warning", "Data pengguna tidak lengkap. Silakan login ulang.");
+          alert.showAlert({ type: 'error', message: 'Data pengguna tidak lengkap. Silakan login ulang.' });
         }
       } else {
         console.warn('No userData found in AsyncStorage');
-        Alert.alert("Error", "Data pengguna tidak ditemukan. Silakan login ulang.");
-        router.replace("/");
+        alert.showAlert({ type: 'error', message: 'Data pengguna tidak ditemukan. Silakan login ulang.', onConfirm: () => router.replace('/') });
       }
     } catch (error) {
       console.error("Error loading current data:", error);
-      Alert.alert("Error", "Gagal memuat data pengguna");
+      alert.showAlert({ type: 'error', message: 'Gagal memuat data pengguna' });
     }
   };
   
@@ -101,19 +103,19 @@ export default function PengaturanKeamananScreen() {
 
   const handleUpdateProfile = async () => {
     if (!formData.passwordLama) {
-      Alert.alert("Error", "Password lama harus diisi");
+      alert.showAlert({ type: 'error', message: 'Password lama harus diisi' });
       return;
     }
     if (!formData.passwordBaru) {
-      Alert.alert("Error", "Password baru harus diisi");
+      alert.showAlert({ type: 'error', message: 'Password baru harus diisi' });
       return;
     }
     if (formData.passwordBaru !== formData.konfirmasiPassword) {
-      Alert.alert("Error", "Password baru dan konfirmasi tidak cocok");
+      alert.showAlert({ type: 'error', message: 'Password baru dan konfirmasi tidak cocok' });
       return;
     }
     if (formData.passwordBaru.length < 6) {
-      Alert.alert("Error", "Password minimal 6 karakter");
+      alert.showAlert({ type: 'error', message: 'Password minimal 6 karakter' });
       return;
     }
 
@@ -122,8 +124,7 @@ export default function PengaturanKeamananScreen() {
       const userData = userDataStr ? JSON.parse(userDataStr) : null;
 
       if (!userData) {
-        Alert.alert("Error", "Silakan login ulang");
-        router.replace("/");
+        alert.showAlert({ type: 'error', message: 'Silakan login ulang', onConfirm: () => router.replace('/') });
         return;
       }
 
@@ -131,8 +132,7 @@ export default function PengaturanKeamananScreen() {
       const userRole = userData.role;
 
       if (!userId) {
-        Alert.alert("Error", "ID pengguna tidak ditemukan. Silakan login ulang.");
-        router.replace("/");
+        alert.showAlert({ type: 'error', message: 'ID pengguna tidak ditemukan. Silakan login ulang.', onConfirm: () => router.replace('/') });
         return;
       }
 
@@ -172,15 +172,17 @@ export default function PengaturanKeamananScreen() {
       if (result.success) {
         await AsyncStorage.removeItem('userData');
         await AsyncStorage.removeItem('userToken');
-        Alert.alert("Sukses", "Password berhasil diubah. Silakan login ulang.", [
-          { text: "OK", onPress: () => router.replace('/') }
-        ]);
+        alert.showAlert({ 
+          type: 'success', 
+          message: 'Password berhasil diubah. Silakan login ulang.',
+          onConfirm: () => router.replace('/')
+        });
       } else {
-        Alert.alert("Error", result.message || "Gagal update password");
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal update password' });
       }
     } catch (error) {
       console.error("Update Profile Error:", error);
-      Alert.alert("Error", "Gagal update profil");
+      alert.showAlert({ type: 'error', message: 'Gagal update profil' });
     }
   };
 
@@ -305,6 +307,14 @@ export default function PengaturanKeamananScreen() {
         </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+      />
     </View>
   );
 }

@@ -20,6 +20,8 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppHeader from '../../components/AppHeader';
 import { API_CONFIG, getApiUrl } from '../../constants/config';
+import { CustomAlert } from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 export const unstable_settings = {
   presentation: 'modal'
@@ -34,6 +36,7 @@ interface ProfileData {
 
 export default function EditProfilAdminScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<ProfileData>({
@@ -69,8 +72,7 @@ export default function EditProfilAdminScreen() {
       const userData = userDataStr ? JSON.parse(userDataStr) : null;
 
       if (!userData) {
-        Alert.alert('Error', 'Silakan login ulang');
-        router.replace('/');
+        alert.showAlert({ type: 'error', message: 'Silakan login ulang', onConfirm: () => router.replace('/') });
         return;
       }
 
@@ -116,7 +118,7 @@ export default function EditProfilAdminScreen() {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
-      Alert.alert('Error', 'Gagal memuat profil');
+      alert.showAlert({ type: 'error', message: 'Gagal memuat profil' });
     } finally {
       setLoading(false);
     }
@@ -127,7 +129,7 @@ export default function EditProfilAdminScreen() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Izin akses galeri diperlukan');
+        alert.showAlert({ type: 'error', message: 'Izin akses galeri diperlukan' });
         return;
       }
 
@@ -143,7 +145,7 @@ export default function EditProfilAdminScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Gagal memilih foto');
+      alert.showAlert({ type: 'error', message: 'Gagal memilih foto' });
     }
   };
 
@@ -183,8 +185,7 @@ export default function EditProfilAdminScreen() {
       const userData = userDataStr ? JSON.parse(userDataStr) : null;
 
       if (!userData) {
-        Alert.alert('Error', 'Silakan login ulang');
-        router.replace('/');
+        alert.showAlert({ type: 'error', message: 'Silakan login ulang', onConfirm: () => router.replace('/') });
         return;
       }
 
@@ -227,7 +228,6 @@ export default function EditProfilAdminScreen() {
       const result = await response.json();
 
       if (result.success) {
-        // Update AsyncStorage
         const updatedUserData = {
           ...userData,
           nama_lengkap: profile.nama_lengkap,
@@ -237,15 +237,17 @@ export default function EditProfilAdminScreen() {
         };
         await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
 
-        Alert.alert('Berhasil', 'Profil berhasil diperbarui', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+        alert.showAlert({ 
+          type: 'success', 
+          message: 'Profil berhasil diperbarui',
+          onConfirm: () => router.back()
+        });
       } else {
-        Alert.alert('Error', result.message || 'Gagal memperbarui profil');
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal memperbarui profil' });
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', 'Gagal memperbarui profil');
+      alert.showAlert({ type: 'error', message: 'Gagal memperbarui profil' });
     } finally {
       setSaving(false);
     }
@@ -429,6 +431,14 @@ export default function EditProfilAdminScreen() {
         </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+      />
     </View>
   );
 }

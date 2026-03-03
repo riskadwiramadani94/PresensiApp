@@ -16,8 +16,9 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
-import { AppHeader } from "../../../components";
+import { AppHeader, CustomAlert } from "../../../components";
 import { KelolaDinasAPI } from "../../../constants/config";
+import { useCustomAlert } from "../../../hooks/useCustomAlert";
 
 interface DinasAktif {
   id: number;
@@ -39,6 +40,7 @@ interface DinasAktif {
 
 export default function KelolaDinasScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [selectedFilter, setSelectedFilter] = useState("berlangsung");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -265,14 +267,18 @@ export default function KelolaDinasScreen() {
     try {
       const result = await KelolaDinasAPI.deleteDinas(id);
       if (result.success) {
-        Alert.alert("Sukses", result.message || "Data dinas berhasil dihapus");
-        fetchDinasAktif();
+        alert.showAlert({ 
+          type: 'success', 
+          message: 'Data dinas berhasil dihapus',
+          autoClose: true,
+          onConfirm: () => fetchDinasAktif()
+        });
       } else {
-        Alert.alert("Error", result.message || "Gagal menghapus data dinas");
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal menghapus data dinas' });
       }
     } catch (error) {
       console.error("Delete error:", error);
-      Alert.alert("Error", "Tidak dapat terhubung ke server");
+      alert.showAlert({ type: 'error', message: 'Tidak dapat terhubung ke server' });
     }
   };
 
@@ -701,33 +707,18 @@ export default function KelolaDinasScreen() {
       <Modal
         visible={showDeleteModal}
         transparent={true}
-        animationType="none"
+        animationType="fade"
         statusBarTranslucent={true}
         onRequestClose={() => setShowDeleteModal(false)}
       >
         <View style={styles.deleteModalOverlay}>
           <View style={styles.deleteModalContainer}>
             <View style={styles.deleteIconContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color="#FF4444" />
+              <Ionicons name="trash-outline" size={48} color="#fff" />
             </View>
-
-            <Text style={styles.deleteModalTitle}>Hapus Data Dinas</Text>
 
             <Text style={styles.deleteModalMessage}>
-              Apakah Anda yakin ingin menghapus data dinas:
-            </Text>
-
-            <View style={styles.employeeInfoCard}>
-              <Text style={styles.employeeName}>
-                {selectedDinas?.namaKegiatan}
-              </Text>
-              <Text style={styles.employeeDetail}>
-                {selectedDinas?.nomorSpt}
-              </Text>
-            </View>
-
-            <Text style={styles.warningText}>
-              Data yang dihapus tidak dapat dikembalikan
+              Hapus data dinas?
             </Text>
 
             <View style={styles.deleteModalButtons}>
@@ -747,12 +738,24 @@ export default function KelolaDinasScreen() {
                   );
                 }}
               >
-                <Text style={styles.deleteButtonText}>Ya, Hapus</Text>
+                <Text style={styles.deleteButtonText}>Hapus</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+        autoClose={alert.config.type === 'success'}
+      />
     </View>
   );
 }
@@ -1118,63 +1121,36 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
   },
   deleteModalContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: "#004643",
+    borderRadius: 20,
+    padding: 32,
     width: "100%",
-    maxWidth: 320,
+    maxWidth: 300,
     alignItems: "center",
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   deleteIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#FFEBEE",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
-  },
-  deleteModalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 8,
-    textAlign: "center",
+    marginBottom: 20,
   },
   deleteModalMessage: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 18,
+    color: "#fff",
     textAlign: "center",
-    marginBottom: 16,
-  },
-  employeeInfoCard: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 12,
-    padding: 16,
-    width: "100%",
-    marginBottom: 16,
-  },
-  employeeName: {
-    fontSize: 16,
+    marginBottom: 28,
     fontWeight: "600",
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 6,
-  },
-  employeeDetail: {
-    fontSize: 13,
-    color: "#666",
-    textAlign: "center",
-  },
-  warningText: {
-    fontSize: 12,
-    color: "#FF8C00",
-    textAlign: "center",
-    marginBottom: 20,
-    fontStyle: "italic",
   },
   deleteModalButtons: {
     flexDirection: "row",
@@ -1183,28 +1159,28 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E9ECEF",
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   cancelButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#6C757D",
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
   },
   deleteButton: {
     flex: 1,
-    backgroundColor: "#FF4444",
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: "#F44336",
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: "center",
   },
   deleteButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
     color: "#fff",
   },
 

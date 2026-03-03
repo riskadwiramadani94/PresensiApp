@@ -17,7 +17,8 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
-import { AppHeader, SkeletonLoader } from "../../../components";
+import { AppHeader, SkeletonLoader, CustomAlert } from "../../../components";
+import { useCustomAlert } from "../../../hooks/useCustomAlert";
 import { PengaturanAPI } from "../../../constants/config";
 
 /* ========================================
@@ -41,8 +42,13 @@ interface JamKerjaHari {
 ======================================== */
 export default function KalenderLiburScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [selectedHoliday, setSelectedHoliday] = useState<HariLibur | null>(null);
   const [hariLibur, setHariLibur] = useState<HariLibur[]>([]);
   const [jamKerja, setJamKerja] = useState<JamKerjaHari[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -215,18 +221,8 @@ export default function KalenderLiburScreen() {
     if (!date) return;
     const holiday = getHolidayInfo(date);
     if (holiday) {
-      Alert.alert(
-        holiday.nama_libur,
-        `Jenis: ${holiday.jenis}\nTanggal: ${new Date(holiday.tanggal).toLocaleDateString("id-ID")}`,
-        [
-          {
-            text: "Hapus",
-            style: "destructive",
-            onPress: () => handleDeleteHoliday(holiday.id),
-          },
-          { text: "Tutup", style: "cancel" },
-        ],
-      );
+      setSelectedHoliday(holiday);
+      setShowDeleteModal(true);
     } else {
       setSelectedDate(date);
       setFormData({ namaLibur: "", jenis: "nasional" });
@@ -236,20 +232,17 @@ export default function KalenderLiburScreen() {
 
   const handleSaveHoliday = async () => {
     if (!selectedDate || !formData.namaLibur.trim()) {
-      Alert.alert("Error", "Nama libur wajib diisi");
+      alert.showAlert({ type: 'error', message: 'Nama libur wajib diisi' });
       return;
     }
 
     try {
       setLoading(true);
 
-      // Format tanggal dengan benar (YYYY-MM-DD) tanpa konversi timezone
       const year = selectedDate.getFullYear();
       const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
       const day = String(selectedDate.getDate()).padStart(2, "0");
       const formattedDate = `${year}-${month}-${day}`;
-
-      console.log("Tanggal yang dipilih:", formattedDate);
 
       const response = await PengaturanAPI.saveHariLibur({
         tanggal: formattedDate,
@@ -258,9 +251,8 @@ export default function KalenderLiburScreen() {
       });
 
       if (response.success) {
-        // Update state lokal langsung untuk refresh UI
         const newHoliday: HariLibur = {
-          id: response.data?.id || Date.now(), // fallback ID jika tidak ada dari response
+          id: response.data?.id || Date.now(),
           tanggal: formattedDate,
           nama_libur: formData.namaLibur.trim(),
           jenis: formData.jenis,
@@ -268,37 +260,40 @@ export default function KalenderLiburScreen() {
 
         setHariLibur((prev) => [...prev, newHoliday]);
         closeModal();
-
-        Alert.alert("Sukses", "Hari libur berhasil ditambahkan");
-
-        // Fetch ulang untuk memastikan sinkronisasi dengan server
-        await fetchHariLibur();
+        setSuccessMessage("Hari libur berhasil ditambahkan");
+        setShowSuccessModal(true);
+        setTimeout(() => {
+          setShowSuccessModal(false);
+          fetchHariLibur();
+        }, 1500);
       } else {
-        Alert.alert("Error", response.message || "Gagal menyimpan hari libur");
+        alert.showAlert({ type: 'error', message: response.message || 'Gagal menyimpan hari libur' });
       }
     } catch (error) {
-      Alert.alert("Error", "Terjadi kesalahan saat menyimpan");
+      alert.showAlert({ type: 'error', message: 'Terjadi kesalahan saat menyimpan' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteHoliday = async (id: number) => {
+  const handleDeleteHoliday = async () => {
+    if (!selectedHoliday) return;
+    setShowDeleteModal(false);
     try {
-      const response = await PengaturanAPI.deleteHariLibur(id);
+      const response = await PengaturanAPI.deleteHariLibur(selectedHoliday.id);
       if (response.success) {
-        // Update state lokal langsung untuk refresh UI
-        setHariLibur((prev) => prev.filter((h) => h.id !== id));
-
-        Alert.alert("Sukses", "Hari libur berhasil dihapus");
-
-        // Fetch ulang untuk memastikan sinkronisasi dengan server
-        await fetchHariLibur();
+        setHariLibur((prev) => prev.filter((h) => h.id !== selectedHoliday.id));
+        setSuccessMessage("Hari libur berhasil dihapus");
+        setShowSuccessModal(true);
+        setTimeout(() => {
+          setShowSuccessModal(false);
+          fetchHariLibur();
+        }, 1500);
       } else {
-        Alert.alert("Error", response.message || "Gagal menghapus hari libur");
+        alert.showAlert({ type: 'error', message: response.message || 'Gagal menghapus hari libur' });
       }
     } catch (error) {
-      Alert.alert("Error", "Terjadi kesalahan saat menghapus");
+      alert.showAlert({ type: 'error', message: 'Terjadi kesalahan saat menghapus' });
     }
   };
 
@@ -469,7 +464,10 @@ export default function KalenderLiburScreen() {
                       </View>
                     </View>
                     <TouchableOpacity
-                      onPress={() => handleDeleteHoliday(item.id)}
+                      onPress={() => {
+                        setSelectedHoliday(item);
+                        setShowDeleteModal(true);
+                      }}
                     >
                       <Ionicons
                         name="trash-outline"
@@ -573,6 +571,67 @@ export default function KalenderLiburScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteIconContainer}>
+              <Ionicons name="trash-outline" size={48} color="#fff" />
+            </View>
+            <Text style={styles.deleteModalMessage}>Hapus hari libur ini?</Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteCancelButton}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.deleteCancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteConfirmButton}
+                onPress={handleDeleteHoliday}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Hapus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+      >
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContainer}>
+            <View style={styles.successIconContainer}>
+              <Ionicons name="checkmark-circle-outline" size={48} color="#fff" />
+            </View>
+            <Text style={styles.successMessage}>{successMessage}</Text>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+        autoClose={alert.config.type === 'success'}
+      />
     </View>
   );
 }
@@ -969,5 +1028,108 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 6,
     textAlign: "center",
+  },
+
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  deleteModalContainer: {
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  deleteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  deleteModalMessage: {
+    fontSize: 18,
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 28,
+    fontWeight: '600',
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteCancelButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  deleteCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: '#F44336',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  deleteConfirmButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  successModalContainer: {
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    minWidth: 200,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successMessage: {
+    fontSize: 18,
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });

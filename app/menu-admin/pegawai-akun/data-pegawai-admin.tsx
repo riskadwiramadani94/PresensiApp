@@ -21,7 +21,8 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
 import { API_CONFIG, getApiUrl, PegawaiAkunAPI } from "../../../constants/config";
-import { AppHeader, SkeletonLoader } from "../../../components";
+import { AppHeader, SkeletonLoader, CustomAlert } from "../../../components";
+import { useCustomAlert } from "../../../hooks/useCustomAlert";
 
 interface PegawaiData {
   id_pegawai?: number;
@@ -54,6 +55,7 @@ export default function DataPegawaiAdminScreen() {
   const [selectedPegawai, setSelectedPegawai] = useState<PegawaiData | null>(null);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const alert = useCustomAlert();
   const translateY = useRef(new Animated.Value(300)).current;
   const deleteModalScale = useRef(new Animated.Value(0)).current;
 
@@ -178,14 +180,14 @@ export default function DataPegawaiAdminScreen() {
         setPegawai(result.data);
         setFilteredPegawai(result.data);
       } else {
-        Alert.alert("Error", result.message || "Gagal memuat data pegawai");
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal memuat data pegawai' });
       }
     } catch (error) {
       console.error('Fetch error:', error);
-      Alert.alert(
-        "Koneksi Error",
-        "Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.\n\nDetail: " + (error as Error).message,
-      );
+      alert.showAlert({
+        type: 'error',
+        message: 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.',
+      });
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -204,13 +206,17 @@ export default function DataPegawaiAdminScreen() {
     try {
       const result = await PegawaiAkunAPI.deletePegawai(id);
       if (result.success) {
-        Alert.alert("Sukses", result.message);
-        fetchPegawai(); // Refresh data
+        alert.showAlert({ 
+          type: 'success', 
+          message: 'Data berhasil dihapus',
+          autoClose: true,
+          onConfirm: () => fetchPegawai()
+        });
       } else {
-        Alert.alert("Error", result.message);
+        alert.showAlert({ type: 'error', message: result.message });
       }
     } catch (error) {
-      Alert.alert("Error", "Gagal menghapus data pegawai");
+      alert.showAlert({ type: 'error', message: 'Gagal menghapus data' });
     }
   };
 
@@ -475,7 +481,7 @@ export default function DataPegawaiAdminScreen() {
       <Modal
         visible={showDeleteModal}
         transparent={true}
-        animationType="none"
+        animationType="fade"
         statusBarTranslucent={true}
         onRequestClose={closeDeleteModal}
       >
@@ -483,26 +489,13 @@ export default function DataPegawaiAdminScreen() {
           <View style={styles.deleteModalContainer}>
             {/* Icon */}
             <View style={styles.deleteIconContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color="#FF4444" />
+              <Ionicons name="trash-outline" size={48} color="#fff" />
             </View>
-            
-            {/* Title */}
-            <Text style={styles.deleteModalTitle}>Hapus Data Pegawai</Text>
             
             {/* Message */}
             <Text style={styles.deleteModalMessage}>
-              Apakah Anda yakin ingin menghapus data pegawai:
+              Hapus data pegawai?
             </Text>
-            
-            {/* Employee Info */}
-            <View style={styles.employeeInfoCard}>
-              <Text style={styles.employeeName}>{selectedPegawai?.nama_lengkap}</Text>
-              <Text style={styles.employeeDetail}>{selectedPegawai?.email || 'Email tidak tersedia'}</Text>
-              <Text style={styles.employeeDetail}>NIP: {selectedPegawai?.nip || 'Tidak tersedia'}</Text>
-            </View>
-            
-            {/* Warning */}
-            <Text style={styles.warningText}>Data yang dihapus tidak dapat dikembalikan</Text>
             
             {/* Buttons */}
             <View style={styles.deleteModalButtons}>
@@ -522,12 +515,23 @@ export default function DataPegawaiAdminScreen() {
                   );
                 }}
               >
-                <Text style={styles.deleteButtonText}>Ya, Hapus</Text>
+                <Text style={styles.deleteButtonText}>Hapus</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </View>
   );
 }
@@ -759,70 +763,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
   },
   deleteModalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 300,
     alignItems: 'center',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
   },
   deleteIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FFEBEE',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  deleteModalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 20,
   },
   deleteModalMessage: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 18,
+    color: '#fff',
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  employeeInfoCard: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    width: '100%',
-    marginBottom: 16,
-  },
-  employeeName: {
-    fontSize: 16,
+    marginBottom: 28,
     fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  employeeDetail: {
-    fontSize: 13,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  warningText: {
-    fontSize: 12,
-    color: '#FF8C00',
-    textAlign: 'center',
-    marginBottom: 20,
-    fontStyle: 'italic',
   },
   deleteModalButtons: {
     flexDirection: 'row',
@@ -831,28 +801,28 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E9ECEF',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6C757D',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
   deleteButton: {
     flex: 1,
-    backgroundColor: '#FF4444',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#F44336',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
   },
   deleteButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#fff',
   },
   

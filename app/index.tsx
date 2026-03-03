@@ -18,9 +18,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthAPI } from '../constants/config';
 import { AuthStorage } from '../utils/AuthStorage';
+import { CustomAlert } from '../components/CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -104,7 +107,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Peringatan", "Email dan Password harus diisi!");
+      alert.showAlert({ type: 'error', message: 'Email dan Password harus diisi!' });
       return;
     }
 
@@ -151,11 +154,11 @@ export default function LoginScreen() {
           router.replace('/(pegawai)/dashboard-pegawai');
         }
       } else {
-        Alert.alert("Login Gagal", result.message || "Email atau password salah");
+        alert.showAlert({ type: 'error', message: result.message || 'Email atau password salah' });
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert("Error", "Terjadi kesalahan jaringan. Silakan coba lagi.");
+      alert.showAlert({ type: 'error', message: 'Terjadi kesalahan jaringan. Silakan coba lagi.' });
     } finally {
       setLoading(false);
     }
@@ -290,6 +293,14 @@ export default function LoginScreen() {
         </View>
       </Animated.View>
       </KeyboardAvoidingView>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+      />
     </View>
   );
 }

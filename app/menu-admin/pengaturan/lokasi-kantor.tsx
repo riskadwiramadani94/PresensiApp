@@ -24,8 +24,9 @@ import {
     View,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { AppHeader } from "../../../components";
+import { AppHeader, CustomAlert } from "../../../components";
 import { PengaturanAPI } from "../../../constants/config";
+import { useCustomAlert } from "../../../hooks/useCustomAlert";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -43,6 +44,7 @@ export default function LokasiKantorScreen() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const alert = useCustomAlert();
 
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState<LokasiData[]>([]);
@@ -50,6 +52,7 @@ export default function LokasiKantorScreen() {
     null,
   );
   const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isAddMode, setIsAddMode] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [tempMarker, setTempMarker] = useState<{
@@ -181,12 +184,12 @@ export default function LokasiKantorScreen() {
 
   const handleSave = async () => {
     if (!formData.nama.trim()) {
-      Alert.alert("Info", "Nama lokasi wajib diisi");
+      alert.showAlert({ type: 'error', message: 'Nama lokasi wajib diisi' });
       return;
     }
 
     if (!tempMarker) {
-      Alert.alert("Info", "Lokasi belum dipilih");
+      alert.showAlert({ type: 'error', message: 'Lokasi belum dipilih' });
       return;
     }
 
@@ -195,7 +198,7 @@ export default function LokasiKantorScreen() {
       parseInt(formData.radius) < 10 ||
       parseInt(formData.radius) > 1000
     ) {
-      Alert.alert("Info", "Radius harus antara 10-1000 meter");
+      alert.showAlert({ type: 'error', message: 'Radius harus antara 10-1000 meter' });
       return;
     }
 
@@ -203,7 +206,6 @@ export default function LokasiKantorScreen() {
       setLoading(true);
 
       if (isEditMode && selectedLocation) {
-        // Update existing location
         const response = await PengaturanAPI.updateLokasi(selectedLocation.id, {
           nama_lokasi: formData.nama.trim(),
           alamat: tempMarker.address,
@@ -214,14 +216,18 @@ export default function LokasiKantorScreen() {
         });
 
         if (response.success) {
-          Alert.alert("Sukses", "Lokasi berhasil diupdate");
-          closeBottomSheet();
-          fetchLocations();
+          alert.showAlert({ 
+            type: 'success', 
+            message: 'Lokasi berhasil diupdate',
+            onConfirm: () => {
+              closeBottomSheet();
+              fetchLocations();
+            }
+          });
         } else {
-          Alert.alert("Info", response.message || "Gagal mengupdate lokasi");
+          alert.showAlert({ type: 'error', message: response.message || 'Gagal mengupdate lokasi' });
         }
       } else {
-        // Save new location
         const response = await PengaturanAPI.saveLokasiKantor({
           nama_lokasi: formData.nama.trim(),
           alamat: tempMarker.address,
@@ -232,15 +238,20 @@ export default function LokasiKantorScreen() {
         });
 
         if (response.success) {
-          Alert.alert("Sukses", "Lokasi berhasil disimpan");
-          closeBottomSheet();
-          fetchLocations();
+          alert.showAlert({ 
+            type: 'success', 
+            message: 'Lokasi berhasil disimpan',
+            onConfirm: () => {
+              closeBottomSheet();
+              fetchLocations();
+            }
+          });
         } else {
-          Alert.alert("Info", response.message || "Gagal menyimpan lokasi");
+          alert.showAlert({ type: 'error', message: response.message || 'Gagal menyimpan lokasi' });
         }
       }
     } catch (error) {
-      Alert.alert("Error", "Terjadi kesalahan saat menyimpan");
+      alert.showAlert({ type: 'error', message: 'Terjadi kesalahan saat menyimpan' });
     } finally {
       setLoading(false);
     }
@@ -275,34 +286,33 @@ export default function LokasiKantorScreen() {
   };
 
   const handleDelete = async () => {
-    if (!selectedLocation) return;
+    setShowDeleteModal(true);
+  };
 
-    Alert.alert("Konfirmasi", "Yakin ingin menghapus lokasi ini?", [
-      { text: "Batal", style: "cancel" },
-      {
-        text: "Hapus",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            setLoading(true);
-            const response = await PengaturanAPI.deleteLokasi(
-              selectedLocation.id,
-            );
-            if (response.success) {
-              Alert.alert("Sukses", "Lokasi berhasil dihapus");
-              closeBottomSheet();
-              fetchLocations();
-            } else {
-              Alert.alert("Info", response.message || "Gagal menghapus lokasi");
-            }
-          } catch (error) {
-            Alert.alert("Error", "Terjadi kesalahan saat menghapus");
-          } finally {
-            setLoading(false);
+  const confirmDelete = async () => {
+    if (!selectedLocation) return;
+    
+    setShowDeleteModal(false);
+    try {
+      setLoading(true);
+      const response = await PengaturanAPI.deleteLokasi(selectedLocation.id);
+      if (response.success) {
+        alert.showAlert({ 
+          type: 'success', 
+          message: 'Lokasi berhasil dihapus',
+          onConfirm: () => {
+            closeBottomSheet();
+            fetchLocations();
           }
-        },
-      },
-    ]);
+        });
+      } else {
+        alert.showAlert({ type: 'error', message: response.message || 'Gagal menghapus lokasi' });
+      }
+    } catch (error) {
+      alert.showAlert({ type: 'error', message: 'Terjadi kesalahan saat menghapus' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -632,6 +642,49 @@ export default function LokasiKantorScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteIconContainer}>
+              <Ionicons name="trash-outline" size={48} color="#fff" />
+            </View>
+            <Text style={styles.deleteModalMessage}>Hapus lokasi ini?</Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteCancelButton}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.deleteCancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteConfirmButton}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Hapus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </View>
   );
 }
@@ -671,8 +724,8 @@ const styles = StyleSheet.create({
   },
   map: { flex: 1 },
   customMarker: {
-    width: 35,
-    height: 35,
+    width: 37,
+    height: 37,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
@@ -890,5 +943,73 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#004643",
+  },
+
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  deleteModalContainer: {
+    backgroundColor: "#004643",
+    borderRadius: 20,
+    padding: 32,
+    width: "100%",
+    maxWidth: 300,
+    alignItems: "center",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  deleteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  deleteModalMessage: {
+    fontSize: 18,
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 28,
+    fontWeight: "600",
+  },
+  deleteModalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  deleteCancelButton: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  deleteCancelButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: "#F44336",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  deleteConfirmButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

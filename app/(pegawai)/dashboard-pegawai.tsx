@@ -49,10 +49,15 @@ export default function BerandaScreen() {
     fetchUserData();
     startLocationTracking();
     
-    // Update waktu setiap 30 detik
+    // Update waktu setiap 1 detik untuk menampilkan detik
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
-    }, 30000);
+    }, 1000);
+    
+    // Auto-reload data presensi setiap 5 detik
+    const dataInterval = setInterval(() => {
+      fetchUserData();
+    }, 5000);
     
     // Cek pergantian hari setiap 1 menit
     const dayCheckInterval = setInterval(() => {
@@ -71,6 +76,7 @@ export default function BerandaScreen() {
     
     return () => {
       clearInterval(timeInterval);
+      clearInterval(dataInterval);
       clearInterval(dayCheckInterval);
     };
   }, [lastCheckDate]);
@@ -129,7 +135,7 @@ export default function BerandaScreen() {
           const status = data.presensi_hari_ini.status;
           
           if (jamMasuk) {
-            jamMasukDisplay = jamMasuk.substring(0, 5);
+            jamMasukDisplay = jamMasuk.substring(0, 8);
             
             if (status === 'Terlambat') {
               statusAbsen = 'Terlambat';
@@ -141,7 +147,7 @@ export default function BerandaScreen() {
           }
           
           if (jamPulang) {
-            jamPulangDisplay = jamPulang.substring(0, 5);
+            jamPulangDisplay = jamPulang.substring(0, 8);
           }
         }
         
@@ -256,6 +262,7 @@ export default function BerandaScreen() {
                   {currentTime.toLocaleTimeString('id-ID', {
                     hour: '2-digit',
                     minute: '2-digit',
+                    second: '2-digit',
                   })} WIB
                 </Text>
               </View>

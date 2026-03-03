@@ -4,8 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppHeader } from '../../../components';
+import { AppHeader, CustomAlert } from '../../../components';
 import { PegawaiAPI, API_CONFIG, getApiUrl } from '../../../constants/config';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 type StatusType = 'semua' | 'menunggu' | 'disetujui' | 'ditolak';
 
@@ -28,6 +29,7 @@ interface PengajuanData {
 
 export default function PengajuanScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<StatusType>('semua');
@@ -35,6 +37,7 @@ export default function PengajuanScreen() {
   const [filteredPengajuan, setFilteredPengajuan] = useState<PengajuanData[]>([]);
   const [userId, setUserId] = useState<string>('');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPengajuan, setSelectedPengajuan] = useState<PengajuanData | null>(null);
@@ -263,6 +266,7 @@ export default function PengajuanScreen() {
   };
 
   const handleDeletePengajuan = async (id: number) => {
+    setShowDeleteModal(false);
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/${id}`, {
         method: 'DELETE'
@@ -271,14 +275,18 @@ export default function PengajuanScreen() {
       const result = await response.json();
       
       if (result.success) {
-        Alert.alert('Berhasil', 'Pengajuan berhasil dihapus');
-        fetchPengajuan(); // Refresh list
+        alert.showAlert({ 
+          type: 'success', 
+          message: 'Pengajuan berhasil dihapus',
+          autoClose: true,
+          onConfirm: () => fetchPengajuan()
+        });
       } else {
-        Alert.alert('Gagal', result.message || 'Gagal menghapus pengajuan');
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal menghapus pengajuan' });
       }
     } catch (error) {
       console.error('Error deleting pengajuan:', error);
-      Alert.alert('Error', 'Terjadi kesalahan saat menghapus pengajuan');
+      alert.showAlert({ type: 'error', message: 'Terjadi kesalahan saat menghapus pengajuan' });
     }
   };
 
@@ -590,18 +598,7 @@ export default function PengajuanScreen() {
                   style={styles.deleteButton}
                   onPress={() => {
                     closeDetailModal();
-                    Alert.alert(
-                      'Hapus Pengajuan',
-                      'Apakah Anda yakin ingin menghapus pengajuan ini?',
-                      [
-                        { text: 'Batal', style: 'cancel' },
-                        { 
-                          text: 'Hapus', 
-                          style: 'destructive',
-                          onPress: () => handleDeletePengajuan(selectedPengajuan.id_pengajuan)
-                        }
-                      ]
-                    );
+                    setTimeout(() => setShowDeleteModal(true), 300);
                   }}
                 >
                   <Ionicons name="trash-outline" size={20} color="#fff" />
@@ -612,6 +609,55 @@ export default function PengajuanScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteIconContainer}>
+              <Ionicons name="trash-outline" size={48} color="#fff" />
+            </View>
+            <Text style={styles.deleteModalMessage}>Hapus pengajuan ini?</Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteCancelButton}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.deleteCancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteConfirmButton}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  if (selectedPengajuan) {
+                    handleDeletePengajuan(selectedPengajuan.id_pengajuan);
+                  }
+                }}
+              >
+                <Text style={styles.deleteConfirmButtonText}>Hapus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+        autoClose={alert.config.type === 'success'}
+      />
     </View>
   );
 }
@@ -997,6 +1043,74 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   deleteButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  deleteModalContainer: {
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  deleteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  deleteModalMessage: {
+    fontSize: 18,
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 28,
+    fontWeight: '600',
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteCancelButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  deleteCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    backgroundColor: '#F44336',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  deleteConfirmButtonText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',

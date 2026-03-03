@@ -20,8 +20,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { API_CONFIG, getApiUrl } from "../../constants/config";
-import { SkeletonLoader, AppHeader } from "../../components";
+import { SkeletonLoader, AppHeader, CustomAlert } from "../../components";
 import * as ImagePicker from 'expo-image-picker';
+import { useCustomAlert } from "../../hooks/useCustomAlert";
 
 /* ========================================
    TYPES & INTERFACES
@@ -41,6 +42,7 @@ interface AdminProfile {
 export default function ProfilAdminScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const alert = useCustomAlert();
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [logoutModal, setLogoutModal] = useState(false);
@@ -64,8 +66,7 @@ export default function ProfilAdminScreen() {
       const userData = userDataStr ? JSON.parse(userDataStr) : null;
       
       if (!userData) {
-        Alert.alert('Error', 'Silakan login ulang');
-        router.replace('/');
+        alert.showAlert({ type: 'error', message: 'Silakan login ulang', onConfirm: () => router.replace('/') });
         return;
       }
       
@@ -117,7 +118,7 @@ export default function ProfilAdminScreen() {
         }
     } catch (error) {
       console.error("Error fetching profile:", error);
-      Alert.alert("Error", "Gagal memuat profil admin");
+      alert.showAlert({ type: 'error', message: 'Gagal memuat profil admin' });
     } finally {
       setLoading(false);
     }
@@ -134,7 +135,7 @@ export default function ProfilAdminScreen() {
       router.replace('/');
     } catch (error) {
       console.error('Error during logout:', error);
-      Alert.alert('Error', 'Gagal keluar dari akun');
+      alert.showAlert({ type: 'error', message: 'Gagal keluar dari akun' });
     }
   };
 
@@ -146,7 +147,7 @@ export default function ProfilAdminScreen() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Izin akses galeri diperlukan');
+        alert.showAlert({ type: 'error', message: 'Izin akses galeri diperlukan' });
         return;
       }
 
@@ -163,7 +164,7 @@ export default function ProfilAdminScreen() {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Gagal memilih foto');
+      alert.showAlert({ type: 'error', message: 'Gagal memilih foto' });
     }
   };
 
@@ -174,8 +175,7 @@ export default function ProfilAdminScreen() {
       const userData = userDataStr ? JSON.parse(userDataStr) : null;
 
       if (!userData) {
-        Alert.alert('Error', 'Silakan login ulang');
-        router.replace('/');
+        alert.showAlert({ type: 'error', message: 'Silakan login ulang', onConfirm: () => router.replace('/') });
         return;
       }
 
@@ -220,13 +220,13 @@ export default function ProfilAdminScreen() {
           foto_profil: result.data?.foto_profil || profile?.foto_profil || null
         });
         
-        Alert.alert('Berhasil', 'Foto profil berhasil diperbarui');
+        alert.showAlert({ type: 'success', message: 'Foto profil berhasil diperbarui', autoClose: true });
       } else {
-        Alert.alert('Error', result.message || 'Gagal memperbarui foto profil');
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal memperbarui foto profil' });
       }
     } catch (error) {
       console.error('Error uploading photo:', error);
-      Alert.alert('Error', 'Gagal mengupload foto profil');
+      alert.showAlert({ type: 'error', message: 'Gagal mengupload foto profil' });
     } finally {
       setUploading(false);
     }
@@ -493,6 +493,18 @@ export default function ProfilAdminScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+        autoClose={alert.config.type === 'success'}
+      />
     </View>
   );
 }
@@ -641,57 +653,69 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: Platform.OS === 'android' ? 0 : 50,
+    paddingHorizontal: 30,
   },
   logoutModalContent: { 
-    backgroundColor: '#fff', 
-    borderRadius: 16, 
-    padding: 24, 
-    width: '85%', 
-    maxWidth: 320 
+    backgroundColor: '#004643', 
+    borderRadius: 20, 
+    padding: 32, 
+    width: '100%', 
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   logoutModalHeader: { 
     alignItems: 'center', 
-    marginBottom: 24 
+    marginBottom: 24,
+    width: '100%',
   },
   logoutModalTitle: { 
-    fontSize: 20, 
-    fontWeight: 'bold', 
-    color: '#333', 
+    fontSize: 18, 
+    fontWeight: '600', 
+    color: '#fff', 
     marginTop: 12, 
-    marginBottom: 8 
+    marginBottom: 8,
+    textAlign: 'center',
   },
   logoutModalMessage: { 
     fontSize: 16, 
-    color: '#666', 
+    color: '#fff', 
     textAlign: 'center', 
-    lineHeight: 22 
+    lineHeight: 22,
+    fontWeight: '500',
   },
   logoutModalButtons: { 
     flexDirection: 'row', 
-    gap: 12 
+    gap: 12,
+    width: '100%',
   },
   logoutCancelBtn: { 
     flex: 1, 
-    paddingVertical: 12, 
-    borderRadius: 8, 
-    backgroundColor: '#F5F5F5', 
-    alignItems: 'center' 
+    paddingVertical: 14, 
+    borderRadius: 12, 
+    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   logoutCancelText: { 
-    fontSize: 16, 
+    fontSize: 15, 
     fontWeight: '600', 
-    color: '#666' 
+    color: '#fff' 
   },
   logoutConfirmBtn: { 
     flex: 1, 
-    paddingVertical: 12, 
-    borderRadius: 8, 
-    backgroundColor: '#FF4D4D', 
+    paddingVertical: 14, 
+    borderRadius: 12, 
+    backgroundColor: '#F44336', 
     alignItems: 'center' 
   },
   logoutConfirmText: { 
-    fontSize: 16, 
+    fontSize: 15, 
     fontWeight: '600', 
     color: '#fff' 
   },
