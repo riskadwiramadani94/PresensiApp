@@ -544,16 +544,14 @@ const styles = StyleSheet.create({
     flex: 1 
   },
   searchContainer: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 20,
     paddingVertical: 8,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff',
     borderRadius: 12,
     paddingHorizontal: 15,
     borderWidth: 1,

@@ -215,12 +215,13 @@ export default function PengaturanKeamananScreen() {
           </View>
 
           {/* UBAH PASSWORD */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="shield-checkmark" size={24} color="#004643" />
-              <Text style={styles.cardTitle}>Ubah Password</Text>
-            </View>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="shield-checkmark" size={20} color="#004643" />
+            <Text style={styles.sectionTitle}>Ubah Password</Text>
+          </View>
+          <View style={styles.divider} />
 
+          <View style={styles.formContent}>
             <Text style={styles.inputLabel}>Password Lama</Text>
             <View style={styles.passwordContainer}>
               <TextInput
@@ -294,7 +295,7 @@ export default function PengaturanKeamananScreen() {
         </ScrollView>
 
         {/* Button Footer - Fixed di bawah */}
-        <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
+        <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
         <TouchableOpacity 
           style={styles.saveButton}
           onPress={handleUpdateProfile}
@@ -314,26 +315,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  cardHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#004643',
+    marginLeft: 8
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginBottom: 16,
+  },
+  formContent: {
   },
   inputLabel: {
     fontSize: 14,
@@ -382,7 +384,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     textAlign: 'center'
   },
-  buttonFooter: {
+  buttonContainer: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,

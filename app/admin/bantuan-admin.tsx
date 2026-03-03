@@ -29,6 +29,7 @@ export default function BantuanAdminScreen() {
   const [searchResults, setSearchResults] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   const categoryLabels: { [key: string]: string } = {
     pegawai_akun: 'Pegawai & Akun',
@@ -119,12 +120,29 @@ export default function BantuanAdminScreen() {
   /* ========================================
      RENDER FUNCTIONS
   ======================================== */
-  const renderFAQItem = (faq: FAQ) => (
-    <View key={faq.id_faq} style={styles.faqCard}>
-      <Text style={styles.faqQuestion}>{faq.pertanyaan}</Text>
-      <Text style={styles.faqAnswer}>{faq.jawaban}</Text>
-    </View>
-  );
+  const renderFAQItem = (faq: FAQ) => {
+    const isExpanded = expandedFaq === faq.id_faq;
+    return (
+      <TouchableOpacity 
+        key={faq.id_faq} 
+        style={styles.faqCard}
+        onPress={() => setExpandedFaq(isExpanded ? null : faq.id_faq)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.faqHeader}>
+          <Text style={styles.faqQuestion}>{faq.pertanyaan}</Text>
+          <Ionicons 
+            name={isExpanded ? "chevron-up" : "chevron-down"} 
+            size={20} 
+            color="#666" 
+          />
+        </View>
+        {isExpanded && (
+          <Text style={styles.faqAnswer}>{faq.jawaban}</Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   /* ========================================
      MAIN RENDER
@@ -257,7 +275,7 @@ export default function BantuanAdminScreen() {
 ======================================== */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20, paddingBottom: 100 },
+  content: { padding: 20, paddingBottom: 20 },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
   card: {
@@ -337,8 +355,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
-  faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
-  faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20 },
+  faqHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', flex: 1, marginRight: 8 },
+  faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
 
   /* ========================================
      SKELETON STYLES - BANTUAN

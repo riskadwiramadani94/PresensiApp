@@ -33,8 +33,7 @@ export default function LoginScreen() {
   const [passwordValid, setPasswordValid] = useState<boolean | null>(null);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const logoAnim = useRef(new Animated.Value(0)).current;
-  const formAnim = useRef(new Animated.Value(50)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
   const passwordRef = useRef<TextInput>(null);
 
@@ -88,22 +87,17 @@ export default function LoginScreen() {
   useEffect(() => {
     checkLoginStatus();
     
-    Animated.sequence([
+    // Smooth fade + subtle slide animation
+    Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
-        useNativeDriver: false,
+        duration: 600,
+        useNativeDriver: true,
       }),
-      Animated.spring(logoAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: false,
-      }),
-      Animated.timing(formAnim, {
+      Animated.timing(slideAnim, {
         toValue: 0,
         duration: 600,
-        useNativeDriver: false,
+        useNativeDriver: true,
       })
     ]).start();
   }, []);
@@ -114,17 +108,17 @@ export default function LoginScreen() {
       return;
     }
 
-    // Button press animation
+    // Subtle button press animation
     Animated.sequence([
       Animated.timing(buttonScale, {
-        toValue: 0.95,
+        toValue: 0.97,
         duration: 100,
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
       Animated.timing(buttonScale, {
         toValue: 1,
         duration: 100,
-        useNativeDriver: false,
+        useNativeDriver: true,
       })
     ]).start();
 
@@ -184,15 +178,11 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.keyboardView}
       >
-      <Animated.View style={[styles.innerContainer, { opacity: fadeAnim }]}>
-        <Animated.View style={[styles.headerArea, { 
-          transform: [{ 
-            scale: logoAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.8, 1]
-            })
-          }]
-        }]}>
+      <Animated.View style={[styles.innerContainer, { 
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }]
+      }]}>
+        <View style={styles.headerArea}>          
           <View style={styles.logoContainer}>
             <Image 
               source={require('../assets/images/validin.png')} 
@@ -200,16 +190,16 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.welcomeText}>Selamat Datang!</Text>
-          <Text style={styles.descriptionText}>Masuk ke akun Anda untuk melanjutkan</Text>
-        </Animated.View>
+          <Text style={styles.welcomeText}>Selamat Datang</Text>
+          <Text style={styles.descriptionText}>Silakan masuk untuk melanjutkan</Text>
+        </View>
 
-        <Animated.View style={[styles.formArea, { transform: [{ translateY: formAnim }] }]}>
+        <View style={styles.formArea}>
           <View style={[styles.inputWrapper, emailFocused && styles.inputFocused]}>
             <Ionicons 
               name="mail-outline" 
               size={20} 
-              color={emailFocused ? "#004643" : "#666"} 
+              color={emailFocused ? "#004643" : "#999"} 
               style={styles.inputIcon} 
             />
             <TextInput 
@@ -238,7 +228,7 @@ export default function LoginScreen() {
             <Ionicons 
               name="lock-closed-outline" 
               size={20} 
-              color={passwordFocused ? "#004643" : "#666"} 
+              color={passwordFocused ? "#004643" : "#999"} 
               style={styles.inputIcon} 
             />
             <TextInput 
@@ -272,14 +262,8 @@ export default function LoginScreen() {
               <Ionicons 
                 name={showPassword ? "eye-off-outline" : "eye-outline"} 
                 size={20} 
-                color={passwordFocused ? "#004643" : "#666"} 
+                color={passwordFocused ? "#004643" : "#999"} 
               />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.optionsRow}>
-            <TouchableOpacity style={styles.forgotPassword}>
-              <Text style={styles.forgotPasswordText}>Lupa Password?</Text>
             </TouchableOpacity>
           </View>
 
@@ -296,11 +280,14 @@ export default function LoginScreen() {
                   <Text style={[styles.loginText, { marginLeft: 10 }]}>Memproses...</Text>
                 </View>
               ) : (
-                <Text style={styles.loginText}>Masuk</Text>
+                <>
+                  <Text style={styles.loginText}>Masuk</Text>
+                  <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
+                </>
               )}
             </TouchableOpacity>
           </Animated.View>
-        </Animated.View>
+        </View>
       </Animated.View>
       </KeyboardAvoidingView>
     </View>
@@ -310,49 +297,53 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
-    backgroundColor: '#fff'
+    backgroundColor: '#F8FAFB'
   },
   keyboardView: {
     flex: 1
   },
   innerContainer: { 
     flex: 1, 
-    padding: 30, 
-    justifyContent: 'center' 
+    paddingHorizontal: 24, 
+    justifyContent: 'center',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 40
   },
   headerArea: { 
     alignItems: 'center', 
-    marginBottom: 40 
+    marginBottom: 48
   },
   logoContainer: { 
-    width: 70,
-    height: 70,
-    backgroundColor: '#E6F0EF',
-    borderRadius: 16,
-    marginBottom: 20,
+    width: 90,
+    height: 90,
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    marginBottom: 24,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#004643'
+    elevation: 4,
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8
   },
   logoImage: {
-    width: 140,
-    height: 105
+    width: 180,
+    height: 135
   },
   welcomeText: { 
-    fontSize: 24, 
+    fontSize: 26, 
     fontWeight: '700', 
-    color: '#004643', 
+    color: '#1F2937', 
     marginBottom: 8,
-    letterSpacing: 0.5
+    letterSpacing: -0.3
   },
   descriptionText: { 
     fontSize: 15, 
-    color: '#666', 
+    color: '#6B7280', 
     textAlign: 'center',
-    lineHeight: 22,
-    marginHorizontal: 20
+    fontWeight: '400'
   },
   formArea: { 
     width: '100%' 
@@ -362,73 +353,57 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     backgroundColor: '#fff', 
     borderWidth: 1.5, 
-    borderColor: '#E8E8E8', 
-    borderRadius: 14, 
+    borderColor: '#E5E7EB', 
+    borderRadius: 12, 
     paddingHorizontal: 16, 
     marginBottom: 16,
-    height: 58,
-    elevation: 2,
+    height: 54,
+    elevation: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2
   },
   inputFocused: {
-    borderColor: '#004643'
+    borderColor: '#004643',
+    elevation: 2,
+    shadowOpacity: 0.06
   },
   inputIcon: { 
     marginRight: 12 
   },
   input: { 
     flex: 1, 
-    fontSize: 16, 
-    color: '#333',
+    fontSize: 15, 
+    color: '#1F2937',
     fontWeight: '500'
   },
   eyeButton: {
     padding: 4
   },
-  optionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 5
-  },
-  rememberMe: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  rememberText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
-    fontWeight: '500'
-  },
-  forgotPassword: {
-    padding: 4
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#004643',
-    fontWeight: '600'
-  },
   loginBtn: { 
     backgroundColor: '#004643', 
-    height: 58, 
-    borderRadius: 14, 
+    height: 54, 
+    borderRadius: 12, 
+    flexDirection: 'row',
     justifyContent: 'center', 
     alignItems: 'center',
-    marginTop: 10
+    marginTop: 8,
+    elevation: 3,
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4
   },
   loginBtnDisabled: {
-    backgroundColor: '#7A9B99'
+    backgroundColor: '#9CA3AF',
+    elevation: 1
   },
   loginText: { 
     color: '#fff', 
     fontWeight: '700', 
-    fontSize: 17,
-    letterSpacing: 0.5
+    fontSize: 16,
+    letterSpacing: 0.3
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -441,8 +416,8 @@ const styles = StyleSheet.create({
   },
   loadingSessionText: {
     marginTop: 16,
-    fontSize: 16,
-    color: '#004643',
+    fontSize: 15,
+    color: '#6B7280',
     fontWeight: '500'
   }
 });

@@ -24,6 +24,16 @@ export default function InboxScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uncompletedCount, setUncompletedCount] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update waktu setiap 1 menit untuk realtime
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update setiap 1 menit
+    
+    return () => clearInterval(timer);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,6 +48,12 @@ export default function InboxScreen() {
       
       if (!user) return;
 
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/inbox/api/notifications
+         Method: GET
+         Params: user_id
+      ======================================== */
       const response = await fetch(
         `${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_INBOX)}?user_id=${user.id_user || user.id}`
       );
@@ -75,8 +91,52 @@ export default function InboxScreen() {
     }
   };
 
+  /* ========================================
+     SKELETON LOADING COMPONENT
+     Komponen untuk menampilkan placeholder
+     saat data sedang dimuat dari server
+  ======================================== */
+  const SkeletonBox = ({ width, height = 12, style }: any) => (
+    <View style={[{ width, height, backgroundColor: '#E0E0E0', borderRadius: 4 }, style]} />
+  );
+
+  const renderSkeleton = () => (
+    <View style={styles.listContent}>
+      {[1, 2, 3, 4, 5].map((item) => (
+        <View key={item} style={styles.notifCard}>
+          <SkeletonBox width={48} height={48} style={{ borderRadius: 24, marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <SkeletonBox width="70%" height={15} style={{ marginBottom: 4 }} />
+            <SkeletonBox width="90%" height={13} style={{ marginBottom: 2 }} />
+            <SkeletonBox width="40%" height={12} style={{ marginTop: 4 }} />
+          </View>
+          <SkeletonBox width={20} height={20} style={{ borderRadius: 10 }} />
+        </View>
+      ))}
+    </View>
+  );
+
+  const getRelativeTime = (timestamp: string) => {
+    const now = currentTime.getTime();
+    const time = new Date(timestamp).getTime();
+    
+    // Handle invalid date
+    if (isNaN(time)) {
+      return 'Baru saja';
+    }
+    
+    const diff = Math.floor((now - time) / 1000); // dalam detik
+
+    if (diff < 60) return 'Baru saja';
+    if (diff < 3600) return `${Math.floor(diff / 60)} menit yang lalu`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} jam yang lalu`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} hari yang lalu`;
+    return `${Math.floor(diff / 604800)} minggu yang lalu`;
+  };
+
   const renderNotifItem = ({ item }: { item: Notification }) => {
     const statusText = item.isCompleted ? 'Selesai' : '';
+    const relativeTime = getRelativeTime(item.time);
 
     return (
       <TouchableOpacity
@@ -99,7 +159,7 @@ export default function InboxScreen() {
           </Text>
           <View style={styles.timeRow}>
             <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-            <Text style={styles.timeText}>{item.time}</Text>
+            <Text style={styles.timeText}>{relativeTime}</Text>
           </View>
           {item.isCompleted && (
             <View style={styles.statusBadge}>
@@ -123,10 +183,7 @@ export default function InboxScreen() {
       />
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat kotak masuk...</Text>
-        </View>
+        renderSkeleton()
       ) : (
         <FlatList
           data={notifications}
@@ -160,16 +217,6 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#F8FAFC' 
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#666',
   },
   listContent: {
     padding: 16,

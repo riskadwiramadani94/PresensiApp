@@ -1011,21 +1011,18 @@ const styles = StyleSheet.create({
   // Search and Filter Section
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 8,
     backgroundColor: '#fff'
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff',
     borderRadius: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     gap: 12
-  },
-  searchIcon: {
-    marginRight: 0,
   },
   searchInput: {
     flex: 1,

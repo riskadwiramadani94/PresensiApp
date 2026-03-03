@@ -1613,7 +1613,7 @@ export default function TambahDinasScreen() {
       </Modal>
 
       {/* Button Footer - Fixed di bawah seperti header */}
-      <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
+     <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
         <TouchableOpacity 
           style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
           onPress={handleSubmit}
@@ -2140,7 +2140,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     textAlign: 'center'
   },
-  buttonFooter: {
+  buttonContainer: {
     backgroundColor: 'white',
     paddingHorizontal: 16,
     paddingVertical: 12,

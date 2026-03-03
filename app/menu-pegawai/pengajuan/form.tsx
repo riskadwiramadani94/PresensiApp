@@ -86,15 +86,7 @@ export default function PengajuanScreen() {
       
       if (response.success) {
         Alert.alert('Sukses', 'Pengajuan berhasil dikirim', [
-          { text: 'OK', onPress: () => {
-            setJenisPengajuan('');
-            setAlasan('');
-            setTanggalMulai(new Date());
-            setTanggalSelesai(new Date());
-            setJamMulai(new Date());
-            setJamSelesai(new Date());
-            setDokumenFoto(null);
-          }}
+          { text: 'OK', onPress: () => router.replace('/menu-pegawai/pengajuan') }
         ]);
       } else {
         Alert.alert('Error', response.message || 'Gagal mengirim pengajuan');

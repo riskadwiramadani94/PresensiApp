@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Linking, Platform, TextInput, Modal, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Linking, Platform, TextInput, Modal, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -53,6 +53,9 @@ export default function KegiatanScreen() {
     }
   };
 
+  /* ========================================
+     API ENDPOINTS CONFIGURATION
+  ======================================== */
   const fetchKegiatan = async () => {
     try {
       setLoading(true);
@@ -263,9 +266,21 @@ export default function KegiatanScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat kegiatan...</Text>
+        <View style={styles.content}>
+          {[1, 2, 3, 4, 5].map((item) => (
+            <View key={item} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardLeft}>
+                  <View style={[styles.skeletonText, { width: '80%', height: 16, marginBottom: 6 }]} />
+                  <View style={[styles.skeletonText, { width: '50%', height: 13, marginBottom: 6 }]} />
+                  <View style={[styles.skeletonText, { width: '60%', height: 13 }]} />
+                </View>
+                <View style={styles.cardRight}>
+                  <View style={[styles.statusBadge, styles.skeleton, { width: 80, height: 24 }]} />
+                </View>
+              </View>
+            </View>
+          ))}
         </View>
       ) : (
         <ScrollView
@@ -305,34 +320,43 @@ export default function KegiatanScreen() {
             </View>
             
             <View style={styles.bottomSheetContent}>
-              <Text style={styles.modalTitle}>Filter Status Kegiatan</Text>
+              <Text style={styles.modalTitle}>Pilih Status</Text>
               
-              <View style={styles.filterGrid}>
+              <View style={styles.filterList}>
                 {[
-                  { value: 'semua', label: 'Semua', icon: 'apps' },
+                  { value: 'semua', label: 'Semua Status', icon: 'apps' },
                   { value: 'akan_datang', label: 'Akan Datang', icon: 'time' },
-                  { value: 'berlangsung', label: 'Berlangsung', icon: 'radio-button-on' },
+                  { value: 'berlangsung', label: 'Sedang Berlangsung', icon: 'play-circle' },
                   { value: 'selesai', label: 'Selesai', icon: 'checkmark-circle' }
-                ].map((option) => (
+                ].map((option, index, array) => (
                   <TouchableOpacity
                     key={option.value}
                     style={[
-                      styles.filterChip,
-                      activeTab === option.value && styles.filterChipActive
+                      styles.filterOption,
+                      index === array.length - 1 && styles.filterOptionLast,
                     ]}
                     onPress={() => handleFilterSelect(option.value as StatusType)}
                   >
-                    <Ionicons 
-                      name={option.icon as any} 
-                      size={18} 
-                      color={activeTab === option.value ? '#fff' : '#666'} 
-                    />
-                    <Text style={[
-                      styles.filterChipText,
-                      activeTab === option.value && styles.filterChipTextActive
-                    ]}>
-                      {option.label}
-                    </Text>
+                    <View style={styles.filterOptionLeft}>
+                      <Ionicons
+                        name={option.icon as any}
+                        size={20}
+                        color={activeTab === option.value ? "#004643" : "#999"}
+                      />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          activeTab === option.value && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </View>
+                    {activeTab === option.value && (
+                      <View style={styles.filterCheck}>
+                        <Ionicons name="checkmark" size={18} color="#004643" />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -349,18 +373,16 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 15,
     paddingVertical: 8,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
     gap: 10,
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff',
     borderRadius: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
@@ -389,15 +411,13 @@ const styles = StyleSheet.create({
     paddingTop: 15,
     paddingBottom: 20,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
+  skeleton: {
+    backgroundColor: '#E0E0E0',
+    overflow: 'hidden',
   },
-  loadingText: {
-    fontSize: 14,
-    color: '#666',
+  skeletonText: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
   },
   card: {
     backgroundColor: '#fff',
@@ -495,43 +515,51 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   bottomSheetContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     paddingBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 16,
+    paddingHorizontal: 20,
   },
-  filterGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  filterList: {
+    backgroundColor: '#fff',
   },
-  filterChip: {
-    width: '48%',
+  filterOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E5E5',
   },
-  filterChipActive: {
-    backgroundColor: '#004643',
-    borderColor: '#004643',
+  filterOptionLast: {
+    borderBottomWidth: 0,
   },
-  filterChipText: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '600',
+  filterOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
-  filterChipTextActive: {
-    color: '#fff',
+  filterOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '400',
+  },
+  filterOptionTextActive: {
+    color: '#004643',
+    fontWeight: '500',
+  },
+  filterCheck: {
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

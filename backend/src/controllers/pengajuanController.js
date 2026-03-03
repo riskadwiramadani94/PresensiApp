@@ -168,4 +168,45 @@ const getIzinHariIni = async (req, res) => {
   }
 };
 
-module.exports = { getPengajuan, submitPengajuan, getIzinHariIni };
+const deletePengajuan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.json({ success: false, message: 'ID pengajuan diperlukan' });
+    }
+    
+    const db = await getConnection();
+    
+    // Cek status pengajuan
+    const [pengajuan] = await db.execute(
+      'SELECT status FROM pengajuan WHERE id_pengajuan = ?',
+      [id]
+    );
+    
+    if (pengajuan.length === 0) {
+      return res.json({ success: false, message: 'Pengajuan tidak ditemukan' });
+    }
+    
+    if (pengajuan[0].status !== 'menunggu') {
+      return res.json({ success: false, message: 'Hanya pengajuan dengan status menunggu yang bisa dihapus' });
+    }
+    
+    // Hapus pengajuan
+    const [result] = await db.execute(
+      'DELETE FROM pengajuan WHERE id_pengajuan = ?',
+      [id]
+    );
+    
+    if (result.affectedRows > 0) {
+      res.json({ success: true, message: 'Pengajuan berhasil dihapus' });
+    } else {
+      res.json({ success: false, message: 'Gagal menghapus pengajuan' });
+    }
+  } catch (error) {
+    console.error('Delete pengajuan error:', error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { getPengajuan, submitPengajuan, getIzinHariIni, deletePengajuan };

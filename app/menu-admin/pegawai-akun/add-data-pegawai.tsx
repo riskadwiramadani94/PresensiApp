@@ -685,7 +685,7 @@ export default function AddDataPegawaiForm() {
 
         </ScrollView>
 
-        <View style={[styles.buttonContainer, { marginBottom: keyboardHeight }]}>
+        <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
           <TouchableOpacity 
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
             onPress={handleSubmit}

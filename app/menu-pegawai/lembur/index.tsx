@@ -29,6 +29,7 @@ interface AbsenLembur {
 export default function LemburScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('absen');
   const [userId, setUserId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -83,13 +84,26 @@ export default function LemburScreen() {
     } else {
       await fetchRiwayat();
     }
+    setLoading(false);
   };
 
   const fetchAbsenAktif = async () => {
     try {
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/lembur/api/pengajuan-hari-ini
+         Method: GET
+         Params: user_id
+      ======================================== */
       const pengajuanResponse = await fetch(getApiUrl(`/pegawai/lembur/api/pengajuan-hari-ini?user_id=${userId}`));
       const pengajuanResult = await pengajuanResponse.json();
       
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/lembur/api/absen-aktif
+         Method: GET
+         Params: user_id
+      ======================================== */
       const absenResponse = await fetch(getApiUrl(`/pegawai/lembur/api/absen-aktif?user_id=${userId}`));
       const absenResult = await absenResponse.json();
       
@@ -107,6 +121,12 @@ export default function LemburScreen() {
 
   const fetchRiwayat = async () => {
     try {
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/lembur/api/riwayat
+         Method: GET
+         Params: user_id
+      ======================================== */
       const response = await fetch(getApiUrl(`/pegawai/lembur/api/riwayat?user_id=${userId}`));
       const result = await response.json();
       if (result.success) {
@@ -152,6 +172,12 @@ export default function LemburScreen() {
 
   const getLocationStatus = async (pengajuan: any) => {
     try {
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/lembur/api/lokasi
+         Method: GET
+         Params: user_id, tanggal
+      ======================================== */
       const lokasiResponse = await fetch(getApiUrl(`/pegawai/lembur/api/lokasi?user_id=${userId}&tanggal=${pengajuan.tanggal_mulai}`));
       const lokasiResult = await lokasiResponse.json();
       
@@ -241,6 +267,12 @@ export default function LemburScreen() {
         ? '/pegawai/lembur/api/absen-masuk'
         : '/pegawai/lembur/api/absen-pulang';
       
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/lembur/api/absen-masuk atau absen-pulang
+         Method: POST
+         Body: FormData (foto, koordinat, dll)
+      ======================================== */
       const response = await fetch(getApiUrl(endpoint), {
         method: 'POST',
         body: formData,
@@ -333,6 +365,48 @@ export default function LemburScreen() {
   const formatTime = (timeString: string) => {
     return timeString.substring(0, 5);
   };
+
+  /* ========================================
+     SKELETON LOADING COMPONENT
+     Komponen untuk menampilkan placeholder
+     saat data sedang dimuat dari server
+  ======================================== */
+  const SkeletonBox = ({ width, height = 12, style }: any) => (
+    <View style={[{ width, height, backgroundColor: '#E0E0E0', borderRadius: 4 }, style]} />
+  );
+
+  const renderSkeleton = () => (
+    <View style={styles.container}>
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+      <AppHeader title="Lembur" showBack={true} />
+      
+      <View style={styles.tabs}>
+        <View style={[styles.tab, styles.tabActive]}>
+          <Ionicons name="finger-print" size={18} color="#004643" />
+          <Text style={[styles.tabText, styles.tabTextActive]}>Absen</Text>
+        </View>
+        <View style={styles.tab}>
+          <Ionicons name="time" size={18} color="#999" />
+          <Text style={styles.tabText}>Riwayat</Text>
+        </View>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {[1, 2, 3].map((item) => (
+          <View key={item} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <SkeletonBox width="60%" height={16} />
+              <SkeletonBox width={80} height={20} style={{ borderRadius: 10 }} />
+            </View>
+            <SkeletonBox width="40%" height={12} style={{ marginBottom: 6 }} />
+            <SkeletonBox width="90%" height={12} style={{ marginBottom: 8 }} />
+            <SkeletonBox width="70%" height={12} style={{ marginBottom: 10 }} />
+            <SkeletonBox width="100%" height={36} style={{ borderRadius: 8 }} />
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
 
   const PengajuanCard = ({ pengajuan }: any) => {
     const [locationStatus, setLocationStatus] = useState<any>({ valid: false, distance: 0, lokasi: null });
@@ -537,6 +611,10 @@ export default function LemburScreen() {
       )}
     </ScrollView>
   );
+
+  if (loading) {
+    return renderSkeleton();
+  }
 
   return (
     <View style={styles.container}>

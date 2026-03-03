@@ -760,8 +760,8 @@ export default function PresensiScreen() {
 
               {/* Status Lokasi Compact */}
               <View style={styles.statusCompact}>
-                {/* Info Izin Hari Ini */}
-                {izinHariIni && (
+                {/* Info Izin Hari Ini - Hanya tampil sebelum absen masuk */}
+                {!hasCheckedIn && izinHariIni && (
                   <View style={styles.izinInfoCard}>
                     <View style={styles.izinInfoHeader}>
                       <Ionicons name="information-circle" size={16} color="#004643" />

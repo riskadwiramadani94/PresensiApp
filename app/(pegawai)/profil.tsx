@@ -83,6 +83,12 @@ export default function ProfileScreen() {
       
       // Coba ambil dari server (opsional)
       try {
+        /* ========================================
+           API ENDPOINTS CONFIGURATION
+           Endpoint: /pegawai/dashboard/api/dashboard
+           Method: GET
+           Params: user_id
+        ======================================== */
         const result = await PegawaiAPI.getDashboard(userId.toString());
         
         if (result.success && result.data?.user_info) {
@@ -188,6 +194,12 @@ export default function ProfileScreen() {
 
       const url = getApiUrl('/pegawai/profil/api/profile');
       
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/profil/api/profile
+         Method: PUT
+         Body: FormData (foto_profil, data profil)
+      ======================================== */
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
@@ -222,14 +234,75 @@ export default function ProfileScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text>Memuat profil...</Text>
+  /* ========================================
+     SKELETON LOADING COMPONENT
+     Komponen untuk menampilkan placeholder
+     saat data sedang dimuat dari server
+  ======================================== */
+  const renderSkeleton = () => (
+    <View style={styles.container}>
+      <RNStatusBar 
+        barStyle="light-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      <AppHeader title="Profil" showBack={false} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.skeletonProfileSection}>
+          <View style={styles.skeletonProfileInfo}>
+            <View style={styles.skeletonProfileName} />
+            <View style={styles.skeletonProfileEmail} />
+            <View style={styles.skeletonEditBtn} />
+          </View>
+          <View style={styles.skeletonAvatar} />
         </View>
-      </View>
-    );
+
+        <View style={styles.divider} />
+
+        <View style={styles.section}>
+          <View style={styles.skeletonSectionLabel} />
+          <View style={styles.menuCard}>
+            {[1, 2].map((item) => (
+              <View key={item}>
+                <View style={styles.skeletonMenuItem}>
+                  <View style={styles.skeletonIconCircle} />
+                  <View style={styles.skeletonMenuText} />
+                </View>
+                {item === 1 && <View style={styles.menuDivider} />}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.skeletonSectionLabel} />
+          <View style={styles.menuCard}>
+            {[1, 2].map((item) => (
+              <View key={item}>
+                <View style={styles.skeletonMenuItem}>
+                  <View style={styles.skeletonIconCircle} />
+                  <View style={styles.skeletonMenuText} />
+                </View>
+                {item === 1 && <View style={styles.menuDivider} />}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.menuCard}>
+            <View style={styles.skeletonMenuItem}>
+              <View style={styles.skeletonIconCircle} />
+              <View style={styles.skeletonMenuText} />
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  if (loading) {
+    return renderSkeleton();
   }
 
   return (
@@ -470,12 +543,6 @@ const styles = StyleSheet.create({
   menuText: { fontSize: 15, color: '#333', fontWeight: '500' },
   menuDivider: { height: 1, backgroundColor: '#F0F0F0' },
   
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 15 },
-  infoLabel: { fontSize: 14, color: '#666' },
-  infoValue: { fontSize: 14, color: '#333', fontWeight: '500' },
-  
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
   logoutModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -492,4 +559,72 @@ const styles = StyleSheet.create({
   logoutCancelText: { fontSize: 16, fontWeight: '600', color: '#666' },
   logoutConfirmBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#FF4D4D', alignItems: 'center' },
   logoutConfirmText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+
+  /* ========================================
+     SKELETON STYLES - PROFIL PEGAWAI
+  ======================================== */
+  skeletonProfileSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  skeletonProfileInfo: {
+    flex: 1,
+  },
+  skeletonProfileName: {
+    width: '60%',
+    height: 24,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonProfileEmail: {
+    width: '50%',
+    height: 16,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonEditBtn: {
+    width: 100,
+    height: 36,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 20,
+  },
+  skeletonAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E0E0E0',
+  },
+  skeletonSectionLabel: {
+    width: '40%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 10,
+    marginLeft: 5,
+  },
+  skeletonMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Platform.OS === 'ios' ? 14 : 16,
+    paddingHorizontal: 15,
+  },
+  skeletonIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  skeletonMenuText: {
+    width: '50%',
+    height: 16,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
 });

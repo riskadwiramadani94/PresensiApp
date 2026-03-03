@@ -89,6 +89,12 @@ export default function EditProfilPegawaiScreen() {
       const userId = userData.id_user || userData.id;
       
       try {
+        /* ========================================
+           API ENDPOINTS CONFIGURATION
+           Endpoint: /pegawai/dashboard/api/dashboard
+           Method: GET
+           Params: user_id
+        ======================================== */
         const result = await PegawaiAPI.getDashboard(userId.toString());
         
         if (result.success && result.data) {
@@ -213,6 +219,13 @@ export default function EditProfilPegawaiScreen() {
 
       const url = getApiUrl('/pegawai/profil/api/profile');
       
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /pegawai/profil/api/profile
+         Method: PUT
+         Headers: user-id
+         Body: FormData (nama_lengkap, jenis_kelamin, tanggal_lahir, alamat, no_telepon, foto_profil)
+      ======================================== */
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
@@ -253,9 +266,40 @@ export default function EditProfilPegawaiScreen() {
     return (
       <View style={styles.container}>
         <AppHeader title="Edit Profil" showBack={true} fallbackRoute="/(pegawai)/profil" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat profil...</Text>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* SKELETON - FOTO PROFIL SECTION */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.skeletonIcon} />
+            <View style={styles.skeletonSectionTitle} />
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.formContent}>
+            <View style={styles.photoSection}>
+              <View style={styles.skeletonPhoto} />
+              <View style={styles.skeletonPhotoHint} />
+            </View>
+          </View>
+
+          {/* SKELETON - DATA PROFIL SECTION */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.skeletonIcon} />
+            <View style={styles.skeletonSectionTitle} />
+          </View>
+          <View style={styles.divider} />
+          
+          <View style={styles.formContent}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+              <View key={item} style={styles.inputGroup}>
+                <View style={styles.skeletonLabel} />
+                <View style={styles.skeletonInput} />
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={styles.buttonFooter}>
+          <View style={styles.skeletonButton} />
         </View>
       </View>
     );
@@ -436,7 +480,7 @@ export default function EditProfilPegawaiScreen() {
           </View>
         </ScrollView>
 
-        <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
+       <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
         <TouchableOpacity 
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
@@ -462,8 +506,6 @@ export default function EditProfilPegawaiScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#666' },
   scrollView: { flex: 1 },
   scrollContent: {
     paddingBottom: 20,
@@ -556,11 +598,65 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     textAlign: 'center'
   },
+  buttonContainer: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
   buttonFooter: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+  },
+
+  /* ========================================
+     SKELETON STYLES - EDIT PROFIL PEGAWAI
+  ======================================== */
+  skeletonIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E0E0E0',
+  },
+  skeletonSectionTitle: {
+    width: 100,
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  skeletonPhoto: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#E0E0E0',
+    marginBottom: 10,
+  },
+  skeletonPhotoHint: {
+    width: 120,
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonLabel: {
+    width: '40%',
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonInput: {
+    height: 48,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+  },
+  skeletonButton: {
+    height: 50,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
   },
 });

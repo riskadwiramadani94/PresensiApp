@@ -75,51 +75,45 @@ const getInboxNotifications = async (req, res) => {
       console.log('Sudah absen masuk?', sudahAbsenMasuk);
       console.log('Sudah absen pulang?', sudahAbsenPulang);
 
-      // Reminder absen masuk (dari jam_masuk sampai batas_absen)
-      if (currentTime >= jamMasuk && currentTime <= batasAbsen && !sudahAbsenMasuk) {
+      // Reminder absen masuk - TETAP TAMPIL sebagai history
+      if (currentTime >= jamMasuk && currentTime <= jamPulang) {
+        const timestamp = sudahAbsenMasuk && presensiToday[0].jam_masuk
+          ? new Date(`${todayStr}T${presensiToday[0].jam_masuk}+07:00`).toISOString()
+          : new Date().toISOString();
+        
         notifications.push({
           id: `reminder-masuk-${todayStr}`,
           type: 'reminder_absen_masuk',
-          title: 'Reminder Absen Masuk',
-          desc: `Jangan lupa absen masuk sebelum pukul ${batasAbsen}!`,
-          time: 'Sekarang',
-          icon: 'time',
-          color: '#2196F3',
-          priority: 'high',
-          isCompleted: false
+          title: sudahAbsenMasuk ? 'Sudah Absen Masuk' : 'Reminder Absen Masuk',
+          desc: sudahAbsenMasuk 
+            ? `Anda sudah absen masuk pada pukul ${presensiToday[0].jam_masuk.substring(0, 5)} WIB`
+            : `Jangan lupa absen masuk sebelum pukul ${batasAbsen} WIB!`,
+          time: timestamp,
+          icon: sudahAbsenMasuk ? 'checkmark-circle' : 'time',
+          color: sudahAbsenMasuk ? '#4CAF50' : (currentTime > batasAbsen ? '#F44336' : '#2196F3'),
+          priority: sudahAbsenMasuk ? 'low' : 'high',
+          isCompleted: sudahAbsenMasuk
         });
       }
 
-      // Terlambat absen masuk (setelah batas_absen sampai jam_pulang)
-      if (currentTime > batasAbsen && currentTime <= jamPulang && !sudahAbsenMasuk) {
-        notifications.push({
-          id: `terlambat-masuk-${todayStr}`,
-          type: 'terlambat_absen_masuk',
-          title: 'Belum Absen Masuk',
-          desc: 'Anda belum absen masuk hari ini. Absen sekarang akan tercatat terlambat.',
-          time: 'Sekarang',
-          icon: 'alert-circle',
-          color: '#F44336',
-          priority: 'critical',
-          isCompleted: false
-        });
-      }
-
-      // Reminder absen pulang (1 jam sebelum jam pulang sampai jam pulang)
-      const [pulangHour, pulangMin] = jamPulang.split(':').map(Number);
-      const oneHourBefore = `${String(pulangHour - 1).padStart(2, '0')}:${String(pulangMin).padStart(2, '0')}`;
-      
-      if (currentTime >= oneHourBefore && currentTime <= jamPulang && sudahAbsenMasuk && !sudahAbsenPulang) {
+      // Reminder absen pulang - TETAP TAMPIL sebagai history
+      if (sudahAbsenMasuk) {
+        const timestamp = sudahAbsenPulang && presensiToday[0].jam_pulang
+          ? new Date(`${todayStr}T${presensiToday[0].jam_pulang}+07:00`).toISOString()
+          : new Date().toISOString();
+        
         notifications.push({
           id: `reminder-pulang-${todayStr}`,
           type: 'reminder_absen_pulang',
-          title: 'Reminder Absen Pulang',
-          desc: 'Jangan lupa absen pulang sebelum meninggalkan kantor!',
-          time: 'Sekarang',
-          icon: 'time',
-          color: '#2196F3',
-          priority: 'medium',
-          isCompleted: false
+          title: sudahAbsenPulang ? 'Sudah Absen Pulang' : 'Reminder Absen Pulang',
+          desc: sudahAbsenPulang
+            ? `Anda sudah absen pulang pada pukul ${presensiToday[0].jam_pulang.substring(0, 5)} WIB`
+            : 'Jangan lupa absen pulang sebelum meninggalkan kantor!',
+          time: timestamp,
+          icon: sudahAbsenPulang ? 'checkmark-circle' : 'time',
+          color: sudahAbsenPulang ? '#4CAF50' : '#2196F3',
+          priority: sudahAbsenPulang ? 'low' : 'medium',
+          isCompleted: sudahAbsenPulang
         });
       }
     }
@@ -137,21 +131,28 @@ const getInboxNotifications = async (req, res) => {
     `, [user_id, todayStr]);
 
     lupaAbsenRows.forEach(item => {
-      const itemDate = new Date(item.tanggal);
-      const daysAgo = Math.floor((today - itemDate) / (1000 * 60 * 60 * 24));
-      
-      notifications.push({
-        id: `lupa-${item.tanggal}`,
-        type: 'lupa_absen_pulang',
-        title: 'Lupa Absen Pulang',
-        desc: `Anda belum absen pulang pada ${formatDate(item.tanggal)}. Hubungi admin untuk koreksi.`,
-        time: `${daysAgo} hari yang lalu`,
-        icon: 'alert-circle',
-        color: '#FF9800',
-        tanggal: item.tanggal,
-        priority: 'high',
-        isCompleted: false
-      });
+      try {
+        // Convert tanggal ke string dulu, lalu extract date only
+        const tanggalStr = item.tanggal.toISOString ? item.tanggal.toISOString() : String(item.tanggal);
+        const dateOnly = tanggalStr.split('T')[0]; // 2026-02-25
+        const dateTime = `${dateOnly}T${item.jam_masuk}+07:00`;
+        const timestamp = new Date(dateTime).toISOString();
+        
+        notifications.push({
+          id: `lupa-${dateOnly}`,
+          type: 'lupa_absen_pulang',
+          title: 'Lupa Absen Pulang',
+          desc: `Anda belum absen pulang pada ${formatDate(dateOnly)}. Hubungi admin untuk koreksi.`,
+          time: timestamp,
+          icon: 'alert-circle',
+          color: '#FF9800',
+          tanggal: dateOnly,
+          priority: 'high',
+          isCompleted: false
+        });
+      } catch (err) {
+        console.log('Error parsing timestamp:', item.tanggal, item.jam_masuk, err.message);
+      }
     });
 
     console.log('Total notifikasi:', notifications.length);

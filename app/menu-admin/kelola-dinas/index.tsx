@@ -16,7 +16,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
-import { AppHeader, SkeletonLoader } from "../../../components";
+import { AppHeader } from "../../../components";
 import { KelolaDinasAPI } from "../../../constants/config";
 
 interface DinasAktif {
@@ -431,133 +431,125 @@ export default function KelolaDinasScreen() {
         </View>
 
         {/* Scrollable List */}
-        <FlatList
-          style={styles.flatList}
-          data={currentData}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderDinasCard}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshing={loading}
-          onRefresh={fetchDinasAktif}
-          ListEmptyComponent={() =>
-            loading ? (
-              /* ========================================
-                   SKELETON LOADING STATE - KELOLA DINAS
-              ======================================== */
-              <View style={styles.listContent}>
-                {[1, 2, 3].map((item) => (
-                  <View key={item} style={styles.dinasCard}>
-                    {/* Skeleton Card Header */}
-                    <View style={styles.cardHeader}>
-                      <View style={styles.cardTitle}>
-                        {/* Skeleton Nama Kegiatan */}
-                        <View style={styles.skeletonKegiatanName} />
-                        {/* Skeleton Nomor SPT */}
-                        <View style={styles.skeletonSptNumber} />
-                      </View>
-                      <View style={styles.cardHeaderRight}>
-                        {/* Skeleton Status Badge */}
-                        <View style={styles.skeletonStatusBadge} />
-                        {/* Skeleton More Button */}
-                        <View style={styles.skeletonMoreBtn} />
-                      </View>
-                    </View>
-
-                    {/* Skeleton Card Info */}
-                    <View style={styles.cardInfo}>
-                      {/* Skeleton Lokasi */}
-                      <View style={styles.infoRow}>
-                        <View style={styles.skeletonInfoIcon} />
-                        <View style={[styles.skeletonInfoText, { width: '60%' }]} />
-                      </View>
-                      {/* Skeleton Jam Kerja */}
-                      <View style={styles.infoRow}>
-                        <View style={styles.skeletonInfoIcon} />
-                        <View style={[styles.skeletonInfoText, { width: '45%' }]} />
-                      </View>
-                      {/* Skeleton Tanggal */}
-                      <View style={styles.infoRow}>
-                        <View style={styles.skeletonInfoIcon} />
-                        <View style={[styles.skeletonInfoText, { width: '50%' }]} />
-                      </View>
-                      {/* Skeleton Jumlah Pegawai */}
-                      <View style={styles.infoRow}>
-                        <View style={styles.skeletonInfoIcon} />
-                        <View style={[styles.skeletonInfoText, { width: '40%' }]} />
-                      </View>
-                    </View>
+        {loading ? (
+          /* ========================================
+               SKELETON LOADING STATE - KELOLA DINAS
+          ======================================== */
+          <View style={styles.listContent}>
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.dinasCard}>
+                {/* Skeleton Card Header */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitle}>
+                    <View style={styles.skeletonKegiatanName} />
+                    <View style={styles.skeletonSptNumber} />
                   </View>
-                ))}
+                  <View style={styles.cardHeaderRight}>
+                    <View style={styles.skeletonStatusBadge} />
+                    <View style={styles.skeletonMoreBtn} />
+                  </View>
+                </View>
+
+                {/* Skeleton Card Info */}
+                <View style={styles.cardInfo}>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '60%' }]} />
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '45%' }]} />
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '50%' }]} />
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIcon} />
+                    <View style={[styles.skeletonInfoText, { width: '40%' }]} />
+                  </View>
+                </View>
               </View>
-            ) : (
+            ))}
+          </View>
+        ) : (
+          <FlatList
+            style={styles.flatList}
+            data={currentData}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderDinasCard}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshing={false}
+            onRefresh={fetchDinasAktif}
+            ListEmptyComponent={() => (
               <View style={styles.emptyState}>
                 <Ionicons name="briefcase-outline" size={60} color="#ccc" />
                 <Text style={styles.emptyText}>Tidak ada data dinas</Text>
               </View>
-            )
-          }
-          ListFooterComponent={() => {
-            if (totalPages <= 1) return null;
-            return (
-              <View style={styles.paginationContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.pageBtn,
-                    currentPage === 1 && styles.pageBtnDisabled,
-                  ]}
-                  onPress={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <Ionicons
-                    name="chevron-back"
-                    size={16}
-                    color={currentPage === 1 ? "#ccc" : "#004643"}
-                  />
-                </TouchableOpacity>
+            )}
+            ListFooterComponent={() => {
+              if (totalPages <= 1) return null;
+              return (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.pageBtn,
+                      currentPage === 1 && styles.pageBtnDisabled,
+                    ]}
+                    onPress={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <Ionicons
+                      name="chevron-back"
+                      size={16}
+                      color={currentPage === 1 ? "#ccc" : "#004643"}
+                    />
+                  </TouchableOpacity>
 
-                <View style={styles.pageNumbers}>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <TouchableOpacity
-                        key={page}
-                        style={[
-                          styles.pageNumber,
-                          currentPage === page && styles.pageNumberActive,
-                        ]}
-                        onPress={() => setCurrentPage(page)}
-                      >
-                        <Text
+                  <View style={styles.pageNumbers}>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => (
+                        <TouchableOpacity
+                          key={page}
                           style={[
-                            styles.pageNumberText,
-                            currentPage === page && styles.pageNumberTextActive,
+                            styles.pageNumber,
+                            currentPage === page && styles.pageNumberActive,
                           ]}
+                          onPress={() => setCurrentPage(page)}
                         >
-                          {page}
-                        </Text>
-                      </TouchableOpacity>
-                    ),
-                  )}
-                </View>
+                          <Text
+                            style={[
+                              styles.pageNumberText,
+                              currentPage === page && styles.pageNumberTextActive,
+                            ]}
+                          >
+                            {page}
+                          </Text>
+                        </TouchableOpacity>
+                      ),
+                    )}
+                  </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.pageBtn,
-                    currentPage === totalPages && styles.pageBtnDisabled,
-                  ]}
-                  onPress={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={currentPage === totalPages ? "#ccc" : "#004643"}
-                  />
-                </TouchableOpacity>
-              </View>
-            );
-          }}
-        />
+                  <TouchableOpacity
+                    style={[
+                      styles.pageBtn,
+                      currentPage === totalPages && styles.pageBtnDisabled,
+                    ]}
+                    onPress={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={currentPage === totalPages ? "#ccc" : "#004643"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+          />
+        )}
       </View>
 
       {/* Filter Modal - Bottom Sheet */}
@@ -590,53 +582,46 @@ export default function KelolaDinasScreen() {
             </View>
 
             <View style={styles.bottomSheetContent}>
-              <Text style={styles.modalTitle}>Filter Status Dinas</Text>
+              <Text style={styles.modalTitle}>Pilih Status</Text>
 
-              <View style={styles.filterGrid}>
+              <View style={styles.filterList}>
                 {[
-                  { value: "semua", label: "Semua", icon: "apps" },
-                  {
-                    value: "berlangsung",
-                    label: "Berlangsung",
-                    icon: "radio-button-on",
-                  },
-                  {
-                    value: "selesai",
-                    label: "Selesai",
-                    icon: "checkmark-circle",
-                  },
-                  {
-                    value: "belum_dimulai",
-                    label: "Belum Dimulai",
-                    icon: "time",
-                  },
-                ].map((option) => (
+                  { value: "semua", label: "Semua Status", icon: "apps" },
+                  { value: "berlangsung", label: "Sedang Berlangsung", icon: "play-circle" },
+                  { value: "selesai", label: "Selesai", icon: "checkmark-circle" },
+                  { value: "belum_dimulai", label: "Belum Dimulai", icon: "time" },
+                ].map((option, index, array) => (
                   <TouchableOpacity
                     key={option.value}
                     style={[
-                      styles.filterChip,
-                      selectedFilter === option.value &&
-                        styles.filterChipActive,
+                      styles.filterOption,
+                      index === array.length - 1 && styles.filterOptionLast,
                     ]}
                     onPress={() => {
                       setSelectedFilter(option.value);
                       closeFilterModal();
                     }}
                   >
-                    <Ionicons
-                      name={option.icon as any}
-                      size={18}
-                      color={selectedFilter === option.value ? "#fff" : "#666"}
-                    />
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        selectedFilter === option.value &&
-                          styles.filterChipTextActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
+                    <View style={styles.filterOptionLeft}>
+                      <Ionicons
+                        name={option.icon as any}
+                        size={20}
+                        color={selectedFilter === option.value ? "#004643" : "#999"}
+                      />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          selectedFilter === option.value && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </View>
+                    {selectedFilter === option.value && (
+                      <View style={styles.filterCheck}>
+                        <Ionicons name="checkmark" size={18} color="#004643" />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -792,8 +777,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     backgroundColor: "#fff",
     gap: 10,
   },
@@ -801,7 +786,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#fff",
     borderRadius: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
@@ -823,7 +808,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   listContent: {
-    paddingHorizontal: 5,
+    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
   },
@@ -942,44 +927,52 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   bottomSheetContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     paddingBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 16,
+    paddingHorizontal: 20,
   },
-  filterGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+  filterList: {
+    backgroundColor: "#fff",
   },
-  filterChip: {
-    width: "48%",
+  filterOption: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    justifyContent: "space-between",
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1.5,
-    borderColor: "#E0E0E0",
+    paddingHorizontal: 20,
+    backgroundColor: "#fff",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E5E5",
   },
-  filterChipActive: {
-    backgroundColor: "#004643",
-    borderColor: "#004643",
+  filterOptionLast: {
+    borderBottomWidth: 0,
   },
-  filterChipText: {
-    fontSize: 13,
-    color: "#666",
-    fontWeight: "600",
+  filterOptionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
   },
-  filterChipTextActive: {
-    color: "#fff",
+  filterOptionText: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "400",
+  },
+  filterOptionTextActive: {
+    color: "#004643",
+    fontWeight: "500",
+  },
+  filterCheck: {
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   summaryCard: {
     backgroundColor: "#fff",
@@ -1000,7 +993,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 10,
-    marginHorizontal: 15,
     borderWidth: 1,
     borderColor: "#E0E0E0",
   },
@@ -1219,7 +1211,6 @@ const styles = StyleSheet.create({
   /* ========================================
      SKELETON STYLES - KELOLA DINAS
   ======================================== */
-  // Skeleton untuk Nama Kegiatan
   skeletonKegiatanName: {
     width: '70%',
     height: 13,
@@ -1227,35 +1218,30 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 4,
   },
-  // Skeleton untuk Nomor SPT
   skeletonSptNumber: {
     width: '45%',
     height: 10,
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
-  // Skeleton untuk Status Badge
   skeletonStatusBadge: {
     width: 70,
-    height: 20,
+    height: 18,
     backgroundColor: '#E0E0E0',
     borderRadius: 6,
   },
-  // Skeleton untuk More Button
   skeletonMoreBtn: {
     width: 34,
     height: 34,
     backgroundColor: '#E0E0E0',
     borderRadius: 17,
   },
-  // Skeleton untuk Info Icon (location, time, calendar, people)
   skeletonInfoIcon: {
     width: 14,
     height: 14,
     borderRadius: 7,
     backgroundColor: '#E0E0E0',
   },
-  // Skeleton untuk Info Text (lokasi, jam kerja, tanggal, jumlah pegawai)
   skeletonInfoText: {
     height: 11,
     backgroundColor: '#F0F0F0',

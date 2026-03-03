@@ -23,6 +23,7 @@ export default function BantuanScreen() {
   const [searchResults, setSearchResults] = useState<FAQ[]>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   const categoryLabels: { [key: string]: string } = {
     presensi: 'Presensi',
@@ -48,6 +49,12 @@ export default function BantuanScreen() {
   const fetchFAQ = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /api/faq
+         Method: GET
+         Params: role=pegawai
+      ======================================== */
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/faq?role=pegawai`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -72,6 +79,12 @@ export default function BantuanScreen() {
     setSearching(true);
     try {
       const token = await AsyncStorage.getItem('token');
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+         Endpoint: /api/faq/search
+         Method: GET
+         Params: q (query), role=pegawai
+      ======================================== */
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/faq/search?q=${encodeURIComponent(searchQuery)}&role=pegawai`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -104,10 +117,58 @@ export default function BantuanScreen() {
     }
   };
 
-  const renderFAQItem = (faq: FAQ) => (
-    <View key={faq.id_faq} style={styles.faqCard}>
-      <Text style={styles.faqQuestion}>{faq.pertanyaan}</Text>
-      <Text style={styles.faqAnswer}>{faq.jawaban}</Text>
+  const renderFAQItem = (faq: FAQ) => {
+    const isExpanded = expandedFaq === faq.id_faq;
+    return (
+      <TouchableOpacity 
+        key={faq.id_faq} 
+        style={styles.faqCard}
+        onPress={() => setExpandedFaq(isExpanded ? null : faq.id_faq)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.faqHeader}>
+          <Text style={styles.faqQuestion}>{faq.pertanyaan}</Text>
+          <Ionicons 
+            name={isExpanded ? "chevron-up" : "chevron-down"} 
+            size={20} 
+            color="#666" 
+          />
+        </View>
+        {isExpanded && (
+          <Text style={styles.faqAnswer}>{faq.jawaban}</Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  /* ========================================
+     SKELETON LOADING COMPONENT
+     Komponen untuk menampilkan placeholder
+     saat data sedang dimuat dari server
+  ======================================== */
+  const renderSkeleton = () => (
+    <View style={styles.content}>
+      <View style={styles.skeletonSectionTitle} />
+      {[1, 2, 3].map((item) => (
+        <View key={item} style={styles.skeletonContactCard}>
+          <View style={styles.skeletonIconBox} />
+          <View style={styles.skeletonContactContent}>
+            <View style={styles.skeletonContactTitle} />
+            <View style={styles.skeletonContactSubtitle} />
+          </View>
+          <View style={styles.skeletonChevron} />
+        </View>
+      ))}
+
+      <View style={[styles.skeletonSectionTitle, { marginTop: 24 }]} />
+      <View style={styles.skeletonSearchBar} />
+      {[1, 2, 3].map((item) => (
+        <View key={item}>
+          <View style={styles.skeletonCategoryTitle} />
+          <View style={styles.skeletonFaqCard} />
+          <View style={styles.skeletonFaqCard} />
+        </View>
+      ))}
     </View>
   );
 
@@ -115,9 +176,34 @@ export default function BantuanScreen() {
     <View style={styles.container}>
       <AppHeader title="Bantuan" showBack={false} />
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Hubungi Kami</Text>
+        {loading ? (
+          <View style={styles.content}>
+            <View style={styles.skeletonSectionTitle} />
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.skeletonContactCard}>
+                <View style={styles.skeletonIconBox} />
+                <View style={styles.skeletonContactContent}>
+                  <View style={styles.skeletonContactTitle} />
+                  <View style={styles.skeletonContactSubtitle} />
+                </View>
+                <View style={styles.skeletonChevron} />
+              </View>
+            ))}
+
+            <View style={[styles.skeletonSectionTitle, { marginTop: 24 }]} />
+            <View style={styles.skeletonSearchBar} />
+            {[1, 2, 3].map((item) => (
+              <View key={item}>
+                <View style={styles.skeletonCategoryTitle} />
+                <View style={styles.skeletonFaqCard} />
+                <View style={styles.skeletonFaqCard} />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.content}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Hubungi Kami</Text>
             
             <TouchableOpacity style={styles.card} onPress={() => handleContact('whatsapp')}>
               <View style={[styles.iconBox, { backgroundColor: '#25D366' }]}>
@@ -170,9 +256,15 @@ export default function BantuanScreen() {
             </View>
 
             {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2196F3" />
-                <Text style={styles.loadingText}>Memuat FAQ...</Text>
+              <View>
+                <View style={styles.skeletonSearchBar} />
+                {[1, 2, 3].map((item) => (
+                  <View key={item}>
+                    <View style={styles.skeletonCategoryTitle} />
+                    <View style={styles.skeletonFaqCard} />
+                    <View style={styles.skeletonFaqCard} />
+                  </View>
+                ))}
               </View>
             ) : searchQuery.length >= 2 ? (
               // Show search results
@@ -195,6 +287,7 @@ export default function BantuanScreen() {
             )}
           </View>
         </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -202,7 +295,7 @@ export default function BantuanScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20, paddingBottom: 100 },
+  content: { padding: 20, paddingBottom: 20 },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
   card: {
@@ -246,15 +339,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1a1a1a',
   },
-  loadingContainer: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  loadingText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#999',
-  },
   searchResultTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -282,6 +366,79 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
-  faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
-  faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20 },
+  faqHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', flex: 1, marginRight: 8 },
+  faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
+
+  /* ========================================
+     SKELETON STYLES - BANTUAN
+  ======================================== */
+  skeletonSectionTitle: {
+    width: '30%',
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonContactCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+  },
+  skeletonIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0E0E0',
+    marginRight: 12,
+  },
+  skeletonContactContent: {
+    flex: 1,
+  },
+  skeletonContactTitle: {
+    width: '40%',
+    height: 16,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  skeletonContactSubtitle: {
+    width: '70%',
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonChevron: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonSearchBar: {
+    height: 48,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  skeletonCategoryTitle: {
+    width: '40%',
+    height: 18,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 12,
+  },
+  skeletonFaqCard: {
+    height: 80,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
 });

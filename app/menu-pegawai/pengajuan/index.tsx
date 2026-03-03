@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Modal, Animated, PanResponder, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Modal, Animated, PanResponder, Platform, TextInput, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader } from '../../../components';
-import { PegawaiAPI } from '../../../constants/config';
+import { PegawaiAPI, API_CONFIG, getApiUrl } from '../../../constants/config';
 
 type StatusType = 'semua' | 'menunggu' | 'disetujui' | 'ditolak';
 
@@ -40,6 +40,25 @@ export default function PengajuanScreen() {
   const [selectedPengajuan, setSelectedPengajuan] = useState<PengajuanData | null>(null);
   const translateY = useRef(new Animated.Value(500)).current;
   const detailTranslateY = useRef(new Animated.Value(1000)).current;
+  const detailPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        detailTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeDetailModal();
+      } else {
+        Animated.spring(detailTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
 
   useEffect(() => {
     loadUserId();
@@ -71,6 +90,9 @@ export default function PengajuanScreen() {
     }
   };
 
+  /* ========================================
+     API ENDPOINTS CONFIGURATION
+  ======================================== */
   const fetchPengajuan = async () => {
     try {
       setLoading(true);
@@ -117,17 +139,18 @@ export default function PengajuanScreen() {
   const openDetailModal = (item: PengajuanData) => {
     setSelectedPengajuan(item);
     setShowDetailModal(true);
-    Animated.timing(detailTranslateY, {
+    Animated.spring(detailTranslateY, {
       toValue: 0,
-      duration: 300,
       useNativeDriver: true,
+      tension: 65,
+      friction: 11
     }).start();
   };
 
   const closeDetailModal = () => {
     Animated.timing(detailTranslateY, {
       toValue: 1000,
-      duration: 200,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => {
       setShowDetailModal(false);
@@ -239,6 +262,26 @@ export default function PengajuanScreen() {
     return timeStr.substring(0, 5);
   };
 
+  const handleDeletePengajuan = async (id: number) => {
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/${id}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        Alert.alert('Berhasil', 'Pengajuan berhasil dihapus');
+        fetchPengajuan(); // Refresh list
+      } else {
+        Alert.alert('Gagal', result.message || 'Gagal menghapus pengajuan');
+      }
+    } catch (error) {
+      console.error('Error deleting pengajuan:', error);
+      Alert.alert('Error', 'Terjadi kesalahan saat menghapus pengajuan');
+    }
+  };
+
   const renderPengajuanCard = (item: PengajuanData) => {
     const status = getStatusInfo(item.status);
     const jenisLabel = getJenisPengajuanLabel(item.jenis_pengajuan);
@@ -317,9 +360,21 @@ export default function PengajuanScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat riwayat...</Text>
+        <View style={styles.content}>
+          {[1, 2, 3, 4, 5].map((item) => (
+            <View key={item} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconContainer, styles.skeleton]} />
+                <View style={styles.cardContent}>
+                  <View style={[styles.skeletonText, { width: '70%', height: 16, marginBottom: 8 }]} />
+                  <View style={[styles.skeletonText, { width: '50%', height: 12, marginBottom: 6 }]} />
+                  <View style={[styles.skeletonText, { width: '60%', height: 12, marginBottom: 6 }]} />
+                  <View style={[styles.skeletonText, { width: '80%', height: 12 }]} />
+                </View>
+                <View style={[styles.statusBadge, styles.skeleton, { width: 80 }]} />
+              </View>
+            </View>
+          ))}
         </View>
       ) : (
         <ScrollView
@@ -346,7 +401,7 @@ export default function PengajuanScreen() {
       )}
 
       {/* Filter Modal */}
-      <Modal visible={showFilterModal} transparent animationType="none" statusBarTranslucent={true} onRequestClose={closeFilterModal}>
+      <Modal visible={showFilterModal} transparent animationType="none" statusBarTranslucent onRequestClose={closeFilterModal}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity 
             style={styles.modalBackdrop} 
@@ -359,34 +414,43 @@ export default function PengajuanScreen() {
             </View>
             
             <View style={styles.bottomSheetContent}>
-              <Text style={styles.modalTitle}>Filter Status</Text>
+              <Text style={styles.modalTitle}>Pilih Status</Text>
               
-              <View style={styles.filterGrid}>
+              <View style={styles.filterList}>
                 {[
-                  { value: 'semua', label: 'Semua', icon: 'apps', color: '#666' },
-                  { value: 'menunggu', label: 'Menunggu', icon: 'time', color: '#FF9800' },
-                  { value: 'disetujui', label: 'Disetujui', icon: 'checkmark-circle', color: '#4CAF50' },
-                  { value: 'ditolak', label: 'Ditolak', icon: 'close-circle', color: '#F44336' }
-                ].map((option) => (
+                  { value: 'semua', label: 'Semua Status', icon: 'apps' },
+                  { value: 'menunggu', label: 'Menunggu', icon: 'time' },
+                  { value: 'disetujui', label: 'Disetujui', icon: 'checkmark-circle' },
+                  { value: 'ditolak', label: 'Ditolak', icon: 'close-circle' }
+                ].map((option, index, array) => (
                   <TouchableOpacity
                     key={option.value}
                     style={[
-                      styles.filterChip,
-                      activeTab === option.value && styles.filterChipActive
+                      styles.filterOption,
+                      index === array.length - 1 && styles.filterOptionLast,
                     ]}
                     onPress={() => handleFilterSelect(option.value as StatusType)}
                   >
-                    <Ionicons 
-                      name={option.icon as any} 
-                      size={18} 
-                      color={activeTab === option.value ? '#fff' : option.color} 
-                    />
-                    <Text style={[
-                      styles.filterChipText,
-                      activeTab === option.value && styles.filterChipTextActive
-                    ]}>
-                      {option.label}
-                    </Text>
+                    <View style={styles.filterOptionLeft}>
+                      <Ionicons
+                        name={option.icon as any}
+                        size={20}
+                        color={activeTab === option.value ? "#004643" : "#999"}
+                      />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          activeTab === option.value && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </View>
+                    {activeTab === option.value && (
+                      <View style={styles.filterCheck}>
+                        <Ionicons name="checkmark" size={18} color="#004643" />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -395,24 +459,23 @@ export default function PengajuanScreen() {
         </View>
       </Modal>
 
-      {/* Detail Modal */}
-      <Modal visible={showDetailModal} transparent animationType="fade" statusBarTranslucent={true} onRequestClose={closeDetailModal}>
+      {/* Detail Modal - Bottom Sheet */}
+      <Modal visible={showDetailModal} transparent animationType="none" statusBarTranslucent onRequestClose={closeDetailModal}>
         <View style={styles.detailModalOverlay}>
           <TouchableOpacity 
             style={styles.detailModalBackdrop} 
             activeOpacity={1}
             onPress={closeDetailModal}
           />
-          <View style={styles.detailModalCenter}>
-            <View style={styles.detailModalContent}>
-              <View style={styles.detailHeader}>
-                <Text style={styles.detailTitle}>
-                  {selectedPengajuan && getJenisPengajuanLabel(selectedPengajuan.jenis_pengajuan)}
-                </Text>
-                <TouchableOpacity onPress={closeDetailModal} style={styles.closeButton}>
-                  <Ionicons name="close" size={22} color="#fff" />
-                </TouchableOpacity>
-              </View>
+          <Animated.View style={[styles.detailBottomSheet, { transform: [{ translateY: detailTranslateY }] }]}>
+            <View {...detailPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.detailSheetContent}>
+              <Text style={styles.detailSheetTitle}>
+                {selectedPengajuan && getJenisPengajuanLabel(selectedPengajuan.jenis_pengajuan)}
+              </Text>
 
               <ScrollView style={styles.detailBody} showsVerticalScrollIndicator={false}>
                 {selectedPengajuan && (
@@ -520,8 +583,33 @@ export default function PengajuanScreen() {
                   </>
                 )}
               </ScrollView>
+
+              {/* Tombol Hapus - Hanya tampil jika status menunggu */}
+              {selectedPengajuan && selectedPengajuan.status === 'menunggu' && (
+                <TouchableOpacity 
+                  style={styles.deleteButton}
+                  onPress={() => {
+                    closeDetailModal();
+                    Alert.alert(
+                      'Hapus Pengajuan',
+                      'Apakah Anda yakin ingin menghapus pengajuan ini?',
+                      [
+                        { text: 'Batal', style: 'cancel' },
+                        { 
+                          text: 'Hapus', 
+                          style: 'destructive',
+                          onPress: () => handleDeletePengajuan(selectedPengajuan.id_pengajuan)
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#fff" />
+                  <Text style={styles.deleteButtonText}>Hapus Pengajuan</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>
@@ -533,18 +621,16 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 15,
     paddingVertical: 8,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
     gap: 10,
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff',
     borderRadius: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
@@ -572,15 +658,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 15,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
+  skeleton: {
+    backgroundColor: '#E0E0E0',
+    overflow: 'hidden',
   },
-  loadingText: {
-    fontSize: 14,
-    color: '#666',
+  skeletonText: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
   },
   card: {
     backgroundColor: '#fff',
@@ -663,7 +747,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingTop: Platform.OS === 'android' ? 0 : 50,
   },
   modalBackdrop: {
     flex: 1,
@@ -673,10 +756,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    paddingTop: 8,
   },
   handleContainer: {
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
     width: '100%',
   },
@@ -685,103 +767,88 @@ const styles = StyleSheet.create({
     height: 4,
     backgroundColor: '#DDD',
     borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 8,
-    marginBottom: 16,
   },
   bottomSheetContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     paddingBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 16,
+    paddingHorizontal: 20,
   },
-  filterGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  filterList: {
+    backgroundColor: '#fff',
   },
-  filterChip: {
-    width: '48%',
+  filterOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E5E5',
   },
-  filterChipActive: {
-    backgroundColor: '#004643',
-    borderColor: '#004643',
+  filterOptionLast: {
+    borderBottomWidth: 0,
   },
-  filterChipText: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '600',
+  filterOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
-  filterChipTextActive: {
-    color: '#fff',
+  filterOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '400',
+  },
+  filterOptionTextActive: {
+    color: '#004643',
+    fontWeight: '500',
+  },
+  filterCheck: {
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   detailModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   detailModalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  detailModalCenter: {
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-  },
-  detailModalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    backgroundColor: '#004643',
-  },
-  detailTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
     flex: 1,
   },
-  closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  detailBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  detailSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  detailSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
   },
   detailBody: {
-    padding: 20,
+    flexGrow: 1,
   },
   infoSection: {
     flexDirection: 'row',
@@ -918,5 +985,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     fontWeight: '500',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F44336',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

@@ -35,8 +35,8 @@ export default function BerandaScreen() {
     jabatan: '',
     statusAbsen: 'Belum Absen',
     keteranganAbsen: 'Anda belum melakukan absensi hari ini',
-    jamMasuk: '08:00',
-    jamKeluar: '17:00',
+    jamMasuk: '-',
+    jamKeluar: '-',
     totalJamKerja: '0j 0m'
   });
   const [loading, setLoading] = useState(true);
@@ -120,19 +120,28 @@ export default function BerandaScreen() {
         
         let statusAbsen = 'Belum Absen';
         let keteranganAbsen = 'Anda belum melakukan absensi hari ini';
+        let jamMasukDisplay = '-';
+        let jamPulangDisplay = '-';
         
         if (data.presensi_hari_ini) {
           const jamMasuk = data.presensi_hari_ini.jam_masuk;
+          const jamPulang = data.presensi_hari_ini.jam_pulang;
           const status = data.presensi_hari_ini.status;
           
           if (jamMasuk) {
+            jamMasukDisplay = jamMasuk.substring(0, 5);
+            
             if (status === 'Terlambat') {
               statusAbsen = 'Terlambat';
-              keteranganAbsen = `Anda terlambat absen pada pukul ${jamMasuk.substring(0, 5)} WIB`;
+              keteranganAbsen = `Anda terlambat absen pada pukul ${jamMasukDisplay} WIB`;
             } else {
               statusAbsen = 'Sudah Absen';
-              keteranganAbsen = `Anda sudah absen pada pukul ${jamMasuk.substring(0, 5)} WIB`;
+              keteranganAbsen = `Anda sudah absen pada pukul ${jamMasukDisplay} WIB`;
             }
+          }
+          
+          if (jamPulang) {
+            jamPulangDisplay = jamPulang.substring(0, 5);
           }
         }
         
@@ -141,8 +150,8 @@ export default function BerandaScreen() {
           jabatan: data.user_info?.jabatan || user.jabatan || 'Pegawai',
           statusAbsen,
           keteranganAbsen,
-          jamMasuk: data.jam_kerja?.jam_masuk || '08:00',
-          jamKeluar: data.jam_kerja?.jam_keluar || '17:00',
+          jamMasuk: jamMasukDisplay,
+          jamKeluar: jamPulangDisplay,
           totalJamKerja: data.summary_bulan_ini?.total_hadir + 'h' || '0h'
         });
         
@@ -273,7 +282,7 @@ export default function BerandaScreen() {
                       <Ionicons name="log-in-outline" size={18} color="#fff" />
                     </View>
                     <Text style={styles.jamLabel}>Jam Masuk</Text>
-                    <Text style={styles.jamValue}>{userData.jamMasuk || '08:00'}</Text>
+                    <Text style={styles.jamValue}>{userData.jamMasuk}</Text>
                   </View>
                   
                   <View style={styles.verticalDivider} />
@@ -283,7 +292,7 @@ export default function BerandaScreen() {
                       <Ionicons name="log-out-outline" size={18} color="#fff" />
                     </View>
                     <Text style={styles.jamLabel}>Jam Pulang</Text>
-                    <Text style={styles.jamValue}>{userData.jamKeluar || '17:00'}</Text>
+                    <Text style={styles.jamValue}>{userData.jamKeluar}</Text>
                   </View>
                 </View>
               </View>

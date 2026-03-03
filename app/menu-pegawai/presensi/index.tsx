@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Animated, PanResponder, Platform } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert, Modal, Animated, PanResponder, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, getApiUrl } from '../../../constants/config';
@@ -270,7 +270,9 @@ export default function RiwayatScreen() {
       
       console.log('Fetching riwayat:', startDate, 'to', endDate);
       
-      // ✅ Gunakan endpoint PEGAWAI_PRESENSI yang sudah handle libur & jam kerja di backend
+      /* ========================================
+         API ENDPOINTS CONFIGURATION
+      ======================================== */
       const response = await fetch(
         `${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_PRESENSI)}?user_id=${userId}&start_date=${startDate}&end_date=${endDate}`
       );
@@ -405,15 +407,64 @@ export default function RiwayatScreen() {
     setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingText}>Memuat riwayat...</Text>
+  /* ========================================
+     SKELETON LOADING COMPONENT
+     Komponen untuk menampilkan placeholder
+     saat data sedang dimuat dari server
+  ======================================== */
+  const SkeletonBox = ({ width, height = 12, style }: any) => (
+    <View style={[{ width, height, backgroundColor: '#E0E0E0', borderRadius: 4 }, style]} />
+  );
+
+  const renderSkeleton = () => (
+    <View style={styles.container}>
+      <AppHeader title="Riwayat Presensi" showBack={true} />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.filterRow}>
+            <SkeletonBox width="48%" height={40} style={{ borderRadius: 8 }} />
+            <SkeletonBox width="48%" height={40} style={{ borderRadius: 8 }} />
+          </View>
         </View>
-      </View>
-    );
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statsRow}>
+            {[1, 2, 3].map((i) => (
+              <View key={i} style={styles.statCard}>
+                <SkeletonBox width={30} height={3} style={{ marginBottom: 8 }} />
+                <SkeletonBox width="60%" height={10} style={{ marginBottom: 4 }} />
+                <SkeletonBox width="80%" height={16} />
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.listSection}>
+          <View style={styles.sectionHeader}>
+            <SkeletonBox width={150} height={14} />
+          </View>
+          {[1, 2, 3, 4, 5].map((item) => (
+            <View key={item} style={styles.logCard}>
+              <SkeletonBox width={4} height="100%" style={{ borderRadius: 0 }} />
+              <View style={styles.dateSection}>
+                <SkeletonBox width={40} height={10} style={{ marginBottom: 4 }} />
+                <SkeletonBox width={30} height={24} style={{ marginBottom: 2 }} />
+                <SkeletonBox width={35} height={12} />
+              </View>
+              <View style={styles.contentSection}>
+                <SkeletonBox width="70%" height={14} style={{ marginBottom: 4 }} />
+                <SkeletonBox width="50%" height={12} style={{ marginBottom: 4 }} />
+                <SkeletonBox width="60%" height={13} />
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  if (loading) {
+    return renderSkeleton();
   }
 
   return (
@@ -569,7 +620,7 @@ export default function RiwayatScreen() {
             </View>
             <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
               {jenisLaporan === 'harian' && (
-                <View style={styles.calendarContainer}>
+                <View style={styles.calendarContainer} pointerEvents="box-none">
                   <Text style={styles.calendarLabel}>Pilih Tanggal:</Text>
                   <TouchableOpacity 
                     style={styles.calendarButton}
@@ -577,6 +628,7 @@ export default function RiwayatScreen() {
                       setDatePickerMode('single');
                       showCalendarModal();
                     }}
+                    activeOpacity={0.7}
                   >
                     <Ionicons name="calendar-outline" size={20} color="#004643" />
                     <Text style={styles.calendarButtonText}>{formatDate(selectedDate)}</Text>
@@ -594,7 +646,7 @@ export default function RiwayatScreen() {
               )}
 
               {jenisLaporan === 'mingguan' && (
-                <View style={styles.calendarContainer}>
+                <View style={styles.calendarContainer} pointerEvents="box-none">
                   <Text style={styles.calendarLabel}>Pilih Periode Minggu:</Text>
                   <View style={styles.dateRangeRow}>
                     <TouchableOpacity 
@@ -603,6 +655,7 @@ export default function RiwayatScreen() {
                         setDatePickerMode('start');
                         showCalendarModal();
                       }}
+                      activeOpacity={0.7}
                     >
                       <Text style={styles.calendarLabelSmall}>Dari:</Text>
                       <Text style={styles.calendarButtonText}>{formatDate(selectedStartDate)}</Text>
@@ -614,6 +667,7 @@ export default function RiwayatScreen() {
                         setDatePickerMode('end');
                         showCalendarModal();
                       }}
+                      activeOpacity={0.7}
                     >
                       <Text style={styles.calendarLabelSmall}>Sampai:</Text>
                       <Text style={styles.calendarButtonText}>{formatDate(selectedEndDate)}</Text>
@@ -668,19 +722,25 @@ export default function RiwayatScreen() {
 
       {/* Custom Calendar Modal */}
       <Modal visible={showCalendar} transparent animationType="none" statusBarTranslucent onRequestClose={closeCalendarModal}>
-        <View style={styles.bottomSheetOverlay}>
-          <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={closeCalendarModal} />
-          <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: calendarTranslateY }] }]}>
+        <View style={styles.calendarOverlay}>
+          <TouchableOpacity style={styles.calendarBackdrop} activeOpacity={1} onPress={closeCalendarModal} />
+          <Animated.View style={[styles.calendarSheet, { transform: [{ translateY: calendarTranslateY }] }]}>
             <View {...calendarPanResponder.panHandlers} style={styles.handleContainer}>
               <View style={styles.handleBar} />
             </View>
-            <View style={styles.calendarSheetContent}>
+            
+            <View style={styles.calendarSheetHeader}>
               <Text style={styles.calendarSheetTitle}>
                 {datePickerMode === 'single' ? 'Pilih Tanggal' : datePickerMode === 'start' ? 'Pilih Tanggal Mulai' : 'Pilih Tanggal Selesai'}
               </Text>
+              <TouchableOpacity onPress={closeCalendarModal}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.calendarSheetContent} showsVerticalScrollIndicator={false}>
               <CustomCalendar
                 onDatePress={(date: Date) => {
-                  // Konversi ke tanggal lokal untuk menghindari timezone issue
                   const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
                   
                   if (datePickerMode === 'single') {
@@ -705,8 +765,10 @@ export default function RiwayatScreen() {
                 }}
                 weekendDays={[]}
                 showWeekends={false}
+                initialDate={datePickerMode === 'single' ? selectedDate : datePickerMode === 'start' ? selectedStartDate : selectedEndDate}
+                startDate={datePickerMode === 'end' ? selectedStartDate : undefined}
               />
-            </View>
+            </ScrollView>
           </Animated.View>
         </View>
       </Modal>
@@ -716,16 +778,6 @@ export default function RiwayatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#666',
-  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 40,
@@ -888,15 +940,37 @@ const styles = StyleSheet.create({
   bottomSheetItemTextActive: { color: '#004643', fontWeight: '600' },
   calendarContainer: { padding: 20 },
   calendarLabel: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 12 },
-  calendarButton: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F5F5F5', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 16 },
+  calendarButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 12, 
+    backgroundColor: '#F5F5F5', 
+    padding: 16, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: '#E0E0E0', 
+    marginBottom: 16,
+    zIndex: 1
+  },
   calendarButtonText: { fontSize: 14, color: '#333', fontWeight: '500' },
   dateRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  calendarButtonSmall: { flex: 1, backgroundColor: '#F5F5F5', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E0E0E0' },
+  calendarButtonSmall: { 
+    flex: 1, 
+    backgroundColor: '#F5F5F5', 
+    padding: 12, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: '#E0E0E0',
+    zIndex: 1
+  },
   calendarLabelSmall: { fontSize: 11, color: '#666', marginBottom: 4 },
   dateSeparator: { fontSize: 14, color: '#666', fontWeight: '500' },
   confirmButton: { backgroundColor: '#004643', padding: 14, borderRadius: 12, alignItems: 'center' },
   confirmButtonText: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  calendarBottomSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20, maxHeight: '70%', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 20 },
-  calendarSheetContent: { paddingHorizontal: 20, paddingBottom: 16 },
-  calendarSheetTitle: { fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 16, textAlign: 'center' },
+  calendarOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  calendarBackdrop: { flex: 1 },
+  calendarSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20, maxHeight: '80%' },
+  calendarSheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  calendarSheetTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
+  calendarSheetContent: { paddingHorizontal: 20, paddingTop: 16 },
 });

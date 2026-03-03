@@ -58,7 +58,7 @@ export default function LaporanDetailAbsenScreen() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PegawaiAbsen[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("asc");
 
   // Initialize dengan hari ini
   const [selectedDate, setSelectedDate] = useState(today);
@@ -1036,15 +1036,15 @@ export default function LaporanDetailAbsenScreen() {
         statusBarTranslucent
         onRequestClose={closeCalendarModal}
       >
-        <View style={styles.bottomSheetOverlay}>
+        <View style={styles.calendarOverlay}>
           <TouchableOpacity
-            style={styles.bottomSheetBackdrop}
+            style={styles.calendarBackdrop}
             activeOpacity={1}
             onPress={closeCalendarModal}
           />
           <Animated.View
             style={[
-              styles.calendarBottomSheet,
+              styles.calendarSheet,
               { transform: [{ translateY: calendarTranslateY }] },
             ]}
           >
@@ -1054,7 +1054,8 @@ export default function LaporanDetailAbsenScreen() {
             >
               <View style={styles.handleBar} />
             </View>
-            <View style={styles.calendarSheetContent}>
+            
+            <View style={styles.calendarSheetHeader}>
               <Text style={styles.calendarSheetTitle}>
                 {datePickerMode === "single"
                   ? "Pilih Tanggal"
@@ -1062,6 +1063,12 @@ export default function LaporanDetailAbsenScreen() {
                     ? "Pilih Tanggal Mulai"
                     : "Pilih Tanggal Selesai"}
               </Text>
+              <TouchableOpacity onPress={closeCalendarModal}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.calendarSheetContent} showsVerticalScrollIndicator={false}>
               <CustomCalendar
                 onDatePress={(date: Date) => {
                   if (datePickerMode === "single") {
@@ -1095,8 +1102,10 @@ export default function LaporanDetailAbsenScreen() {
                 }}
                 weekendDays={[]}
                 showWeekends={false}
+                initialDate={datePickerMode === "single" ? selectedDate : datePickerMode === "start" ? selectedStartDate : selectedEndDate}
+                startDate={datePickerMode === "end" ? selectedStartDate : undefined}
               />
-            </View>
+            </ScrollView>
           </Animated.View>
         </View>
       </Modal>
@@ -1138,13 +1147,13 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 8,
     backgroundColor: "#fff",
   },
   searchInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#fff",
     borderRadius: 12,
     paddingHorizontal: 15,
     borderWidth: 1,
@@ -1359,26 +1368,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   confirmButtonText: { fontSize: 15, fontWeight: "600", color: "#fff" },
-  calendarBottomSheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === "ios" ? 34 : 20,
-    maxHeight: "70%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 20,
-  },
-  calendarSheetContent: { paddingHorizontal: 20, paddingBottom: 16 },
-  calendarSheetTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 16,
-    textAlign: "center",
-  },
+  calendarOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0, 0, 0, 0.5)" },
+  calendarBackdrop: { flex: 1 },
+  calendarSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === "ios" ? 34 : 20, maxHeight: "80%" },
+  calendarSheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "#F0F0F0" },
+  calendarSheetTitle: { fontSize: 18, fontWeight: "600", color: "#333" },
+  calendarSheetContent: { paddingHorizontal: 20, paddingTop: 16 },
 
   /* ========================================
      SKELETON STYLES - LAPORAN DETAIL ABSEN

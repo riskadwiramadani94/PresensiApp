@@ -591,37 +591,35 @@ const submitPresensi = async (req, res) => {
     }
 
     if (jenis_presensi === 'masuk') {
-      // Check if already checked in today
-      const [existingRows] = await db.execute(
-        'SELECT id_presensi FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? AND jam_masuk IS NOT NULL',
-        [user_id, tanggal_only]
-      );
-      
-      const [existingDinasRows] = await db.execute(
-        'SELECT id FROM absen_dinas WHERE id_user = ? AND tanggal_absen = ? AND jam_masuk IS NOT NULL',
-        [user_id, tanggal_only]
-      );
-
-      if (existingRows.length > 0 || existingDinasRows.length > 0) {
-        return res.json({ success: false, message: 'Anda sudah melakukan presensi masuk hari ini' });
-      }
 
       // PISAHKAN: Simpan ke absen_dinas atau presensi
       if (dinasCheckRows.length > 0) {
         // SEDANG DINAS → Simpan ke absen_dinas
         const id_dinas = dinasCheckRows[0].id_dinas;
         
-        await db.execute(`
-          INSERT INTO absen_dinas (
-            id_dinas, id_user, tanggal_absen, jam_masuk, lintang_masuk, bujur_masuk, 
-            foto_masuk, status, keterangan, status_validasi, lokasi_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          id_dinas, user_id, tanggal_only, jam_sekarang, latitude, longitude, 
-          fotoFile || null, status.toLowerCase(), keterangan || null, 'menunggu', lokasi_id_valid
-        ]);
-        
-        console.log(`✓ Absen DINAS saved: id_dinas=${id_dinas}, lokasi_id=${lokasi_id_valid}`);
+        try {
+          await db.execute(`
+            INSERT INTO absen_dinas (
+              id_dinas, id_user, tanggal_absen, jam_masuk, lintang_masuk, bujur_masuk, 
+              foto_masuk, status, keterangan, status_validasi, lokasi_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            id_dinas, user_id, tanggal_only, jam_sekarang, latitude, longitude, 
+            fotoFile || null, status.toLowerCase(), keterangan || null, 'menunggu', lokasi_id_valid
+          ]);
+          
+          console.log(`✓ Absen DINAS saved: id_dinas=${id_dinas}, lokasi_id=${lokasi_id_valid}`);
+        } catch (insertError) {
+          if (insertError.code === 'ER_DUP_ENTRY') {
+            console.log('❌ Duplicate entry di absen_dinas');
+            return res.json({ 
+              success: false, 
+              message: 'Anda sudah melakukan presensi masuk hari ini',
+              already_checked_in: true
+            });
+          }
+          throw insertError;
+        }
         
       } else {
         // TIDAK DINAS → Simpan ke presensi biasa
@@ -631,23 +629,23 @@ const submitPresensi = async (req, res) => {
               id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, foto_masuk, 
               alasan_luar_lokasi, status, status_validasi, lokasi_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE jam_masuk = jam_masuk
           `, [
-            user_id, tanggal, jam_sekarang, latitude, longitude, fotoFile || null, 
+            user_id, tanggal_only, jam_sekarang, latitude, longitude, fotoFile || null, 
             keterangan || null, status, 'disetujui', lokasi_id_valid
           ]);
           
-          console.log(`✓ Presensi BIASA saved: lokasi_id=${lokasi_id_valid}`);
+          console.log(`✓ Presensi BIASA saved: tanggal=${tanggal_only}, jam=${jam_sekarang}, lokasi_id=${lokasi_id_valid}`);
         } catch (insertError) {
-          // Handle duplicate entry error
           if (insertError.code === 'ER_DUP_ENTRY') {
-            console.log('⚠️ Duplicate entry detected, user already checked in today');
+            console.log('❌ Duplicate entry di presensi');
             return res.json({ 
-              success: true, 
+              success: false, 
               message: 'Anda sudah melakukan presensi masuk hari ini',
               already_checked_in: true
             });
           }
-          throw insertError; // Re-throw jika bukan duplicate error
+          throw insertError;
         }
       }
 
