@@ -276,7 +276,7 @@ export default function RiwayatScreen() {
          API ENDPOINTS CONFIGURATION
       ======================================== */
       const response = await fetch(
-        `${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_PRESENSI)}?user_id=${userId}&start_date=${startDate}&end_date=${endDate}`
+        `${API_CONFIG.BASE_URL}/pegawai/presensi/api/presensi?user_id=${userId}&start_date=${startDate}&end_date=${endDate}`
       );
       const data = await response.json();
       
@@ -294,6 +294,7 @@ export default function RiwayatScreen() {
           console.log(`  - Item ${index}:`, {
             tanggal: item.tanggal,
             status: item.status,
+            jam_masuk: item.jam_masuk,
             jenis_presensi: item.jenis_presensi,
             kegiatan_dinas: item.kegiatan_dinas,
             keterangan: item.keterangan
@@ -568,13 +569,13 @@ export default function RiwayatScreen() {
                     <View style={styles.statusRow}>
                       <Text style={styles.dayFull}>{dayName}</Text>
                       <Text style={[styles.statusBadge, { color }]}>
-                        {isDinas ? `Dinas - ${item.status}` : item.status}
+                        {isDinas ? `Dinas-${item.status}` : item.status}
                       </Text>
                     </View>
                     
                     <Text style={styles.locationText}>
                       {isDinas && item.kegiatan_dinas ? 
-                        `Dinas - ${item.kegiatan_dinas}` : 
+                        item.kegiatan_dinas : 
                         item.lokasi || 'Kantor'
                       }
                     </Text>

@@ -352,16 +352,15 @@ export default function LaporanDetailAbsenScreen() {
     let totalTidakHadir = 0;
 
     pegawaiData.forEach((pegawai) => {
-      // ✅ Hadir = Hadir + Terlambat (tapi Terlambat jangan dihitung 2x)
+      // ✅ Hadir = Hadir + Terlambat (terlambat sudah termasuk hadir)
       const hadir = pegawai.summary["Hadir"] || 0;
       const terlambat = pegawai.summary["Terlambat"] || 0;
       
+      // Total hadir = hadir + terlambat (tidak perlu tambah dinas karena sudah dihitung di backend)
       totalHadir += hadir + terlambat;
       totalTerlambat += terlambat;
       
-      // ✅ Tidak Hadir = Total - (Hadir + Terlambat + Libur + Dinas + Izin + Sakit + Cuti)
-      // Tapi karena backend tidak kirim total hari, kita pakai "Tidak Hadir" dari backend
-      // yang sudah dikurangi Libur dan Dinas
+      // ✅ Tidak Hadir dari backend (sudah benar)
       totalTidakHadir += pegawai.summary["Tidak Hadir"] || 0;
     });
 

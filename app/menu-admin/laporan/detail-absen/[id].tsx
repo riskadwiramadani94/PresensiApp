@@ -13,6 +13,7 @@ interface AbsenDetail {
   jam_masuk: string | null;
   jam_keluar: string | null;
   keterangan: string;
+  isDinas?: boolean;
 }
 
 const statusConfig = {
@@ -266,7 +267,8 @@ export default function DetailAbsenPegawai() {
           status: presensi.status,
           jam_masuk: presensi.jam_masuk,
           jam_keluar: presensi.jam_keluar,
-          keterangan: presensi.keterangan || presensi.status
+          keterangan: presensi.keterangan || presensi.status,
+          isDinas: presensi.keterangan && presensi.keterangan.includes('(')
         });
       } else {
         const today = new Date();
@@ -295,7 +297,8 @@ export default function DetailAbsenPegawai() {
           status,
           jam_masuk: null,
           jam_keluar: null,
-          keterangan
+          keterangan,
+          isDinas: false
         });
       }
     }
@@ -343,7 +346,8 @@ export default function DetailAbsenPegawai() {
         status,
         jam_masuk: null,
         jam_keluar: null,
-        keterangan
+        keterangan,
+        isDinas: false
       });
     }
     
@@ -362,6 +366,16 @@ export default function DetailAbsenPegawai() {
         isLibur: true
       };
       setDetailAbsen(mockLiburData);
+      openBottomSheet();
+    } else if (item.isDinas) {
+      // Untuk dinas, tampilkan modal dengan status absen sebenarnya
+      const mockDinasData = {
+        tanggal: item.tanggal,
+        status: item.status, // Status sudah benar dari backend
+        keterangan: item.keterangan,
+        isDinas: true
+      };
+      setDetailAbsen(mockDinasData);
       openBottomSheet();
     } else if (item.jam_masuk) {
       setShowDetailModal(true);
@@ -540,13 +554,11 @@ export default function DetailAbsenPegawai() {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    // Parse item date properly
     const [year, month, day] = item.tanggal.split('-').map(Number);
     const itemDate = new Date(year, month - 1, day);
     const isFutureDate = itemDate > today;
-    const isDinas = item.status === 'Dinas';
     const isLibur = item.status === 'Libur';
-    const isDisabled = isFutureDate || isDinas;
+    const isDisabled = isFutureDate || isLibur || item.isDinas;
     
     let displayStatus = item.status;
     let displayKeterangan = item.keterangan;
@@ -556,14 +568,23 @@ export default function DetailAbsenPegawai() {
       displayKeterangan = liburInfo.nama_libur;
     }
     
-    const config = statusConfig[displayStatus as keyof typeof statusConfig] || statusConfig['Tidak Hadir'];
+    // Normalize status untuk memastikan case yang benar
+    if (displayStatus.toLowerCase() === 'terlambat') {
+      displayStatus = 'Terlambat';
+    } else if (displayStatus.toLowerCase() === 'hadir') {
+      displayStatus = 'Hadir';
+    } else if (displayStatus.toLowerCase() === 'tidak hadir') {
+      displayStatus = 'Tidak Hadir';
+    }
+    
+    const config = statusConfig[displayStatus.trim() as keyof typeof statusConfig] || statusConfig['Tidak Hadir'];
     
     return (
       <TouchableOpacity 
-        style={[styles.absenItem, (isDisabled || isLibur) && styles.absenItemDisabled]} 
-        onPress={() => !isDisabled && !isLibur && showDetailForDate(item)}
-        activeOpacity={(isDisabled || isLibur) ? 1 : 0.7}
-        disabled={isDisabled || isLibur}
+        style={[styles.absenItem, isDisabled && styles.absenItemDisabled]} 
+        onPress={() => !isDisabled && showDetailForDate(item)}
+        activeOpacity={isDisabled ? 1 : 0.7}
+        disabled={isDisabled}
       >
         <View style={styles.dateSection}>
           <Text style={styles.dayText}>{dateInfo.day}</Text>
@@ -592,7 +613,7 @@ export default function DetailAbsenPegawai() {
           )}
         </View>
         
-        {!isDisabled && !isLibur && <Ionicons name="chevron-forward" size={20} color="#666" />}
+        {!isDisabled && <Ionicons name="chevron-forward" size={20} color="#666" />}
       </TouchableOpacity>
     );
   };
@@ -653,7 +674,7 @@ export default function DetailAbsenPegawai() {
                 </View>
               </View>
               
-              {detailAbsen.isLibur ? (
+              {(detailAbsen.isLibur || detailAbsen.isDinas) ? (
                 <View style={styles.confirmItemFull}>
                   <Text style={styles.confirmLabel}>Keterangan</Text>
                   <Text style={styles.confirmValue}>{detailAbsen.keterangan}</Text>

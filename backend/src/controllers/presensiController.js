@@ -239,13 +239,18 @@ const getPresensi = async (req, res) => {
           TIME_FORMAT(jam_masuk, '%H:%i:%s') as jam_masuk,
           TIME_FORMAT(jam_pulang, '%H:%i:%s') as jam_keluar,
           status,
-          alasan_luar_lokasi as keterangan
+          alasan_luar_lokasi as keterangan,
+          'kantor' as jenis_presensi,
+          status_validasi
         FROM presensi 
         WHERE id_user = ? 
-        AND DATE_FORMAT(tanggal, '%Y-%m-%d') BETWEEN ? AND ?
-        ORDER BY tanggal ASC, CASE WHEN jam_masuk IS NULL THEN 1 ELSE 0 END, jam_masuk DESC`,
+        AND tanggal BETWEEN ? AND ?
+        AND jam_masuk IS NOT NULL
+        ORDER BY tanggal ASC`,
         [user_id, start_date, end_date]
       );
+      
+      console.log('🔍 PRESENSI QUERY RESULT:', rangeRows);
       
       // Get dinas data for the same period
       const [dinasRows] = await db.execute(
@@ -264,19 +269,66 @@ const getPresensi = async (req, res) => {
         [user_id, start_date, end_date, start_date, end_date, start_date, end_date]
       );
       
+      // Get absen dinas data for the same period
+      const [absenDinasRows] = await db.execute(
+        `SELECT 
+          DATE_FORMAT(ad.tanggal_absen, '%Y-%m-%d') as tanggal,
+          TIME_FORMAT(ad.jam_masuk, '%H:%i:%s') as jam_masuk,
+          TIME_FORMAT(ad.jam_pulang, '%H:%i:%s') as jam_keluar,
+          ad.status,
+          d.nama_kegiatan as keterangan,
+          'dinas' as jenis_presensi,
+          ad.status_validasi
+        FROM absen_dinas ad
+        JOIN dinas d ON ad.id_dinas = d.id_dinas
+        WHERE ad.id_user = ?
+        AND ad.tanggal_absen BETWEEN ? AND ?
+        AND ad.jam_masuk IS NOT NULL
+        ORDER BY ad.tanggal_absen ASC`,
+        [user_id, start_date, end_date]
+      );
+      
       // Create a map of presensi data - prioritize records with jam_masuk
       const presensiMap = new Map();
+      
+      // Add presensi kantor data
       rangeRows.forEach(row => {
-        // Only set if not exists OR if current row has jam_masuk and existing doesn't
-        if (!presensiMap.has(row.tanggal) || 
-            (row.jam_masuk && !presensiMap.get(row.tanggal).jam_masuk)) {
-          presensiMap.set(row.tanggal, {
-            tanggal: row.tanggal,
+        const dateStr = row.tanggal; // Sudah dalam format YYYY-MM-DD
+        console.log(`📅 Using date ${dateStr} directly`);
+        if (!presensiMap.has(dateStr) || 
+            (row.jam_masuk && !presensiMap.get(dateStr).jam_masuk)) {
+          presensiMap.set(dateStr, {
+            tanggal: dateStr,
             jam_masuk: row.jam_masuk,
             jam_keluar: row.jam_keluar,
             status: row.status,
-            keterangan: row.keterangan || (row.status === 'Terlambat' ? 'Terlambat' : 'Hadir normal')
+            keterangan: row.keterangan || (row.status === 'Terlambat' ? 'Terlambat' : 'Hadir normal'),
+            jenis_presensi: row.jenis_presensi,
+            status_validasi: row.status_validasi
           });
+          console.log(`✅ Added to presensiMap: ${dateStr} - ${row.status}`);
+        }
+      });
+      
+      console.log('📋 PresensiMap contents:', Array.from(presensiMap.keys()));
+      
+      // Add absen dinas data
+      absenDinasRows.forEach(row => {
+        const dateStr = row.tanggal; // Sudah dalam format YYYY-MM-DD
+        console.log(`📅 Using dinas date ${dateStr} directly`);
+        if (!presensiMap.has(dateStr) || 
+            (row.jam_masuk && !presensiMap.get(dateStr).jam_masuk)) {
+          presensiMap.set(dateStr, {
+            tanggal: dateStr,
+            jam_masuk: row.jam_masuk,
+            jam_keluar: row.jam_keluar,
+            status: row.status,
+            keterangan: row.keterangan,
+            jenis_presensi: row.jenis_presensi,
+            status_validasi: row.status_validasi,
+            kegiatan_dinas: row.keterangan
+          });
+          console.log(`✅ Added dinas to presensiMap: ${dateStr} - ${row.status}`);
         }
       });
       
@@ -333,8 +385,10 @@ const getPresensi = async (req, res) => {
             keterangan: `Hari ${dayName} (Weekend)`
           });
         } else if (presensiMap.has(dateStr)) {
-          // PRIORITY 3: Ada data presensi
-          formattedData.push(presensiMap.get(dateStr));
+          // PRIORITY 3: Ada data presensi - LANGSUNG AMBIL DARI MAP
+          const presensiData = presensiMap.get(dateStr);
+          console.log(`✅ Found presensi for ${dateStr}:`, presensiData);
+          formattedData.push(presensiData);
         } else {
           // Check if user is on dinas this day
           const isDinas = dinasRows.some(dinas => {
@@ -352,16 +406,36 @@ const getPresensi = async (req, res) => {
               return checkDate >= dinasStart && checkDate <= dinasEnd;
             });
             
+            // Cek apakah ada presensi dinas untuk tanggal ini
+            const [presensiDinasRows] = await db.execute(`
+              SELECT jam_masuk, jam_pulang, status
+              FROM absen_dinas 
+              WHERE id_user = ? AND tanggal_absen = ?
+            `, [user_id, dateStr]);
+            
             const startDate = new Date(dinasInfo.tanggal_mulai).toLocaleDateString('id-ID', { day: 'numeric' });
             const endDate = new Date(dinasInfo.tanggal_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
             
-            formattedData.push({
-              tanggal: dateStr,
-              jam_masuk: null,
-              jam_keluar: null,
-              status: 'Dinas',
-              keterangan: `${dinasInfo.nama_kegiatan} (${startDate}-${endDate})`
-            });
+            if (presensiDinasRows.length > 0) {
+              // Ada presensi dinas - kirim data jam masuk/keluar
+              const presensiDinas = presensiDinasRows[0];
+              formattedData.push({
+                tanggal: dateStr,
+                jam_masuk: presensiDinas.jam_masuk,
+                jam_keluar: presensiDinas.jam_pulang,
+                status: 'Dinas',
+                keterangan: `${dinasInfo.nama_kegiatan} (${startDate}-${endDate})`
+              });
+            } else {
+              // Tidak ada presensi dinas
+              formattedData.push({
+                tanggal: dateStr,
+                jam_masuk: null,
+                jam_keluar: null,
+                status: 'Dinas',
+                keterangan: `${dinasInfo.nama_kegiatan} (${startDate}-${endDate})`
+              });
+            }
           } else {
             // PRIORITY 4: Hari kerja tapi tidak ada presensi dan tidak dinas
             const today = new Date();
@@ -379,18 +453,21 @@ const getPresensi = async (req, res) => {
                 keterangan: 'Belum waktunya absen'
               });
             } else if (checkDate.getTime() === today.getTime()) {
-              // Hari ini - cek apakah sudah lewat jam pulang
-              const now = new Date();
-              const jamPulang = new Date();
-              jamPulang.setHours(17, 0, 0, 0);
-              
-              if (now > jamPulang) {
+              // Hari ini - cek apakah sudah absen
+              console.log(`📅 Checking today ${dateStr}, presensiMap has:`, Array.from(presensiMap.keys()));
+              // Cek juga tanggal kemarin karena timezone issue
+              const yesterdayStr = new Date(checkDate.getTime() - 24*60*60*1000).toISOString().split('T')[0];
+              if (presensiMap.has(yesterdayStr)) {
+                console.log(`✅ Found data in yesterday key ${yesterdayStr}`);
+                const presensiData = presensiMap.get(yesterdayStr);
                 formattedData.push({
-                  tanggal: dateStr,
-                  jam_masuk: null,
-                  jam_keluar: null,
-                  status: 'Tidak Hadir',
-                  keterangan: 'Tidak hadir'
+                  tanggal: dateStr, // Gunakan tanggal yang benar (2026-03-04)
+                  jam_masuk: presensiData.jam_masuk,
+                  jam_keluar: presensiData.jam_keluar,
+                  status: presensiData.status,
+                  keterangan: presensiData.keterangan,
+                  jenis_presensi: presensiData.jenis_presensi,
+                  status_validasi: presensiData.status_validasi
                 });
               } else {
                 formattedData.push({
@@ -427,8 +504,8 @@ const getPresensi = async (req, res) => {
 
     // Get today's attendance
     const [todayRows] = await db.execute(
-      'SELECT * FROM presensi WHERE id_user = ? AND tanggal LIKE ? ORDER BY tanggal DESC',
-      [user_id, targetDate + '%']
+      'SELECT * FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? ORDER BY tanggal DESC',
+      [user_id, targetDate]
     );
 
     // Get recent attendance history
@@ -511,22 +588,23 @@ const submitPresensi = async (req, res) => {
       return res.json({ success: false, message: 'Anda berada di luar radius lokasi yang diizinkan' });
     }
 
-    // Gunakan waktu lokal Indonesia (WIB) - BUKAN UTC
+    // Gunakan waktu Indonesia (WIB/WITA/WIT)
     const now = new Date();
+    // Tambahkan 7 jam untuk WIB (UTC+7)
+    const indonesiaTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
     
-    // Format: YYYY-MM-DD HH:MM:SS (waktu lokal)
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
+    // Format: YYYY-MM-DD (tanggal saja, bukan datetime)
+    const year = indonesiaTime.getUTCFullYear();
+    const month = String(indonesiaTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(indonesiaTime.getUTCDate()).padStart(2, '0');
+    const hours = String(indonesiaTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(indonesiaTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(indonesiaTime.getUTCSeconds()).padStart(2, '0');
     
-    const tanggal = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-    const tanggal_only = `${year}-${month}-${day}`;
+    const tanggal_only = `${year}-${month}-${day}`; // YYYY-MM-DD saja
     const jam_sekarang = `${hours}:${minutes}:${seconds}`;
     
-    console.log('Waktu lokal:', tanggal, '| Tanggal:', tanggal_only);
+    console.log('Waktu Indonesia:', `${tanggal_only} ${jam_sekarang}`, '| Tanggal:', tanggal_only);
 
     // Cek apakah pegawai sedang terdaftar dinas hari ini
     const [dinasCheckRows] = await db.execute(`
@@ -597,7 +675,29 @@ const submitPresensi = async (req, res) => {
         // SEDANG DINAS → Simpan ke absen_dinas
         const id_dinas = dinasCheckRows[0].id_dinas;
         
-        try {
+        // Cek apakah sudah absen hari ini
+        const [checkDinas] = await db.execute(
+          'SELECT id FROM absen_dinas WHERE id_user = ? AND tanggal_absen = ? AND jam_masuk IS NOT NULL',
+          [user_id, tanggal_only]
+        );
+        
+        if (checkDinas.length > 0) {
+          return res.json({ 
+            success: false, 
+            message: 'Anda sudah melakukan presensi masuk hari ini',
+            already_checked_in: true
+          });
+        }
+        
+        // UPDATE dulu, kalau gagal baru INSERT
+        const [updateDinas] = await db.execute(`
+          UPDATE absen_dinas 
+          SET jam_masuk = ?, lintang_masuk = ?, bujur_masuk = ?, 
+              foto_masuk = ?, status = ?, lokasi_id = ?, status_validasi = ?
+          WHERE id_user = ? AND tanggal_absen = ?
+        `, [jam_sekarang, latitude, longitude, fotoFile || null, status.toLowerCase(), lokasi_id_valid, 'menunggu', user_id, tanggal_only]);
+        
+        if (updateDinas.affectedRows === 0) {
           await db.execute(`
             INSERT INTO absen_dinas (
               id_dinas, id_user, tanggal_absen, jam_masuk, lintang_masuk, bujur_masuk, 
@@ -607,46 +707,55 @@ const submitPresensi = async (req, res) => {
             id_dinas, user_id, tanggal_only, jam_sekarang, latitude, longitude, 
             fotoFile || null, status.toLowerCase(), keterangan || null, 'menunggu', lokasi_id_valid
           ]);
-          
-          console.log(`✓ Absen DINAS saved: id_dinas=${id_dinas}, lokasi_id=${lokasi_id_valid}`);
-        } catch (insertError) {
-          if (insertError.code === 'ER_DUP_ENTRY') {
-            console.log('❌ Duplicate entry di absen_dinas');
-            return res.json({ 
-              success: false, 
-              message: 'Anda sudah melakukan presensi masuk hari ini',
-              already_checked_in: true
-            });
-          }
-          throw insertError;
         }
+        
+        console.log(`✓ Absen DINAS saved: id_dinas=${id_dinas}, lokasi_id=${lokasi_id_valid}`);
         
       } else {
         // TIDAK DINAS → Simpan ke presensi biasa
-        try {
+        
+        // Cek apakah sudah absen hari ini
+        const [checkPresensi] = await db.execute(
+          'SELECT id_presensi FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? AND jam_masuk IS NOT NULL',
+          [user_id, tanggal_only]
+        );
+        
+        if (checkPresensi.length > 0) {
+          return res.json({ 
+            success: false, 
+            message: 'Anda sudah melakukan presensi masuk hari ini',
+            already_checked_in: true
+          });
+        }
+        
+        // UPDATE dulu, kalau gagal baru INSERT
+        const [updatePresensi] = await db.execute(`
+          UPDATE presensi 
+          SET jam_masuk = ?, lintang_masuk = ?, bujur_masuk = ?, 
+              foto_masuk = ?, status = ?, lokasi_id = ?, status_validasi = ?,
+              alasan_luar_lokasi = ?
+          WHERE id_user = ? AND DATE(tanggal) = ?
+        `, [jam_sekarang, latitude, longitude, fotoFile || null, status, lokasi_id_valid, 'disetujui', keterangan || null, user_id, tanggal_only]);
+        
+        console.log(`📝 UPDATE result: affectedRows=${updatePresensi.affectedRows}`);
+        
+        if (updatePresensi.affectedRows === 0) {
+          console.log('📝 No rows updated, inserting new record...');
           await db.execute(`
             INSERT INTO presensi (
               id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, foto_masuk, 
               alasan_luar_lokasi, status, status_validasi, lokasi_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE jam_masuk = jam_masuk
           `, [
             user_id, tanggal_only, jam_sekarang, latitude, longitude, fotoFile || null, 
             keterangan || null, status, 'disetujui', lokasi_id_valid
           ]);
-          
-          console.log(`✓ Presensi BIASA saved: tanggal=${tanggal_only}, jam=${jam_sekarang}, lokasi_id=${lokasi_id_valid}`);
-        } catch (insertError) {
-          if (insertError.code === 'ER_DUP_ENTRY') {
-            console.log('❌ Duplicate entry di presensi');
-            return res.json({ 
-              success: false, 
-              message: 'Anda sudah melakukan presensi masuk hari ini',
-              already_checked_in: true
-            });
-          }
-          throw insertError;
+          console.log('✓ INSERT completed');
+        } else {
+          console.log('✓ UPDATE completed');
         }
+        
+        console.log(`✓ Presensi BIASA saved: tanggal=${tanggal_only}, jam=${jam_sekarang}, lokasi_id=${lokasi_id_valid}`);
       }
 
     } else { // keluar

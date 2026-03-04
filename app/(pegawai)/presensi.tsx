@@ -105,24 +105,27 @@ export default function PresensiScreen() {
       
       console.log('📋 Absen dinas:', data2);
       
-      // Cek dari response presensi
+      // Cek dari response presensi - PERBAIKAN: cek jam_masuk langsung
       const hasPresensi = response1.success && 
                           response1.data?.presensi_hari_ini && 
                           response1.data.presensi_hari_ini.jam_masuk;
       
       const hasDinas = data2.success && data2.has_checked_in;
       
+      console.log('✅ Check results:', { hasPresensi, hasDinas });
+      
       if (hasPresensi || hasDinas) {
         console.log('✅ Sudah absen hari ini');
         setHasCheckedIn(true);
         
         if (hasPresensi) {
-          setCheckInTime(response1.data.presensi_hari_ini.jam_masuk.substring(0, 8));
+          const jamMasuk = response1.data.presensi_hari_ini.jam_masuk;
+          setCheckInTime(jamMasuk.length > 8 ? jamMasuk.substring(0, 8) : jamMasuk);
+          setValidationStatus(response1.data.presensi_hari_ini.status_validasi || 'disetujui');
         } else if (hasDinas) {
           setCheckInTime(data2.check_in_time);
+          setValidationStatus(data2.status_validasi || 'menunggu');
         }
-        
-        setValidationStatus(data2.status_validasi || 'disetujui');
       } else {
         console.log('❌ Belum absen hari ini');
         setHasCheckedIn(false);
