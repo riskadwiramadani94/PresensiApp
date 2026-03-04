@@ -25,12 +25,21 @@ const getTracking = async (req, res) => {
           WHEN pr.jam_masuk <= jk.batas_absen THEN 'Hadir'
           WHEN pr.jam_masuk > jk.batas_absen THEN 'Terlambat'
           ELSE 'Belum Absen'
-        END AS status
+        END AS status,
+        CASE 
+          WHEN d.id_dinas IS NOT NULL AND dp.status_konfirmasi IN ('konfirmasi', 'disetujui', 'approved') THEN 'dinas'
+          ELSE 'kantor'
+        END AS jenis_presensi,
+        d.id_dinas AS dinas_id
       FROM pegawai p
       INNER JOIN users u ON p.id_user = u.id_user
       LEFT JOIN lokasi_realtime lr ON p.id_user = lr.id_user
       LEFT JOIN presensi pr ON p.id_user = pr.id_user AND pr.tanggal = CURDATE()
       LEFT JOIN jam_kerja_hari jk ON jk.hari = DAYNAME(CURDATE())
+      LEFT JOIN dinas_pegawai dp ON p.id_user = dp.id_user AND dp.status_konfirmasi IN ('konfirmasi', 'disetujui', 'approved')
+      LEFT JOIN dinas d ON dp.id_dinas = d.id_dinas 
+        AND CURDATE() BETWEEN d.tanggal_mulai AND d.tanggal_selesai
+        AND d.status IN ('aktif', 'active')
       WHERE u.role = 'pegawai' AND p.status_pegawai = 'Aktif'
       ORDER BY 
         CASE WHEN pr.jam_masuk IS NULL THEN 1 ELSE 0 END,
@@ -42,32 +51,84 @@ const getTracking = async (req, res) => {
       SELECT id, nama_lokasi, lintang, bujur, radius FROM lokasi_kantor WHERE is_active = 1
     `);
 
+    // Get lokasi dinas untuk pegawai yang sedang dinas
+    const [lokasiDinas] = await db.execute(`
+      SELECT 
+        dl.id_dinas,
+        lk.id,
+        lk.nama_lokasi,
+        lk.lintang,
+        lk.bujur,
+        lk.radius
+      FROM dinas_lokasi dl
+      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+      WHERE lk.is_active = 1
+    `);
+
     const pegawaiWithDistance = results.map(pegawai => {
+      console.log(`🔍 Processing pegawai: ${pegawai.nama_lengkap}, jenis_presensi: ${pegawai.jenis_presensi}, dinas_id: ${pegawai.dinas_id}`);
+      
       let jarakTerdekat = null;
       let kantorTerdekat = null;
+      let jarakDariLokasiDinas = null;
+      let lokasiDinasTerdekat = null;
+      let totalLokasiDinas = 0;
+      let lokasiDalamRadius = 0;
       
-      if (pegawai.latitude && pegawai.longitude && lokasiKantor.length > 0) {
-        // Cari kantor terdekat
-        lokasiKantor.forEach(kantor => {
-          const jarak = hitungJarak(
-            pegawai.latitude,
-            pegawai.longitude,
-            kantor.lintang,
-            kantor.bujur
-          );
+      if (pegawai.latitude && pegawai.longitude) {
+        if (pegawai.jenis_presensi === 'dinas' && pegawai.dinas_id) {
+          // Hitung jarak ke lokasi dinas
+          const lokasiDinasItem = lokasiDinas.filter(ld => ld.id_dinas === pegawai.dinas_id);
+          totalLokasiDinas = lokasiDinasItem.length;
           
-          if (jarakTerdekat === null || jarak < jarakTerdekat) {
-            jarakTerdekat = jarak;
-            kantorTerdekat = kantor;
-          }
-        });
+          lokasiDinasItem.forEach(lokasi => {
+            const jarak = hitungJarak(
+              pegawai.latitude,
+              pegawai.longitude,
+              lokasi.lintang,
+              lokasi.bujur
+            );
+            
+            if (jarakDariLokasiDinas === null || jarak < jarakDariLokasiDinas) {
+              jarakDariLokasiDinas = jarak;
+              lokasiDinasTerdekat = lokasi;
+            }
+            
+            // Hitung berapa lokasi yang dalam radius
+            if (jarak <= (lokasi.radius || 50)) {
+              lokasiDalamRadius++;
+            }
+          });
+        } else {
+          // Hitung jarak ke kantor terdekat (untuk pegawai kantor)
+          lokasiKantor.forEach(kantor => {
+            const jarak = hitungJarak(
+              pegawai.latitude,
+              pegawai.longitude,
+              kantor.lintang,
+              kantor.bujur
+            );
+            
+            if (jarakTerdekat === null || jarak < jarakTerdekat) {
+              jarakTerdekat = jarak;
+              kantorTerdekat = kantor;
+            }
+          });
+        }
       }
       
       return {
         ...pegawai,
         jarak_dari_kantor: jarakTerdekat,
         kantor_terdekat: kantorTerdekat?.nama_lokasi,
-        radius_kantor: kantorTerdekat?.radius || 50
+        radius_kantor: kantorTerdekat?.radius || 50,
+        jenis_presensi: pegawai.jenis_presensi || 'kantor',
+        dinas_id: pegawai.dinas_id || null,
+        // Data untuk dinas
+        jarak_dari_lokasi_dinas: jarakDariLokasiDinas,
+        lokasi_dinas_terdekat: lokasiDinasTerdekat?.nama_lokasi,
+        total_lokasi_dinas: totalLokasiDinas,
+        lokasi_dalam_radius: lokasiDalamRadius
       };
     });
 

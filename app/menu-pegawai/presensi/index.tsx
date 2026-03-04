@@ -245,6 +245,8 @@ export default function RiwayatScreen() {
       const user = JSON.parse(userData);
       const userId = user.id_user || user.id;
       
+      console.log('🔍 Frontend: Using user_id:', userId);
+      
       let startDate = '';
       let endDate = '';
       
@@ -268,7 +270,7 @@ export default function RiwayatScreen() {
         endDate = `${year}-12-31`;
       }
       
-      console.log('Fetching riwayat:', startDate, 'to', endDate);
+      console.log('Fetching riwayat:', startDate, 'to', endDate, 'for user:', userId);
       
       /* ========================================
          API ENDPOINTS CONFIGURATION
@@ -281,17 +283,33 @@ export default function RiwayatScreen() {
       console.log('📊 Response from backend:', data);
       
       if (data.success && data.data) {
-        // ✅ LANGSUNG PAKAI data dari backend - sudah include libur & weekend
-        const riwayat = data.data.map((item: any) => ({
-          tanggal: item.tanggal,
-          status: item.status,
-          jam_masuk: item.jam_masuk,
-          jam_keluar: item.jam_keluar,
-          lokasi: item.keterangan || item.status,
-          jenis_presensi: undefined,
-          status_validasi: undefined,
-          kegiatan_dinas: undefined
-        }));
+        console.log('🔍 Frontend mapping data:');
+        console.log('  - Raw data length:', data.data.length);
+        if (data.data.length > 0) {
+          console.log('  - Sample raw item:', JSON.stringify(data.data[0], null, 2));
+        }
+        
+        // ✅ LANGSUNG PAKAI data dari backend - sudah include libur & weekend + dinas
+        const riwayat = data.data.map((item: any, index: number) => {
+          console.log(`  - Item ${index}:`, {
+            tanggal: item.tanggal,
+            status: item.status,
+            jenis_presensi: item.jenis_presensi,
+            kegiatan_dinas: item.kegiatan_dinas,
+            keterangan: item.keterangan
+          });
+          
+          return {
+            tanggal: item.tanggal,
+            status: item.status,
+            jam_masuk: item.jam_masuk,
+            jam_keluar: item.jam_keluar,
+            lokasi: item.keterangan || item.status,
+            jenis_presensi: item.jenis_presensi, // 'kantor' atau 'dinas'
+            status_validasi: item.status_validasi,
+            kegiatan_dinas: item.kegiatan_dinas // nama kegiatan dinas
+          };
+        });
         
         console.log('✅ Data dari backend (sudah include libur & weekend):', riwayat.length);
         
@@ -549,11 +567,16 @@ export default function RiwayatScreen() {
                   <View style={styles.contentSection}>
                     <View style={styles.statusRow}>
                       <Text style={styles.dayFull}>{dayName}</Text>
-                      <Text style={[styles.statusBadge, { color }]}>{item.status}</Text>
+                      <Text style={[styles.statusBadge, { color }]}>
+                        {isDinas ? `Dinas - ${item.status}` : item.status}
+                      </Text>
                     </View>
                     
                     <Text style={styles.locationText}>
-                      {isDinas && item.kegiatan_dinas ? item.kegiatan_dinas : item.lokasi || 'Kantor'}
+                      {isDinas && item.kegiatan_dinas ? 
+                        `Dinas - ${item.kegiatan_dinas}` : 
+                        item.lokasi || 'Kantor'
+                      }
                     </Text>
                     
                     {item.jam_masuk && (

@@ -47,6 +47,11 @@ interface PegawaiData {
   radius_kantor?: number;
   jenis_presensi?: 'kantor' | 'dinas';
   dinas_id?: number;
+  // Data untuk dinas
+  jarak_dari_lokasi_dinas?: number;
+  lokasi_dinas_terdekat?: string;
+  total_lokasi_dinas?: number;
+  lokasi_dalam_radius?: number;
 }
 
 export default function TrackingPegawaiScreen() {
@@ -93,9 +98,14 @@ export default function TrackingPegawaiScreen() {
           radius_kantor: item.radius_kantor,
           jenis_presensi: item.jenis_presensi || 'kantor',
           dinas_id: item.dinas_id,
+          // Data untuk dinas
+          jarak_dari_lokasi_dinas: item.jarak_dari_lokasi_dinas,
+          lokasi_dinas_terdekat: item.lokasi_dinas_terdekat,
+          total_lokasi_dinas: item.total_lokasi_dinas,
+          lokasi_dalam_radius: item.lokasi_dalam_radius,
         }));
         
-        console.log('Pegawai data:', formattedData.map(p => ({ 
+        console.log('Pegawai data:', formattedData.map((p: PegawaiData) => ({ 
           nama: p.nama_lengkap, 
           foto: p.foto_profil,
           jarak: p.jarak_dari_kantor 
@@ -104,11 +114,11 @@ export default function TrackingPegawaiScreen() {
         
         // Auto zoom ke lokasi pegawai setelah data dimuat HANYA jika detail tidak sedang dibuka
         if (formattedData.length > 0 && !isDetailOpen) {
-          const pegawaiDenganGPS = formattedData.filter(p => p.latitude && p.longitude);
+          const pegawaiDenganGPS = formattedData.filter((p: PegawaiData) => p.latitude && p.longitude);
           if (pegawaiDenganGPS.length > 0) {
             // Hitung center dari semua lokasi pegawai
-            const latitudes = pegawaiDenganGPS.map(p => p.latitude);
-            const longitudes = pegawaiDenganGPS.map(p => p.longitude);
+            const latitudes = pegawaiDenganGPS.map((p: PegawaiData) => p.latitude);
+            const longitudes = pegawaiDenganGPS.map((p: PegawaiData) => p.longitude);
             
             const minLat = Math.min(...latitudes);
             const maxLat = Math.max(...latitudes);
@@ -168,12 +178,40 @@ export default function TrackingPegawaiScreen() {
     return '#F44336'; // Merah - di luar radius
   };
 
-  const getJarakStatus = (jarak: number | undefined, radius: number | undefined, kantorTerdekat: string | undefined) => {
-    if (!jarak) return 'Tidak diketahui';
-    const radiusKantor = radius || 50;
-    const namaKantor = kantorTerdekat || 'kantor';
-    if (jarak <= radiusKantor) return `Dalam radius ${namaKantor}`;
-    return `Di luar radius ${namaKantor}`;
+  const getJarakInfo = (pegawai: PegawaiData) => {
+    if (pegawai.jenis_presensi === 'dinas') {
+      return {
+        label: 'Jarak dari Lokasi Dinas',
+        jarak: pegawai.jarak_dari_lokasi_dinas,
+        radius: 50, // Default radius dinas
+        lokasi: pegawai.lokasi_dinas_terdekat
+      };
+    } else {
+      return {
+        label: 'Jarak dari Kantor',
+        jarak: pegawai.jarak_dari_kantor,
+        radius: pegawai.radius_kantor,
+        lokasi: pegawai.kantor_terdekat
+      };
+    }
+  };
+
+  const getJarakStatusDinas = (pegawai: PegawaiData) => {
+    if (pegawai.jenis_presensi === 'dinas') {
+      if (!pegawai.jarak_dari_lokasi_dinas) return 'Tidak diketahui';
+      
+      const totalLokasi = pegawai.total_lokasi_dinas || 0;
+      const lokasiDalamRadius = pegawai.lokasi_dalam_radius || 0;
+      const namaLokasi = pegawai.lokasi_dinas_terdekat || 'lokasi dinas';
+      
+      if (lokasiDalamRadius > 0) {
+        return `${lokasiDalamRadius} dari ${totalLokasi} lokasi dalam radius ${namaLokasi}`;
+      } else {
+        return `Di luar semua lokasi dinas`;
+      }
+    } else {
+      return getJarakStatus(pegawai.jarak_dari_kantor, pegawai.radius_kantor, pegawai.kantor_terdekat);
+    }
   };
 
   const getTimeAgo = (lastUpdate: string | undefined) => {
@@ -251,14 +289,14 @@ export default function TrackingPegawaiScreen() {
   };
 
   const handleCounterClick = (type: 'kantor' | 'dinas') => {
-    const filtered = pegawaiList.filter(p => 
+    const filtered = pegawaiList.filter((p: PegawaiData) => 
       p.latitude && p.longitude && p.jenis_presensi === type
     );
     
     if (filtered.length === 0) return;
     
-    const latitudes = filtered.map(p => p.latitude);
-    const longitudes = filtered.map(p => p.longitude);
+    const latitudes = filtered.map((p: PegawaiData) => p.latitude);
+    const longitudes = filtered.map((p: PegawaiData) => p.longitude);
     
     const minLat = Math.min(...latitudes);
     const maxLat = Math.max(...latitudes);
@@ -278,8 +316,25 @@ export default function TrackingPegawaiScreen() {
     }, 1000);
   };
 
-  const kantorCount = pegawaiList.filter(p => p.jenis_presensi === 'kantor').length;
-  const dinasCount = pegawaiList.filter(p => p.jenis_presensi === 'dinas').length;
+  const getJarakStatus = (jarak: number | undefined, radius: number | undefined, kantorTerdekat: string | undefined) => {
+    if (!jarak) return 'Tidak diketahui';
+    const radiusKantor = radius || 50;
+    const namaKantor = kantorTerdekat || 'kantor';
+    if (jarak <= radiusKantor) return `Dalam radius ${namaKantor}`;
+    return `Di luar radius ${namaKantor}`;
+  };
+
+  const getJarakColorDinas = (pegawai: PegawaiData) => {
+    if (pegawai.jenis_presensi === 'dinas') {
+      const lokasiDalamRadius = pegawai.lokasi_dalam_radius || 0;
+      return lokasiDalamRadius > 0 ? '#4CAF50' : '#F44336';
+    } else {
+      return getJarakColor(pegawai.jarak_dari_kantor, pegawai.radius_kantor);
+    }
+  };
+
+  const kantorCount = pegawaiList.filter((p: PegawaiData) => p.jenis_presensi === 'kantor').length;
+  const dinasCount = pegawaiList.filter((p: PegawaiData) => p.jenis_presensi === 'dinas').length;
 
   return (
     <View style={styles.container}>
@@ -328,8 +383,8 @@ export default function TrackingPegawaiScreen() {
         showsMyLocationButton
       >
         {pegawaiList
-          .filter((p) => p.latitude && p.longitude)
-          .map((pegawai) => (
+          .filter((p: PegawaiData) => p.latitude && p.longitude)
+          .map((pegawai: PegawaiData) => (
             <Marker
               key={pegawai.id_user}
               coordinate={{
@@ -339,7 +394,10 @@ export default function TrackingPegawaiScreen() {
               onPress={() => handleMarkerPress(pegawai)}
               stopPropagation={true}
             >
-              <View style={styles.customMarker}>
+              <View style={[
+                styles.customMarker,
+                { borderColor: pegawai.jenis_presensi === 'dinas' ? '#FFC107' : '#10B981' }
+              ]}>
                 {pegawai.foto_profil ? (
                   <Image
                     source={{ uri: `${API_CONFIG.BASE_URL}/${pegawai.foto_profil}` }}
@@ -435,7 +493,7 @@ export default function TrackingPegawaiScreen() {
                   <TouchableOpacity
                     style={[
                       styles.jarakRow,
-                      { borderColor: getJarakColor(selectedPegawai.jarak_dari_kantor, selectedPegawai.radius_kantor) }
+                      { borderColor: getJarakColorDinas(selectedPegawai) }
                     ]}
                     onPress={() =>
                       openRoute(
@@ -445,27 +503,27 @@ export default function TrackingPegawaiScreen() {
                     }
                   >
                     <View style={styles.jarakInfo}>
-                      <Text style={styles.infoLabel}>Jarak dari Kantor</Text>
+                      <Text style={styles.infoLabel}>{getJarakInfo(selectedPegawai).label}</Text>
                       <Text style={[
                         styles.infoValue,
-                        { color: getJarakColor(selectedPegawai.jarak_dari_kantor, selectedPegawai.radius_kantor) }
+                        { color: getJarakColorDinas(selectedPegawai) }
                       ]}>
-                        {selectedPegawai.jarak_dari_kantor
-                          ? formatJarak(selectedPegawai.jarak_dari_kantor)
+                        {getJarakInfo(selectedPegawai).jarak
+                          ? formatJarak(getJarakInfo(selectedPegawai).jarak!)
                           : "-"}
                       </Text>
                       <Text style={[
                         styles.jarakStatus,
-                        { color: getJarakColor(selectedPegawai.jarak_dari_kantor, selectedPegawai.radius_kantor) }
+                        { color: getJarakColorDinas(selectedPegawai) }
                       ]}>
-                        {getJarakStatus(selectedPegawai.jarak_dari_kantor, selectedPegawai.radius_kantor, selectedPegawai.kantor_terdekat)}
+                        {getJarakStatusDinas(selectedPegawai)}
                       </Text>
                     </View>
                     <View style={[
                       styles.routeIconContainer,
-                      { backgroundColor: getJarakColor(selectedPegawai.jarak_dari_kantor, selectedPegawai.radius_kantor) + '20' }
+                      { backgroundColor: getJarakColorDinas(selectedPegawai) + '20' }
                     ]}>
-                      <Ionicons name="navigate" size={20} color={getJarakColor(selectedPegawai.jarak_dari_kantor, selectedPegawai.radius_kantor)} />
+                      <Ionicons name="navigate" size={20} color={getJarakColorDinas(selectedPegawai)} />
                     </View>
                   </TouchableOpacity>
                 </>
@@ -513,13 +571,13 @@ const styles = StyleSheet.create({
   },
   map: { flex: 1 },
   customMarker: {
-    width: 37,
-    height: 37,
+    width: 35,
+    height: 35,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: "#10B981", // Default hijau untuk kantor
     backgroundColor: "#004643",
     elevation: 5,
     shadowColor: "#000",

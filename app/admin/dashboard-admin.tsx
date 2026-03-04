@@ -608,20 +608,20 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   adminInfo: { flex: 1 },
-  greetingText: { fontSize: 14, color: "#E8F5E9" },
-  userName: { fontSize: 18, fontWeight: "bold", color: "#fff" },
+  greetingText: { fontSize: 13, color: "#E8F5E9", fontWeight: "500" },
+  userName: { fontSize: 22, fontWeight: "800", color: "#fff", letterSpacing: -0.5 },
   dateTimeContainer: {
     alignItems: "flex-end",
   },
   dateTimeText: {
-    fontSize: 10,
+    fontSize: 12,
     color: "rgba(255,255,255,0.8)",
-    fontWeight: "400",
+    fontWeight: "500",
   },
   timeText: {
-    fontSize: 12,
+    fontSize: 15,
     color: "#fff",
-    fontWeight: "bold",
+    fontWeight: "700",
     marginTop: 1,
   },
   summarySection: {
@@ -683,10 +683,10 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: '#004643',
-    letterSpacing: 0.5,
+    letterSpacing: -0.3,
   },
   mainMenuRow: {
     flexDirection: 'row',
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     marginBottom: 8,
   },
-  menuLabel: { fontSize: 11, color: '#444', fontWeight: '500', textAlign: 'center' },
+  menuLabel: { fontSize: 12, color: '#444', fontWeight: '600', textAlign: 'center' },
   
   // Activity Section
   activitySection: {
@@ -753,8 +753,8 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   activityMainText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#333',
     flex: 1,
   },
@@ -762,9 +762,9 @@ const styles = StyleSheet.create({
     marginLeft: 42, // Sejajar dengan text utama (32px avatar + 10px margin)
   },
   activityDetailText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#666',
-    fontWeight: '400',
+    fontWeight: '500',
   },
   activityBadge: {
     paddingHorizontal: 8,
@@ -783,8 +783,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFEBEE',
   },
   activityStatus: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   statusSuccess: {
     color: '#4CAF50',
@@ -800,9 +800,10 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#999',
     marginTop: 10,
+    fontWeight: '500',
   },
   avatarImage: {
     width: 32,

@@ -17,11 +17,15 @@ import {
   Animated,
   PanResponder,
 } from "react-native";
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as NavigationBar from 'expo-navigation-bar';
-import { API_CONFIG, getApiUrl, PegawaiAkunAPI } from "../../../constants/config";
-import { AppHeader, SkeletonLoader, CustomAlert } from "../../../components";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import * as NavigationBar from "expo-navigation-bar";
+import {
+  API_CONFIG,
+  getApiUrl,
+  PegawaiAkunAPI,
+} from "../../../constants/config";
+import { AppHeader, CustomAlert } from "../../../components";
 import { useCustomAlert } from "../../../hooks/useCustomAlert";
 
 interface PegawaiData {
@@ -44,7 +48,7 @@ interface PegawaiData {
 export default function DataPegawaiAdminScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
+
   const [pegawai, setPegawai] = useState<PegawaiData[]>([]);
   const [filteredPegawai, setFilteredPegawai] = useState<PegawaiData[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,7 +56,9 @@ export default function DataPegawaiAdminScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
-  const [selectedPegawai, setSelectedPegawai] = useState<PegawaiData | null>(null);
+  const [selectedPegawai, setSelectedPegawai] = useState<PegawaiData | null>(
+    null,
+  );
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const alert = useCustomAlert();
@@ -61,8 +67,8 @@ export default function DataPegawaiAdminScreen() {
 
   const openModal = () => {
     setShowActionModal(true);
-    if (Platform.OS === 'android') {
-      NavigationBar.setVisibilityAsync('hidden');
+    if (Platform.OS === "android") {
+      NavigationBar.setVisibilityAsync("hidden");
     }
     Animated.timing(translateY, {
       toValue: 0,
@@ -78,8 +84,8 @@ export default function DataPegawaiAdminScreen() {
       useNativeDriver: true,
     }).start(() => {
       setShowActionModal(false);
-      if (Platform.OS === 'android') {
-        NavigationBar.setVisibilityAsync('visible');
+      if (Platform.OS === "android") {
+        NavigationBar.setVisibilityAsync("visible");
       }
     });
   };
@@ -106,8 +112,6 @@ export default function DataPegawaiAdminScreen() {
     },
   });
 
-
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchPegawai(false);
@@ -118,8 +122,8 @@ export default function DataPegawaiAdminScreen() {
     useCallback(() => {
       fetchPegawai();
       // Set navigation bar translucent
-      if (Platform.OS === 'android') {
-        NavigationBar.setBackgroundColorAsync('transparent');
+      if (Platform.OS === "android") {
+        NavigationBar.setBackgroundColorAsync("transparent");
       }
     }, []),
   );
@@ -160,33 +164,39 @@ export default function DataPegawaiAdminScreen() {
   const fetchPegawai = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      console.log('Fetching data from:', getApiUrl(API_CONFIG.ENDPOINTS.DATA_PEGAWAI));
+      console.log(
+        "Fetching data from:",
+        getApiUrl(API_CONFIG.ENDPOINTS.DATA_PEGAWAI),
+      );
       const response = await fetch(
         getApiUrl(API_CONFIG.ENDPOINTS.DATA_PEGAWAI),
         {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            "Content-Type": "application/json",
+            Accept: "application/json",
           },
-        }
+        },
       );
-      
-      console.log('Response status:', response.status);
+
+      console.log("Response status:", response.status);
       const result = await response.json();
-      console.log('Response data:', result);
+      console.log("Response data:", result);
 
       if (result.success) {
         setPegawai(result.data);
         setFilteredPegawai(result.data);
       } else {
-        alert.showAlert({ type: 'error', message: result.message || 'Gagal memuat data pegawai' });
+        alert.showAlert({
+          type: "error",
+          message: result.message || "Gagal memuat data pegawai",
+        });
       }
     } catch (error) {
-      console.error('Fetch error:', error);
+      console.error("Fetch error:", error);
       alert.showAlert({
-        type: 'error',
-        message: 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.',
+        type: "error",
+        message: "Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.",
       });
     } finally {
       if (showLoading) setLoading(false);
@@ -206,32 +216,35 @@ export default function DataPegawaiAdminScreen() {
     try {
       const result = await PegawaiAkunAPI.deletePegawai(id);
       if (result.success) {
-        alert.showAlert({ 
-          type: 'success', 
-          message: 'Data berhasil dihapus',
-          autoClose: true,
-          onConfirm: () => fetchPegawai()
+        alert.showAlert({
+          type: "success",
+          message: "Data berhasil dihapus",
+          onConfirm: () => fetchPegawai(),
         });
       } else {
-        alert.showAlert({ type: 'error', message: result.message });
+        alert.showAlert({ type: "error", message: result.message });
       }
     } catch (error) {
-      alert.showAlert({ type: 'error', message: 'Gagal menghapus data' });
+      alert.showAlert({ type: "error", message: "Gagal menghapus data" });
     }
   };
 
-
-
   return (
     <View style={styles.container}>
-      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+      <StatusBar
+        style="light"
+        translucent={true}
+        backgroundColor="transparent"
+      />
 
       {/* HEADER */}
-      <AppHeader 
+      <AppHeader
         title="Pegawai"
         showBack={true}
         showAddButton={true}
-        onAddPress={() => router.push("/menu-admin/pegawai-akun/add-data-pegawai" as any)}
+        onAddPress={() =>
+          router.push("/menu-admin/pegawai-akun/add-data-pegawai" as any)
+        }
         fallbackRoute="/admin/dashboard-admin"
       />
 
@@ -249,7 +262,7 @@ export default function DataPegawaiAdminScreen() {
                 placeholderTextColor="#999"
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
                   <Ionicons name="close-circle" size={20} color="#999" />
                 </TouchableOpacity>
               )}
@@ -262,19 +275,34 @@ export default function DataPegawaiAdminScreen() {
           {loading ? (
             <View style={styles.listContent}>
               {[1, 2, 3, 4, 5].map((item) => (
-                <View key={item} style={styles.pegawaiCard}>
-                  {/* Skeleton Avatar */}
-                  <View style={styles.skeletonAvatar} />
-                  
-                  {/* Skeleton Info */}
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.skeletonName} />
-                    <View style={styles.skeletonEmail} />
-                    <View style={styles.skeletonNip} />
+                <View key={item} style={[styles.pegawaiCard, styles.skeletonCard]}>
+                  {/* Skeleton Avatar Section */}
+                  <View style={styles.avatarSection}>
+                    <View style={styles.skeletonAvatar} />
+                    <View style={styles.skeletonStatusBadge} />
                   </View>
-                  
-                  {/* Skeleton More Button */}
-                  <View style={styles.skeletonMoreBtn} />
+
+                  {/* Skeleton Info Section */}
+                  <View style={styles.infoSection}>
+                    <View style={styles.skeletonName} />
+                    <View style={styles.skeletonInfoRow}>
+                      <View style={styles.skeletonIcon} />
+                      <View style={styles.skeletonEmail} />
+                    </View>
+                    <View style={styles.skeletonInfoRow}>
+                      <View style={styles.skeletonIcon} />
+                      <View style={styles.skeletonNip} />
+                    </View>
+                    <View style={styles.skeletonInfoRow}>
+                      <View style={styles.skeletonIcon} />
+                      <View style={styles.skeletonJabatan} />
+                    </View>
+                  </View>
+
+                  {/* Skeleton Actions Section */}
+                  <View style={styles.actionsSection}>
+                    <View style={styles.skeletonMoreBtn} />
+                  </View>
                 </View>
               ))}
             </View>
@@ -283,136 +311,207 @@ export default function DataPegawaiAdminScreen() {
                ACTUAL DATA LIST
             ======================================== */
             <FlatList
-            data={currentData}
-            keyExtractor={(item) =>
-              item.id_pegawai?.toString() ||
-              item.id_user?.toString() ||
-              Math.random().toString()
-            }
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={["#004643"]}
-                tintColor="#004643"
-              />
-            }
-            ListFooterComponent={() => {
-              if (totalPages <= 1) return null;
-              return (
-                <View style={styles.paginationContainer}>
-                  <TouchableOpacity
-                    style={[
-                      styles.pageBtn,
-                      currentPage === 1 && styles.pageBtnDisabled,
-                    ]}
-                    onPress={() => setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <Ionicons
-                      name="chevron-back"
-                      size={16}
-                      color={currentPage === 1 ? "#ccc" : "#004643"}
-                    />
-                  </TouchableOpacity>
+              data={currentData}
+              keyExtractor={(item) =>
+                item.id_pegawai?.toString() ||
+                item.id_user?.toString() ||
+                Math.random().toString()
+              }
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={["#004643"]}
+                  tintColor="#004643"
+                />
+              }
+              ListFooterComponent={() => {
+                if (totalPages <= 1) return null;
+                return (
+                  <View style={styles.paginationContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.pageBtn,
+                        currentPage === 1 && styles.pageBtnDisabled,
+                      ]}
+                      onPress={() => setCurrentPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <Ionicons
+                        name="chevron-back"
+                        size={16}
+                        color={currentPage === 1 ? "#ccc" : "#004643"}
+                      />
+                    </TouchableOpacity>
 
-                  <View style={styles.pageNumbers}>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                      (page) => (
-                        <TouchableOpacity
-                          key={page}
-                          style={[
-                            styles.pageNumber,
-                            currentPage === page && styles.pageNumberActive,
-                          ]}
-                          onPress={() => setCurrentPage(page)}
-                        >
-                          <Text
+                    <View style={styles.pageNumbers}>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (page) => (
+                          <TouchableOpacity
+                            key={page}
                             style={[
-                              styles.pageNumberText,
-                              currentPage === page &&
-                                styles.pageNumberTextActive,
+                              styles.pageNumber,
+                              currentPage === page && styles.pageNumberActive,
                             ]}
+                            onPress={() => setCurrentPage(page)}
                           >
-                            {page}
-                          </Text>
-                        </TouchableOpacity>
-                      ),
-                    )}
-                  </View>
+                            <Text
+                              style={[
+                                styles.pageNumberText,
+                                currentPage === page &&
+                                  styles.pageNumberTextActive,
+                              ]}
+                            >
+                              {page}
+                            </Text>
+                          </TouchableOpacity>
+                        ),
+                      )}
+                    </View>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.pageBtn,
-                      currentPage === totalPages && styles.pageBtnDisabled,
-                    ]}
-                    onPress={() => setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <Ionicons
-                      name="chevron-forward"
-                      size={16}
-                      color={currentPage === totalPages ? "#ccc" : "#004643"}
-                    />
-                  </TouchableOpacity>
-                </View>
-              );
-            }}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.pegawaiCard}
-                onPress={() => {
-                  router.push(
-                    `/menu-admin/pegawai-akun/detail/${item.id_pegawai || item.id_user}` as any
-                  );
-                }}
-                activeOpacity={0.7}
-              >
-                {item.foto_profil ? (
-                  <Image
-                    source={{ uri: `${API_CONFIG.BASE_URL}/${item.foto_profil}` }}
-                    style={styles.profileImage}
-                  />
-                ) : (
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {item.nama_lengkap?.charAt(0).toUpperCase() || "P"}
-                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.pageBtn,
+                        currentPage === totalPages && styles.pageBtnDisabled,
+                      ]}
+                      onPress={() => setCurrentPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={currentPage === totalPages ? "#ccc" : "#004643"}
+                      />
+                    </TouchableOpacity>
                   </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.pegawaiName}>{item.nama_lengkap}</Text>
-                  <Text style={styles.pegawaiEmail}>
-                    {item.email || "Email belum diisi"}
-                  </Text>
-                  <Text style={styles.pegawaiNip}>
-                    NIP: {item.nip || "Belum diisi"}
-                  </Text>
-                </View>
-                <View style={styles.pegawaiActions}>
+                );
+              }}
+              renderItem={({ item }) => {
+                // Fix status pegawai - handle case sensitivity dan NULL values
+                const isActive =
+                  item.status_pegawai?.toLowerCase() === "aktif" ||
+                  item.status_pegawai === null ||
+                  item.status_pegawai === undefined;
+
+                return (
                   <TouchableOpacity
-                    style={styles.moreBtn}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setSelectedPegawai(item);
-                      openModal();
+                    style={styles.pegawaiCard}
+                    onPress={() => {
+                      router.push(
+                        `/menu-admin/pegawai-akun/detail/${item.id_pegawai || item.id_user}` as any,
+                      );
                     }}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="ellipsis-vertical" size={18} color="#666" />
+                    {/* Left Section - Avatar */}
+                    <View style={styles.avatarSection}>
+                      {item.foto_profil ? (
+                        <Image
+                          source={{
+                            uri: `${API_CONFIG.BASE_URL}/${item.foto_profil}`,
+                          }}
+                          style={styles.profileImage}
+                        />
+                      ) : (
+                        <View style={styles.avatar}>
+                          <Text style={styles.avatarText}>
+                            {item.nama_lengkap?.charAt(0).toUpperCase() || "P"}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Status Badge */}
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          isActive
+                            ? styles.statusActive
+                            : styles.statusInactive,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.statusDot,
+                            isActive ? styles.dotActive : styles.dotInactive,
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.statusText,
+                            isActive
+                              ? styles.statusTextActive
+                              : styles.statusTextInactive,
+                          ]}
+                        >
+                          {isActive ? "Aktif" : "Tidak Aktif"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Center Section - Info */}
+                    <View style={styles.infoSection}>
+                      <Text style={styles.pegawaiName}>
+                        {item.nama_lengkap}
+                      </Text>
+
+                      <View style={styles.infoRow}>
+                        <Ionicons name="mail-outline" size={14} color="#666" />
+                        <Text style={styles.pegawaiEmail}>
+                          {item.email || "Email belum diisi"}
+                        </Text>
+                      </View>
+
+                      <View style={styles.infoRow}>
+                        <Ionicons name="card-outline" size={14} color="#666" />
+                        <Text style={styles.pegawaiNip}>
+                          {item.nip || "NIP belum diisi"}
+                        </Text>
+                      </View>
+
+                      {item.jabatan && (
+                        <View style={styles.infoRow}>
+                          <Ionicons
+                            name="briefcase-outline"
+                            size={14}
+                            color="#666"
+                          />
+                          <Text style={styles.pegawaiJabatan}>
+                            {item.jabatan}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Right Section - Actions */}
+                    <View style={styles.actionsSection}>
+                      <TouchableOpacity
+                        style={styles.moreBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSelectedPegawai(item);
+                          openModal();
+                        }}
+                      >
+                        <Ionicons
+                          name="ellipsis-vertical"
+                          size={20}
+                          color="#666"
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </TouchableOpacity>
+                );
+              }}
+              contentInsetAdjustmentBehavior="never"
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="people-outline" size={80} color="#ccc" />
+                  <Text style={styles.emptyText}>Belum ada data pegawai</Text>
                 </View>
-              </TouchableOpacity>
-            )}
-            contentInsetAdjustmentBehavior="never"
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="people-outline" size={80} color="#ccc" />
-                <Text style={styles.emptyText}>Belum ada data pegawai</Text>
-              </View>
-            }
-          />
+              }
+            />
           )}
         </View>
       </View>
@@ -426,19 +525,24 @@ export default function DataPegawaiAdminScreen() {
         onRequestClose={() => closeModal()}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={styles.modalBackdrop} 
+          <TouchableOpacity
+            style={styles.modalBackdrop}
             activeOpacity={1}
             onPress={() => closeModal()}
           />
-          <Animated.View style={[styles.bottomSheetModal, {
-            transform: [{ translateY }]
-          }]}>
+          <Animated.View
+            style={[
+              styles.bottomSheetModal,
+              {
+                transform: [{ translateY }],
+              },
+            ]}
+          >
             {/* Handle Bar with Pan Gesture */}
             <View {...panResponder.panHandlers} style={styles.handleContainer}>
               <View style={styles.handleBar} />
             </View>
-            
+
             {/* Header */}
             <View style={styles.bottomSheetHeader}>
               <View style={styles.actionCard}>
@@ -448,16 +552,16 @@ export default function DataPegawaiAdminScreen() {
                     onPress={() => {
                       setShowActionModal(false);
                       router.push(
-                        `/menu-admin/pegawai-akun/detail/edit/${selectedPegawai?.id_pegawai || selectedPegawai?.id_user}` as any
+                        `/menu-admin/pegawai-akun/detail/edit/${selectedPegawai?.id_pegawai || selectedPegawai?.id_user}` as any,
                       );
                     }}
                   >
                     <Ionicons name="create-outline" size={20} color="#FF9800" />
                     <Text style={styles.bottomSheetItemText}>Edit</Text>
                   </TouchableOpacity>
-                  
+
                   <View style={styles.actionDivider} />
-                  
+
                   <TouchableOpacity
                     style={styles.bottomSheetItem}
                     onPress={() => {
@@ -468,7 +572,11 @@ export default function DataPegawaiAdminScreen() {
                     }}
                   >
                     <Ionicons name="trash-outline" size={20} color="#F44336" />
-                    <Text style={[styles.bottomSheetItemText, { color: '#F44336' }]}>Hapus</Text>
+                    <Text
+                      style={[styles.bottomSheetItemText, { color: "#F44336" }]}
+                    >
+                      Hapus
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -491,12 +599,10 @@ export default function DataPegawaiAdminScreen() {
             <View style={styles.deleteIconContainer}>
               <Ionicons name="trash-outline" size={48} color="#fff" />
             </View>
-            
+
             {/* Message */}
-            <Text style={styles.deleteModalMessage}>
-              Hapus data pegawai?
-            </Text>
-            
+            <Text style={styles.deleteModalMessage}>Hapus data pegawai?</Text>
+
             {/* Buttons */}
             <View style={styles.deleteModalButtons}>
               <TouchableOpacity
@@ -505,13 +611,15 @@ export default function DataPegawaiAdminScreen() {
               >
                 <Text style={styles.cancelButtonText}>Batal</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => {
                   deletePegawai(
-                    selectedPegawai?.id_pegawai || selectedPegawai?.id_user || 0,
-                    selectedPegawai?.nama_lengkap || ""
+                    selectedPegawai?.id_pegawai ||
+                      selectedPegawai?.id_user ||
+                      0,
+                    selectedPegawai?.nama_lengkap || "",
                   );
                 }}
               >
@@ -537,37 +645,45 @@ export default function DataPegawaiAdminScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#fff",
+  container: {
+    flex: 1,
+    backgroundColor: "#FAFBFC",
   },
   contentContainer: {
     flex: 1,
+    backgroundColor: "#FAFBFC",
   },
-  content: { 
-    flex: 1 
+  content: {
+    flex: 1,
+    backgroundColor: "#FAFBFC",
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: '#fff',
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: "#FAFBFC",
   },
   searchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    gap: 12
+    borderColor: "#E8F0EF",
+    gap: 12,
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
-    paddingVertical: 12
+    fontSize: 15,
+    color: "#333",
+    paddingVertical: 14,
+    fontWeight: "400",
   },
   sortBtn: {
     flexDirection: "row",
@@ -583,100 +699,221 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  sortBtnActive: { 
-    backgroundColor: "#004643", 
+  sortBtnActive: {
+    backgroundColor: "#004643",
     borderColor: "#004643",
   },
-  sortText: { 
-    fontSize: 13, 
-    color: "#666", 
-    fontWeight: "600" 
+  sortText: {
+    fontSize: 13,
+    color: "#666",
+    fontWeight: "600",
   },
   sortTextActive: { color: "#fff" },
 
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
+    backgroundColor: "#FAFBFC",
+  },
   pegawaiCard: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     marginBottom: 12,
+    marginHorizontal: 2,
     borderWidth: 1,
     borderColor: "#E0E0E0",
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    position: "relative",
+    overflow: "hidden",
   },
-  profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 16,
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#E6F0EF",
-    justifyContent: "center",
+
+  // Avatar Section
+  avatarSection: {
     alignItems: "center",
     marginRight: 16,
   },
-  avatarText: { color: "#004643", fontWeight: "bold", fontSize: 20 },
-  pegawaiName: {
-    fontWeight: "bold",
-    fontSize: 16,
-    color: "#333",
-    marginBottom: 2,
+  profileImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: "#E8F5F4",
   },
-  pegawaiEmail: { color: "#888", fontSize: 12, marginBottom: 2 },
-  pegawaiNip: { color: "#666", fontSize: 12, marginBottom: 2 },
-  pegawaiActions: { alignItems: "flex-end", justifyContent: "center" },
-  moreBtn: { 
-    padding: 8, 
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#F0F9F8",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#E0F2F1",
   },
+  avatarText: {
+    color: "#004643",
+    fontWeight: "600",
+    fontSize: 18,
+    letterSpacing: 0.5,
+  },
+
+  // Status Badge
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginTop: 6,
+    gap: 5,
+    minWidth: 70,
+    justifyContent: "center",
   },
-  statusText: { fontSize: 10, fontWeight: "bold" },
+  statusActive: {
+    backgroundColor: "#E8F8F5",
+    borderWidth: 1,
+    borderColor: "#B2DFDB",
+  },
+  statusInactive: {
+    backgroundColor: "#FFF8E1",
+    borderWidth: 1,
+    borderColor: "#FFE0B2",
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  dotActive: {
+    backgroundColor: "#00C853",
+  },
+  dotInactive: {
+    backgroundColor: "#FF8F00",
+  },
+  statusText: {
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  statusTextActive: {
+    color: "#00695C",
+  },
+  statusTextInactive: {
+    color: "#E65100",
+  },
+
+  // Info Section
+  infoSection: {
+    flex: 1,
+    paddingTop: 1,
+  },
+  pegawaiName: {
+    fontWeight: "600",
+    fontSize: 16,
+    color: "#1A1A1A",
+    marginBottom: 10,
+    letterSpacing: 0.2,
+    lineHeight: 20,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 7,
+    gap: 10,
+  },
+  pegawaiEmail: {
+    color: "#5A6C7D",
+    fontSize: 13,
+    flex: 1,
+    fontWeight: "400",
+    lineHeight: 16,
+  },
+  pegawaiNip: {
+    color: "#5A6C7D",
+    fontSize: 13,
+    flex: 1,
+    fontWeight: "400",
+    lineHeight: 16,
+  },
+  pegawaiJabatan: {
+    color: "#004643",
+    fontSize: 13,
+    flex: 1,
+    fontWeight: "500",
+    lineHeight: 16,
+  },
+
+  // Actions Section
+  actionsSection: {
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingTop: 4,
+  },
+  moreBtn: {
+    padding: 12,
+    borderRadius: 20,
+    backgroundColor: "#F8FFFE",
+    borderWidth: 1,
+    borderColor: "#E8F5F4",
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: 100,
+    paddingTop: 80,
+    paddingBottom: 40,
+    backgroundColor: "#FAFBFC",
   },
-  emptyText: { fontSize: 16, color: "#ccc", marginTop: 16 },
-  
+  emptyText: {
+    fontSize: 16,
+    color: "#8A9BA8",
+    marginTop: 16,
+    fontWeight: "500",
+    letterSpacing: 0.2,
+  },
+
   // Bottom Sheet Modal Styles
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingTop: Platform.OS === 'android' ? 0 : 50,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingTop: Platform.OS === "android" ? 0 : 50,
   },
   modalBackdrop: {
     flex: 1,
   },
   bottomSheetModal: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: "#F8F9FA",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingBottom: Platform.OS === "ios" ? 34 : 20,
     paddingTop: 8,
   },
   handleContainer: {
     paddingVertical: 12,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   handleBar: {
     width: 40,
     height: 4,
-    backgroundColor: '#DDD',
+    backgroundColor: "#DDD",
     borderRadius: 2,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginTop: 8,
     marginBottom: 16,
   },
@@ -685,96 +922,112 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   actionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   bottomSheetActions: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   bottomSheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 18,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     gap: 15,
   },
   actionDivider: {
     height: 1,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: "#F0F0F0",
     marginHorizontal: 20,
   },
   actionIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   bottomSheetItemText: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    color: "#333",
+    fontWeight: "500",
   },
-
 
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 20,
-    marginTop: 10,
+    paddingVertical: 24,
+    marginTop: 8,
+    backgroundColor: "#FAFBFC",
   },
   pageBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "#F5F5F5",
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E8F0EF",
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   pageBtnDisabled: {
-    backgroundColor: "#F0F0F0",
+    backgroundColor: "#F5F7F6",
+    borderColor: "#E0E0E0",
   },
   pageNumbers: {
     flexDirection: "row",
-    marginHorizontal: 15,
+    marginHorizontal: 16,
   },
   pageNumber: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginHorizontal: 2,
-    borderRadius: 8,
-    backgroundColor: "#F5F5F5",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 3,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E8F0EF",
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   pageNumberActive: {
     backgroundColor: "#004643",
+    borderColor: "#004643",
   },
   pageNumberText: {
     fontSize: 14,
-    color: "#666",
+    color: "#5A6C7D",
     fontWeight: "500",
   },
   pageNumberTextActive: {
     color: "#fff",
-    fontWeight: "bold",
+    fontWeight: "600",
   },
 
   // Delete Modal Styles
   deleteModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 30,
   },
   deleteModalContainer: {
-    backgroundColor: '#004643',
+    backgroundColor: "#004643",
     borderRadius: 20,
     padding: 32,
-    width: '100%',
+    width: "100%",
     maxWidth: 300,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -783,85 +1036,112 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 20,
   },
   deleteModalMessage: {
     fontSize: 18,
-    color: '#fff',
-    textAlign: 'center',
+    color: "#fff",
+    textAlign: "center",
     marginBottom: 28,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   deleteModalButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    width: '100%',
+    width: "100%",
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   cancelButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
   deleteButton: {
     flex: 1,
-    backgroundColor: '#F44336',
+    backgroundColor: "#F44336",
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   deleteButtonText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: "600",
+    color: "#fff",
   },
-  
+
   /* ========================================
      SKELETON STYLES
   ======================================== */
+  skeletonCard: {
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    backgroundColor: "#FAFCFB",
+  },
   skeletonAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#E0E0E0',
-    marginRight: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#E8F0EF",
+  },
+  skeletonStatusBadge: {
+    width: 70,
+    height: 24,
+    borderRadius: 20,
+    backgroundColor: "#F0F4F3",
+    marginTop: 6,
   },
   skeletonName: {
-    width: '60%',
+    width: "75%",
     height: 16,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginBottom: 6,
+    backgroundColor: "#E8F0EF",
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  skeletonInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 7,
+    gap: 10,
+  },
+  skeletonIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#F0F4F3",
   },
   skeletonEmail: {
-    width: '80%',
-    height: 12,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 4,
-    marginBottom: 4,
+    width: "80%",
+    height: 13,
+    backgroundColor: "#F0F4F3",
+    borderRadius: 6,
   },
   skeletonNip: {
-    width: '40%',
-    height: 12,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 4,
+    width: "65%",
+    height: 13,
+    backgroundColor: "#F0F4F3",
+    borderRadius: 6,
+  },
+  skeletonJabatan: {
+    width: "70%",
+    height: 13,
+    backgroundColor: "#F0F4F3",
+    borderRadius: 6,
   },
   skeletonMoreBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E0E0E0',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E8F0EF",
   },
 });
-

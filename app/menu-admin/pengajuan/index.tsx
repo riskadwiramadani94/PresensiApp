@@ -366,7 +366,7 @@ export default function PengajuanScreen() {
 
 
   const handleOpenAbsenDinas = (dinasId: number) => {
-    router.push(`/pusat-validasi/absen-dinas/?dinasId=${dinasId}` as any);
+    router.push(`/menu-admin/pengajuan/absen-dinas/?dinasId=${dinasId}` as any);
   };
 
 
