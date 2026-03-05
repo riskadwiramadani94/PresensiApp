@@ -383,14 +383,19 @@ export default function KelolaDinasScreen() {
       <View style={styles.contentWrapper}>
         <View style={styles.searchSection}>
           <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={20} color="#94A3B8" />
+            <Ionicons name="search-outline" size={20} color="#666" />
             <TextInput 
               style={styles.searchInput} 
-              placeholder="Cari kegiatan atau SPT..." 
+              placeholder="Cari Pegawai..." 
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor="#999"
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <Ionicons name="close-circle" size={20} color="#999" />
+              </TouchableOpacity>
+            )}
           </View>
           <TouchableOpacity style={styles.filterBtn} onPress={openFilterModal}>
             <Ionicons name="options-outline" size={22} color="#004643" />
@@ -651,11 +656,14 @@ export default function KelolaDinasScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  container: { flex: 1, backgroundColor: "#FAFBFC" },
   contentWrapper: { flex: 1 },
   searchSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#FAFBFC',
     flexDirection: "row",
-    padding: 20,
     gap: 12,
     alignItems: "center",
   },
@@ -663,19 +671,25 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF",
-    borderRadius: 15,
-    paddingHorizontal: 15,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 16,
     height: 50,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#000",
+    borderColor: "#E8F0EF",
+    gap: 12,
+    shadowColor: "#004643",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: "#1E293B" },
+  searchInput: { 
+    flex: 1, 
+    fontSize: 15, 
+    color: "#333",
+    fontWeight: "400",
+  },
   filterBtn: {
     width: 50,
     height: 50,

@@ -1,17 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  Alert, 
-  KeyboardAvoidingView, 
-  Platform,
-  Image,
-  Animated,
-  ActivityIndicator,
-  Keyboard
+  StyleSheet, View, Text, TextInput, TouchableOpacity, 
+  KeyboardAvoidingView, Platform, Image, Animated, 
+  ActivityIndicator, StatusBar, Dimensions 
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -21,9 +12,12 @@ import { AuthStorage } from '../utils/AuthStorage';
 import { CustomAlert } from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 
+const { width } = Dimensions.get('window');
+
 export default function LoginScreen() {
   const router = useRouter();
   const alert = useCustomAlert();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,134 +25,57 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [emailValid, setEmailValid] = useState<boolean | null>(null);
-  const [passwordValid, setPasswordValid] = useState<boolean | null>(null);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
-  const passwordRef = useRef<TextInput>(null);
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const handleEmailChange = (text: string) => {
-    setEmail(text);
-    if (text.length > 0) {
-      setEmailValid(validateEmail(text));
-    } else {
-      setEmailValid(null);
-    }
-  };
-
-  const handlePasswordChange = (text: string) => {
-    setPassword(text);
-    if (text.length > 0) {
-      setPasswordValid(text.length >= 6);
-    } else {
-      setPasswordValid(null);
-    }
-  };
+  useEffect(() => {
+    checkLoginStatus();
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, friction: 9, tension: 30, useNativeDriver: true })
+    ]).start();
+  }, []);
 
   const checkLoginStatus = async () => {
     try {
       const user = await AuthStorage.getUser();
-      console.log('Check login - User data:', user);
-      
       if (user) {
-        console.log('User role:', user.role);
-        
-        if (user.role === 'admin') {
-          console.log('Redirecting to admin dashboard');
-          router.replace('/admin/dashboard-admin' as any);
-        } else {
-          console.log('Redirecting to pegawai dashboard');
-          router.replace('/(pegawai)/dashboard-pegawai');
-        }
+        user.role === 'admin' 
+          ? router.replace('/admin/dashboard-admin' as any) 
+          : router.replace('/(pegawai)/dashboard-pegawai');
         return;
       }
-    } catch (error) {
-      console.log('Error checking login status:', error);
-    } finally {
-      setCheckingSession(false);
-    }
+    } catch (e) { console.log(e); } 
+    finally { setCheckingSession(false); }
   };
-
-  useEffect(() => {
-    checkLoginStatus();
-    
-    // Smooth fade + subtle slide animation
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      })
-    ]).start();
-  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      alert.showAlert({ type: 'error', message: 'Email dan Password harus diisi!' });
+      alert.showAlert({ type: 'error', message: 'Email dan password wajib diisi' });
       return;
     }
-
-    // Subtle button press animation
+    setLoading(true);
+    
+    // Haptic-like feedback animation
     Animated.sequence([
-      Animated.timing(buttonScale, {
-        toValue: 0.97,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScale, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      })
+      Animated.timing(buttonScale, { toValue: 0.95, duration: 100, useNativeDriver: true }),
+      Animated.spring(buttonScale, { toValue: 1, friction: 4, useNativeDriver: true })
     ]).start();
 
-    setLoading(true);
     try {
       const result = await AuthAPI.login(email, password);
-      
       if (result.success) {
-        // Simpan data user yang sebenarnya dari database
-        const userData = {
-          id_user: result.data.id, // Backend login response menggunakan 'id'
-          email: result.data.email,
-          role: result.data.role,
-          nama_lengkap: result.data.nama_lengkap || result.data.nama || 'User',
-          jabatan: result.data.jabatan || '',
-          divisi: result.data.divisi || '',
-          nip: result.data.nip || '',
-          no_telepon: result.data.no_telepon || '',
-          jenis_kelamin: result.data.jenis_kelamin || '',
-          tanggal_lahir: result.data.tanggal_lahir || '',
-          alamat: result.data.alamat || ''
-        };
-        
-        await AuthStorage.setUser(userData);
-        
-        // Redirect berdasarkan role dari database
-        if (result.data.role === 'admin') {
-          router.replace('/admin/dashboard-admin' as any);
-        } else {
-          router.replace('/(pegawai)/dashboard-pegawai');
-        }
+        await AuthStorage.setUser({ ...result.data, id_user: result.data.id });
+        result.data.role === 'admin' 
+          ? router.replace('/admin/dashboard-admin' as any) 
+          : router.replace('/(pegawai)/dashboard-pegawai');
       } else {
-        alert.showAlert({ type: 'error', message: result.message || 'Email atau password salah' });
+        alert.showAlert({ type: 'error', message: result.message || 'Kredensial salah' });
       }
     } catch (error) {
-      console.error('Login error:', error);
-      alert.showAlert({ type: 'error', message: 'Terjadi kesalahan jaringan. Silakan coba lagi.' });
+      alert.showAlert({ type: 'error', message: 'Masalah koneksi server' });
     } finally {
       setLoading(false);
     }
@@ -166,208 +83,187 @@ export default function LoginScreen() {
 
   if (checkingSession) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingSessionContainer}>
-          <ActivityIndicator size="large" color="#004643" />
-          <Text style={styles.loadingSessionText}>Checking session...</Text>
-        </View>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#004643" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={styles.keyboardView}
       >
-      <Animated.View style={[styles.innerContainer, { 
-        opacity: fadeAnim,
-        transform: [{ translateY: slideAnim }]
-      }]}>
-        <View style={styles.headerArea}>          
-          <View style={styles.logoContainer}>
-            <Image 
-              source={require('../assets/images/validin.png')} 
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.welcomeText}>Selamat Datang</Text>
-          <Text style={styles.descriptionText}>Silakan masuk untuk melanjutkan</Text>
-        </View>
-
-        <View style={styles.formArea}>
-          <View style={[styles.inputWrapper, emailFocused && styles.inputFocused]}>
-            <Ionicons 
-              name="mail-outline" 
-              size={20} 
-              color={emailFocused ? "#004643" : "#999"} 
-              style={styles.inputIcon} 
-            />
-            <TextInput 
-              placeholder="Email" 
-              style={styles.input}
-              value={email}
-              onChangeText={handleEmailChange}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              onFocus={() => setEmailFocused(true)}
-              onBlur={() => setEmailFocused(false)}
-              placeholderTextColor="#999"
-            />
-            {emailValid !== null && (
-              <Ionicons 
-                name={emailValid ? "checkmark-circle" : "close-circle"} 
-                size={20} 
-                color={emailValid ? "#10B981" : "#EF4444"} 
+        <Animated.ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+        >
+          {/* Header Section */}
+          <View style={styles.header}>
+            <View style={styles.imageContainer}>
+              <Image 
+                source={require('../assets/images/collaborative.png')} 
+                style={styles.heroImage}
+                resizeMode="contain"
               />
-            )}
+              <View style={styles.imageBlob} />
+            </View>
+            <Text style={styles.brandName}>Selamat Datang</Text>
+            <Text style={styles.tagline}>
+              Masuk ke akun Anda untuk mengakses{"\n"}
+              <Text style={{color: '#475569'}}>semua fitur dan layanan yang tersedia</Text>
+            </Text>
           </View>
 
-          <View style={[styles.inputWrapper, passwordFocused && styles.inputFocused]}>
-            <Ionicons 
-              name="lock-closed-outline" 
-              size={20} 
-              color={passwordFocused ? "#004643" : "#999"} 
-              style={styles.inputIcon} 
-            />
-            <TextInput 
-              ref={passwordRef}
-              placeholder="Password" 
-              style={styles.input}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={handlePasswordChange}
-              returnKeyType="done"
-              onSubmitEditing={() => {
-                Keyboard.dismiss();
-                handleLogin();
-              }}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-              placeholderTextColor="#999"
-            />
-            {passwordValid !== null && (
-              <Ionicons 
-                name={passwordValid ? "checkmark-circle" : "close-circle"} 
-                size={20} 
-                color={passwordValid ? "#10B981" : "#EF4444"} 
-                style={{ marginRight: 8 }}
-              />
-            )}
-            <TouchableOpacity 
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeButton}
-            >
-              <Ionicons 
-                name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                size={20} 
-                color={passwordFocused ? "#004643" : "#999"} 
-              />
+          {/* Form Section */}
+          <View style={styles.formContainer}>
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <View style={[styles.inputContainer, emailFocused && styles.inputContainerFocused]}>
+                <Ionicons name="mail-outline" size={20} color={emailFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
+                <TextInput 
+                  placeholder="Contoh: user@example.com" 
+                  style={styles.textInput}
+                  value={email}
+                  onChangeText={setEmail}
+                  onFocus={() => setEmailFocused(true)}
+                  onBlur={() => setEmailFocused(false)}
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={[styles.inputContainer, passwordFocused && styles.inputContainerFocused]}>
+                <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
+                <TextInput 
+                  placeholder="Masukkan password" 
+                  style={styles.textInput}
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                  placeholderTextColor="#94A3B8"
+                />
+                <TouchableOpacity 
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                    size={20} 
+                    color="#94A3B8" 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <TouchableOpacity style={styles.forgotPasswordContainer}>
+              <Text style={styles.forgotPasswordText}>Lupa Password?</Text>
             </TouchableOpacity>
-          </View>
 
-          <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-            <TouchableOpacity 
-              style={[styles.loginBtn, loading && styles.loginBtnDisabled]} 
-              onPress={handleLogin} 
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#fff" />
-                  <Text style={[styles.loginText, { marginLeft: 10 }]}>Memproses...</Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.loginText}>Masuk</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
-                </>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Animated.View>
+            {/* Login Button */}
+            <Animated.View style={{ transform: [{ scale: buttonScale }], marginTop: 20 }}>
+              <TouchableOpacity 
+                activeOpacity={0.9}
+                style={[styles.primaryButton, loading && styles.disabled]} 
+                onPress={handleLogin} 
+                disabled={loading}
+              >
+                <LinearGradient 
+                  colors={['#004643', '#012c2a']} 
+                  start={{x: 0, y: 0}} 
+                  end={{x: 1, y: 1}}
+                  style={styles.gradientButton}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Text style={styles.buttonText}>Masuk Sekarang</Text>
+                      <View style={styles.buttonIconCircle}>
+                        <Ionicons name="arrow-forward" size={16} color="#004643" />
+                      </View>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Animated.ScrollView>
       </KeyboardAvoidingView>
 
-      <CustomAlert
-        visible={alert.visible}
-        type={alert.config.type}
-        message={alert.config.message}
-        onClose={alert.hideAlert}
-        onConfirm={alert.handleConfirm}
+      <CustomAlert 
+        visible={alert.visible} 
+        type={alert.config.type} 
+        message={alert.config.message} 
+        onClose={alert.hideAlert} 
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1,
-    backgroundColor: '#F8FAFB'
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  keyboardView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 32, paddingTop: 40, paddingBottom: 40 },
+  
+  // Header Style
+  header: { marginBottom: 40, marginTop: 20 },
+  imageContainer: { marginBottom: 32, position: 'relative' },
+  heroImage: { width: 140, height: 140, zIndex: 2 },
+  imageBlob: { 
+    position: 'absolute', 
+    width: 100, 
+    height: 100, 
+    backgroundColor: '#F0FDF4', 
+    borderRadius: 50, 
+    top: 20, 
+    left: -10, 
+    zIndex: 1 
   },
-  keyboardView: {
-    flex: 1
+  brandName: { 
+    fontSize: 34, 
+    fontWeight: '800', 
+    color: '#0F172A', 
+    letterSpacing: -0.5,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif-condensed'
   },
-  innerContainer: { 
-    flex: 1, 
-    paddingHorizontal: 24, 
-    justifyContent: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 40
-  },
-  headerArea: { 
-    alignItems: 'center', 
-    marginBottom: 48
-  },
-  logoContainer: { 
-    width: 90,
-    height: 90,
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    marginBottom: 24,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8
-  },
-  logoImage: {
-    width: 180,
-    height: 135
-  },
-  welcomeText: { 
-    fontSize: 26, 
-    fontWeight: '700', 
-    color: '#1F2937', 
-    marginBottom: 8,
-    letterSpacing: -0.3
-  },
-  descriptionText: { 
+  tagline: { 
     fontSize: 15, 
-    color: '#6B7280', 
-    textAlign: 'center',
-    fontWeight: '400'
+    color: '#94A3B8', 
+    marginTop: 10, 
+    lineHeight: 22, 
+    fontWeight: '500' 
   },
-  formArea: { 
-    width: '100%' 
+
+  // Form Style
+  formContainer: { width: '100%' },
+  inputWrapper: { marginBottom: 16 },
+  inputLabel: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#374151', 
+    marginBottom: 8,
+    marginLeft: 4
   },
-  inputWrapper: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#fff', 
-    borderWidth: 1.5, 
-    borderColor: '#E5E7EB', 
-    borderRadius: 12, 
-    paddingHorizontal: 16, 
-    marginBottom: 16,
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
     height: 54,
     elevation: 1,
     shadowColor: '#000',
@@ -375,60 +271,59 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 2
   },
-  inputFocused: {
+  inputContainerFocused: {
     borderColor: '#004643',
     elevation: 2,
     shadowOpacity: 0.06
   },
-  inputIcon: { 
-    marginRight: 12 
+  inputIcon: {
+    marginRight: 12
   },
-  input: { 
-    flex: 1, 
-    fontSize: 15, 
+  textInput: {
+    flex: 1,
+    fontSize: 15,
     color: '#1F2937',
     fontWeight: '500'
   },
-  eyeButton: {
-    padding: 4
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 0
   },
-  loginBtn: { 
-    backgroundColor: '#004643', 
-    height: 54, 
-    borderRadius: 12, 
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#004643',
+    fontWeight: '500'
+  },
+
+  // Premium Button
+  primaryButton: { 
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { 
+        shadowColor: '#004643', 
+        shadowOffset: { width: 0, height: 8 }, 
+        shadowOpacity: 0.3, 
+        shadowRadius: 12 
+      },
+      android: { elevation: 6 }
+    })
+  },
+  gradientButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     flexDirection: 'row',
-    justifyContent: 'center', 
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    elevation: 3,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4
   },
-  loginBtnDisabled: {
-    backgroundColor: '#9CA3AF',
-    elevation: 1
-  },
-  loginText: { 
-    color: '#fff', 
-    fontWeight: '700', 
-    fontSize: 16,
-    letterSpacing: 0.3
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  loadingSessionContainer: {
-    flex: 1,
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 17, marginRight: 12 },
+  buttonIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center'
   },
-  loadingSessionText: {
-    marginTop: 16,
-    fontSize: 15,
-    color: '#6B7280',
-    fontWeight: '500'
-  }
+  disabled: { opacity: 0.7 },
 });

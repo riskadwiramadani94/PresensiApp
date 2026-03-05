@@ -48,6 +48,7 @@ interface PengajuanItem {
   nip: string;
   jabatan: string;
   divisi: string;
+  status: string;
 }
 
 interface Statistics {
@@ -134,6 +135,7 @@ export default function PengajuanScreen() {
   // Filter states
   const [filterPeriod, setFilterPeriod] = useState('semua');
   const [filterJenis, setFilterJenis] = useState('semua');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Bottom sheet animation
   const translateY = useRef(new Animated.Value(300)).current;
@@ -403,7 +405,15 @@ export default function PengajuanScreen() {
         <View style={styles.dinasCardHeader}>
           <View style={styles.dinasCardTitle}>
             <Text style={styles.dinasKegiatanName}>{item.namaKegiatan}</Text>
-            <Text style={styles.dinasSptNumber}>{item.nomorSpt}</Text>
+            <View style={styles.dinasInfoRow}>
+              <View style={styles.dinasInfoIconBox}>
+                <Ionicons name="document-text-outline" size={14} color="#00695C" />
+              </View>
+              <View style={styles.dinasInfoContent}>
+                <Text style={styles.dinasInfoLabel}>NO. SPT</Text>
+                <Text style={styles.dinasInfoValue}>{item.nomorSpt}</Text>
+              </View>
+            </View>
           </View>
           
           {/* Badge Status di Pojok Kanan Atas - Hanya tampilkan jika ada */}
@@ -427,92 +437,165 @@ export default function PengajuanScreen() {
         </View>
 
         <View style={styles.dinasCardInfo}>
-          {item.jenisDinas && (
-            <View style={styles.dinasInfoRow}>
-              <Ionicons name="business-outline" size={14} color="#666" />
-              <Text style={styles.dinasInfoText}>
-                {item.jenisDinas === 'lokal' ? 'Dinas Lokal' : 
-                 item.jenisDinas === 'luar_kota' ? 'Dinas Luar Kota' : 
-                 item.jenisDinas === 'luar_negeri' ? 'Dinas Luar Negeri' : item.jenisDinas}
-              </Text>
+          {/* Layout 2 Kolom untuk Info */}
+          <View style={styles.dinasInfoGrid}>
+            {/* Kolom Kiri */}
+            <View style={styles.dinasInfoColumn}>
+              {item.jenisDinas && (
+                <View style={styles.dinasInfoRow}>
+                  <View style={styles.dinasInfoIconBox}>
+                    <Ionicons name="business-outline" size={14} color="#00695C" />
+                  </View>
+                  <View style={styles.dinasInfoContent}>
+                    <Text style={styles.dinasInfoLabel}>JENIS DINAS</Text>
+                    <Text style={styles.dinasInfoValue}>
+                      {item.jenisDinas === 'lokal' ? 'Dinas Lokal' : 
+                       item.jenisDinas === 'luar_kota' ? 'Dinas Luar Kota' : 
+                       item.jenisDinas === 'luar_negeri' ? 'Dinas Luar Negeri' : item.jenisDinas}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              <View style={styles.dinasInfoRow}>
+                <View style={styles.dinasInfoIconBox}>
+                  <Ionicons name="time-outline" size={14} color="#00695C" />
+                </View>
+                <View style={styles.dinasInfoContent}>
+                  <Text style={styles.dinasInfoLabel}>JAM KERJA</Text>
+                  <Text style={styles.dinasInfoValue}>{item.jamKerja}</Text>
+                </View>
+              </View>
+              <View style={[styles.dinasInfoRow, { marginBottom: 0 }]}>
+                <View style={styles.dinasInfoIconBox}>
+                  <Ionicons name="people-outline" size={14} color="#00695C" />
+                </View>
+                <View style={styles.dinasInfoContent}>
+                  <Text style={styles.dinasInfoLabel}>PERSONEL</Text>
+                  <Text style={styles.dinasInfoValue}>{totalPegawai} orang bertugas</Text>
+                </View>
+              </View>
             </View>
-          )}
-          <View style={styles.dinasInfoRow}>
-            <Ionicons name="location-outline" size={14} color="#666" />
-            <Text style={styles.dinasInfoText}>{item.lokasi}</Text>
-          </View>
-          <View style={styles.dinasInfoRow}>
-            <Ionicons name="time-outline" size={14} color="#666" />
-            <Text style={styles.dinasInfoText}>{item.jamKerja}</Text>
-          </View>
-          <View style={styles.dinasInfoRow}>
-            <Ionicons name="calendar-outline" size={14} color="#666" />
-            <Text style={styles.dinasInfoText}>
-              {formatDate(item.tanggal_mulai)} - {formatDate(item.tanggal_selesai)}
-            </Text>
-          </View>
-          <View style={styles.dinasInfoRow}>
-            <Ionicons name="people-outline" size={14} color="#666" />
-            <Text style={styles.dinasInfoText}>{totalPegawai} orang bertugas</Text>
+            
+            {/* Kolom Kanan */}
+            <View style={styles.dinasInfoColumn}>
+              <View style={styles.dinasInfoRow}>
+                <View style={styles.dinasInfoIconBox}>
+                  <Ionicons name="location-outline" size={14} color="#00695C" />
+                </View>
+                <View style={styles.dinasInfoContent}>
+                  <Text style={styles.dinasInfoLabel}>LOKASI</Text>
+                  <Text style={styles.dinasInfoValue}>{item.lokasi}</Text>
+                </View>
+              </View>
+              <View style={[styles.dinasInfoRow, { marginBottom: 0 }]}>
+                <View style={styles.dinasInfoIconBox}>
+                  <Ionicons name="calendar-outline" size={14} color="#00695C" />
+                </View>
+                <View style={styles.dinasInfoContent}>
+                  <Text style={styles.dinasInfoLabel}>PERIODE</Text>
+                  <Text style={styles.dinasInfoValue}>
+                    {formatDate(item.tanggal_mulai)} - {formatDate(item.tanggal_selesai)}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
         </View>
       </TouchableOpacity>
     );
   };
 
-  const renderPengajuanItem = ({ item }: { item: PengajuanItem }) => (
-    <View style={styles.itemCard}>
-      <View style={styles.cardAccent} />
-      
-      <View style={styles.itemContent}>
-        <View style={styles.statusRow}>
-          <Text style={styles.userName}>{item.nama_lengkap}</Text>
-          <View style={styles.pengajuanBadge}>
-            <Text style={styles.pengajuanBadgeText}>{formatJenisPengajuan(item.jenis_pengajuan)}</Text>
+  const renderPengajuanItem = ({ item }: { item: PengajuanItem }) => {
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'menunggu': return '#FF9800';
+        case 'disetujui': return '#4CAF50';
+        case 'ditolak': return '#F44336';
+        default: return '#666';
+      }
+    };
+
+    const getStatusLabel = (status: string) => {
+      switch (status) {
+        case 'menunggu': return 'Menunggu';
+        case 'disetujui': return 'Disetujui';
+        case 'ditolak': return 'Ditolak';
+        default: return status;
+      }
+    };
+
+    const statusColor = getStatusColor(item.status);
+    const statusLabel = getStatusLabel(item.status);
+
+    return (
+      <View style={styles.pengajuanCard}>
+        <View style={[styles.statusAccent, { backgroundColor: statusColor }]} />
+        <View style={styles.cardMainContent}>
+          <View style={styles.cardHeader}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.pengajuanTitle} numberOfLines={1}>{formatJenisPengajuan(item.jenis_pengajuan)}</Text>
+              <View style={styles.employeeBadge}>
+                <Text style={styles.employeeName}>{item.nama_lengkap}</Text>
+              </View>
+            </View>
+            <View style={styles.headerRight}>
+              <View style={[styles.statusTag, { backgroundColor: statusColor + '15' }]}>
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                <Text style={[styles.statusTagText, { color: statusColor }]}>{statusLabel}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.infoGrid}>
+            <View style={styles.infoItem}>
+              <View style={styles.iconCircle}><Ionicons name="person" size={14} color="#004643" /></View>
+              <Text style={styles.infoText} numberOfLines={1}>NIP: {item.nip} • {item.jabatan}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <View style={styles.iconCircle}><Ionicons name="calendar" size={14} color="#004643" /></View>
+              <Text style={styles.infoText}>
+                {formatDate(item.tanggal_mulai)}
+                {item.tanggal_selesai && item.tanggal_selesai !== item.tanggal_mulai && 
+                  ` - ${formatDate(item.tanggal_selesai)}`}
+              </Text>
+            </View>
+            {(item.jam_mulai || item.jam_selesai) && (
+              <View style={styles.infoItem}>
+                <View style={styles.iconCircle}><Ionicons name="time" size={14} color="#004643" /></View>
+                <Text style={styles.infoText}>
+                  {item.jam_mulai} {item.jam_selesai && `- ${item.jam_selesai}`}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.reasonContainer}>
+              <Ionicons name="document-text" size={16} color="#64748B" />
+              <Text style={styles.reasonText} numberOfLines={2}>{item.alasan_text}</Text>
+            </View>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={styles.approveBtn}
+                onPress={() => handleApprove('pengajuan', item)}
+                disabled={actionLoading}
+              >
+                <Text style={styles.approveBtnText}>✓</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.rejectBtn}
+                onPress={() => openActionModal('pengajuan', item)}
+              >
+                <Text style={styles.rejectBtnText}>✗</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-        
-        <Text style={styles.userDetail}>NIP: {item.nip} • {item.jabatan}</Text>
-        
-        <Text style={styles.infoText}>
-          {formatDate(item.tanggal_mulai)}
-          {item.tanggal_selesai && item.tanggal_selesai !== item.tanggal_mulai && 
-            ` - ${formatDate(item.tanggal_selesai)}`}
-        </Text>
-        
-        {(item.jam_mulai || item.jam_selesai) && (
-          <Text style={styles.infoText}>
-            {item.jam_mulai} {item.jam_selesai && `- ${item.jam_selesai}`}
-          </Text>
-        )}
-        
-        <Text style={styles.reasonText} numberOfLines={2}>{item.alasan_text}</Text>
-        
-        {item.dokumen_foto && (
-          <TouchableOpacity style={styles.documentBtn}>
-            <Ionicons name="document-attach-outline" size={14} color="#004643" />
-            <Text style={styles.documentBtnText}>Lihat Dokumen</Text>
-          </TouchableOpacity>
-        )}
       </View>
-      
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.approveBtn}
-          onPress={() => handleApprove('pengajuan', item)}
-          disabled={actionLoading}
-        >
-          <Text style={styles.approveBtnText}>✓ Setuju</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.rejectBtn}
-          onPress={() => openActionModal('pengajuan', item)}
-        >
-          <Text style={styles.rejectBtnText}>✗ Tolak</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const getCurrentData = () => {
     switch (activeTab) {
@@ -525,6 +608,31 @@ export default function PengajuanScreen() {
   // Filter data dengan useMemo
   const filteredData = useMemo(() => {
     let data: any[] = getCurrentData();
+
+    // Filter berdasarkan search query
+    if (searchQuery.trim() !== '') {
+      data = data.filter((item: any) => {
+        if (activeTab === 'absen_dinas') {
+          return (
+            item.namaKegiatan?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.nomorSpt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.lokasi?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.pegawai?.some((p: any) => 
+              p.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              p.nip?.includes(searchQuery)
+            )
+          );
+        } else if (activeTab === 'pengajuan') {
+          return (
+            item.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.nip?.includes(searchQuery) ||
+            item.jabatan?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.alasan_text?.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+        }
+        return true;
+      });
+    }
 
     // Filter berdasarkan Periode
     if (filterPeriod !== 'semua') {
@@ -570,7 +678,7 @@ export default function PengajuanScreen() {
     }
 
     return data;
-  }, [absenDinasData, pengajuanData, activeTab, filterPeriod, filterJenis]);
+  }, [absenDinasData, pengajuanData, activeTab, filterPeriod, filterJenis, searchQuery]);
 
   const renderCurrentTab = () => {
     const data = getCurrentData();
@@ -602,32 +710,56 @@ export default function PengajuanScreen() {
                   </View>
                 </View>
                 
-                {/* Skeleton Info Section */}
+                {/* Skeleton Info Section - 2 Kolom */}
                 <View style={styles.dinasCardInfo}>
-                  {/* Skeleton Jenis Dinas */}
-                  <View style={styles.dinasInfoRow}>
-                    <View style={styles.skeletonInfoIcon} />
-                    <View style={[styles.skeletonInfoText, { width: '35%' }]} />
-                  </View>
-                  {/* Skeleton Lokasi */}
-                  <View style={styles.dinasInfoRow}>
-                    <View style={styles.skeletonInfoIcon} />
-                    <View style={[styles.skeletonInfoText, { width: '60%' }]} />
-                  </View>
-                  {/* Skeleton Jam Kerja */}
-                  <View style={styles.dinasInfoRow}>
-                    <View style={styles.skeletonInfoIcon} />
-                    <View style={[styles.skeletonInfoText, { width: '40%' }]} />
-                  </View>
-                  {/* Skeleton Tanggal */}
-                  <View style={styles.dinasInfoRow}>
-                    <View style={styles.skeletonInfoIcon} />
-                    <View style={[styles.skeletonInfoText, { width: '55%' }]} />
-                  </View>
-                  {/* Skeleton Jumlah Pegawai */}
-                  <View style={styles.dinasInfoRow}>
-                    <View style={styles.skeletonInfoIcon} />
-                    <View style={[styles.skeletonInfoText, { width: '45%' }]} />
+                  <View style={styles.dinasInfoGrid}>
+                    {/* Skeleton Kolom Kiri */}
+                    <View style={styles.dinasInfoColumn}>
+                      {/* Skeleton Jenis Dinas */}
+                      <View style={styles.dinasInfoRow}>
+                        <View style={styles.skeletonInfoIconBox} />
+                        <View style={styles.dinasInfoContent}>
+                          <View style={styles.skeletonInfoLabel} />
+                          <View style={[styles.skeletonInfoValue, { width: '70%' }]} />
+                        </View>
+                      </View>
+                      {/* Skeleton Jam Kerja */}
+                      <View style={styles.dinasInfoRow}>
+                        <View style={styles.skeletonInfoIconBox} />
+                        <View style={styles.dinasInfoContent}>
+                          <View style={styles.skeletonInfoLabel} />
+                          <View style={[styles.skeletonInfoValue, { width: '60%' }]} />
+                        </View>
+                      </View>
+                      {/* Skeleton Personel */}
+                      <View style={[styles.dinasInfoRow, { marginBottom: 0 }]}>
+                        <View style={styles.skeletonInfoIconBox} />
+                        <View style={styles.dinasInfoContent}>
+                          <View style={styles.skeletonInfoLabel} />
+                          <View style={[styles.skeletonInfoValue, { width: '65%' }]} />
+                        </View>
+                      </View>
+                    </View>
+                    
+                    {/* Skeleton Kolom Kanan */}
+                    <View style={styles.dinasInfoColumn}>
+                      {/* Skeleton Lokasi */}
+                      <View style={styles.dinasInfoRow}>
+                        <View style={styles.skeletonInfoIconBox} />
+                        <View style={styles.dinasInfoContent}>
+                          <View style={styles.skeletonInfoLabel} />
+                          <View style={[styles.skeletonInfoValue, { width: '80%' }]} />
+                        </View>
+                      </View>
+                      {/* Skeleton Periode */}
+                      <View style={[styles.dinasInfoRow, { marginBottom: 0 }]}>
+                        <View style={styles.skeletonInfoIconBox} />
+                        <View style={styles.dinasInfoContent}>
+                          <View style={styles.skeletonInfoLabel} />
+                          <View style={[styles.skeletonInfoValue, { width: '75%' }]} />
+                        </View>
+                      </View>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -723,9 +855,16 @@ export default function PengajuanScreen() {
               <Ionicons name="search-outline" size={20} color="#666" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Cari pegawai..."
+                placeholder="Cari Pegawai..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
                 placeholderTextColor="#999"
               />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
           
@@ -1001,34 +1140,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   fixedControls: {
-    paddingTop: 8,
+    paddingTop: 0,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
-    backgroundColor: '#fff',
+    backgroundColor: '#FAFBFC',
   },
   
   // Search and Filter Section
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#fff'
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#FAFBFC',
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    gap: 12
+    borderColor: '#E8F0EF',
+    gap: 12,
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
-    paddingVertical: 12
+    paddingVertical: 14,
+    fontWeight: '400',
   },
 
   tabContainer: {
@@ -1090,129 +1236,83 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   
-  // Item Card
-  itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-    position: 'relative',
+  // Pengajuan Card (sama seperti kelola dinas)
+  pengajuanCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    marginBottom: 16,
+    flexDirection: 'row',
     overflow: 'hidden',
-  },
-  cardAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 4,
-    height: '100%',
-    backgroundColor: '#004643',
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
-  },
-  itemContent: { 
-    marginBottom: 12,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  userName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    flex: 1,
-    marginRight: 8,
-  },
-  userDetail: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 6,
-  },
-  pengajuanBadge: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(25, 118, 210, 0.2)',
-  },
-  pengajuanBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#1976D2',
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  reasonText: {
-    fontSize: 12,
-    color: '#999',
-    lineHeight: 16,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  documentBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    gap: 4,
-    alignSelf: 'flex-start',
-    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  documentBtnText: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
+  statusAccent: { width: 6, height: '100%' },
+  cardMainContent: { flex: 1, padding: 16 },
+  titleContainer: { flex: 1, marginRight: 8 },
+  pengajuanTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 6 },
+  employeeBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
-  
-  // Action Buttons
+  employeeName: { fontSize: 11, color: '#64748B', fontWeight: '600', letterSpacing: 0.5 },
+  headerRight: { alignItems: 'flex-end' },
+  statusTag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 8 },
+  statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+  statusTagText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  cardDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 12 },
+  infoGrid: { gap: 8, marginBottom: 14 },
+  infoItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center' },
+  infoText: { fontSize: 13, color: '#475569', flex: 1 },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: -16,
+    marginBottom: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  reasonContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 12 },
+  reasonText: { fontSize: 12, color: '#64748B', flex: 1 },
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F5F5',
   },
   approveBtn: {
-    flex: 1,
+    width: 32,
+    height: 32,
     backgroundColor: '#4CAF50',
-    paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   approveBtnText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
   },
   rejectBtn: {
-    flex: 1,
+    width: 32,
+    height: 32,
     backgroundColor: '#F44336',
-    paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   rejectBtnText: {
     color: '#fff',
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
   },
   
@@ -1477,60 +1577,102 @@ const styles = StyleSheet.create({
 
   // Dinas Card
   dinasCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   dinasCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8F9FA',
   },
   dinasCardTitle: { 
     flex: 1, 
-    marginRight: 10 
+    marginRight: 16,
   },
   dinasKegiatanName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  dinasSptNumber: {
-    fontSize: 12,
-    color: '#666',
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 8,
+    letterSpacing: -0.2,
+    lineHeight: 20,
   },
   dinasCardInfo: { 
     marginBottom: 0,
   },
+  
+  // Dinas Info Grid - 2 Kolom Layout
+  dinasInfoGrid: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  dinasInfoColumn: {
+    flex: 1,
+  },
   dinasInfoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  dinasInfoText: {
-    fontSize: 13,
-    color: '#666',
-    marginLeft: 6,
+  dinasInfoIconBox: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    marginTop: 1,
+  },
+  dinasInfoContent: {
+    flex: 1,
+  },
+  dinasInfoLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#95A5A6',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  dinasInfoValue: {
+    color: '#576574',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 15,
   },
   
   // Badge Container
   badgeContainer: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     alignItems: 'center',
+    marginTop: 4,
   },
   statusBadgeSmall: {
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   statusBadgeGreen: {
     backgroundColor: '#4CAF50',
@@ -1556,7 +1698,7 @@ const styles = StyleSheet.create({
     height: 16,
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   skeletonDinasSpt: {
     width: '45%',
@@ -1564,31 +1706,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
-  // Skeleton untuk Status Badges (3 badges: hijau, kuning, merah)
+  // Skeleton untuk Status Badges
   skeletonBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#E0E0E0',
   },
-  // Skeleton untuk Info Icon (business, location, time, calendar, people)
-  skeletonInfoIcon: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#E0E0E0',
+  // Skeleton untuk Info Icon Box
+  skeletonInfoIconBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: '#F0F4F3',
+    marginRight: 10,
+    marginTop: 1,
   },
-  // Skeleton untuk Info Text (jenis dinas, lokasi, jam kerja, tanggal, jumlah pegawai)
-  skeletonInfoText: {
-    height: 13,
-    backgroundColor: '#F0F0F0',
+  // Skeleton untuk Label
+  skeletonInfoLabel: {
+    width: '40%',
+    height: 8,
+    backgroundColor: '#F0F4F3',
     borderRadius: 4,
-    marginLeft: 6,
+    marginBottom: 2,
+  },
+  // Skeleton untuk Value Text
+  skeletonInfoValue: {
+    height: 12,
+    backgroundColor: '#F0F4F3',
+    borderRadius: 4,
   },
   
   /* ========================================
      SKELETON STYLES - TAB PENGAJUAN
   ======================================== */
+  // Skeleton untuk Card
+  itemCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    marginBottom: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  cardAccent: {
+    width: 4,
+    height: 60,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+  },
+  itemContent: {
+    flex: 1,
+    paddingLeft: 12,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   // Skeleton untuk Nama Pegawai
   skeletonUserName: {
     flex: 1,

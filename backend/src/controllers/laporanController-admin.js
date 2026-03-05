@@ -415,8 +415,8 @@ const getLaporan = async (req, res) => {
       });
 
     } else if (type === 'izin') {
-      // Get all izin/cuti data
-      const [results] = await db.execute(`
+      // Get all izin/cuti data with search functionality
+      let query = `
         SELECT 
           peng.id_pengajuan as id,
           p.nama_lengkap,
@@ -431,8 +431,20 @@ const getLaporan = async (req, res) => {
         FROM pengajuan peng
         INNER JOIN pegawai p ON peng.id_pegawai = p.id_pegawai
         WHERE peng.jenis_pengajuan IN ('izin_pribadi', 'cuti_sakit', 'cuti_tahunan')
-        ORDER BY peng.tanggal_mulai DESC
-      `);
+      `;
+      
+      const params = [];
+      
+      // Add search filter if provided
+      if (req.query.search) {
+        query += ` AND (p.nama_lengkap LIKE ? OR p.nip LIKE ? OR peng.alasan_text LIKE ?)`;
+        const searchTerm = `%${req.query.search}%`;
+        params.push(searchTerm, searchTerm, searchTerm);
+      }
+      
+      query += ` ORDER BY peng.tanggal_mulai DESC`;
+      
+      const [results] = await db.execute(query, params);
       
       const data = results.map(row => ({
         id: parseInt(row.id),

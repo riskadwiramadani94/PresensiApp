@@ -535,34 +535,43 @@ export default function LaporanDetailAbsenScreen() {
           );
         }}
       >
-        <View style={styles.cardHeader}>
-          {item.foto_profil ? (
-            <Image
-              source={{
-                uri: `${API_CONFIG.BASE_URL}${item.foto_profil.replace("/uploads/pegawai/uploads/pegawai/", "/uploads/pegawai/")}`,
-              }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {item.nama_lengkap.charAt(0).toUpperCase()}
-              </Text>
+        <View style={styles.cardMainContent}>
+          <View style={styles.cardHeader}>
+            <View style={styles.employeeSection}>
+              {item.foto_profil ? (
+                <Image
+                  source={{
+                    uri: `${API_CONFIG.BASE_URL}${item.foto_profil.replace("/uploads/pegawai/uploads/pegawai/", "/uploads/pegawai/")}`,
+                  }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {item.nama_lengkap.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.employeeInfo}>
+                <Text style={styles.employeeName}>{item.nama_lengkap}</Text>
+                <View style={styles.nipContainer}>
+                  <Ionicons name="card-outline" size={12} color="#64748B" />
+                  <Text style={styles.employeeNip}>NIP: {item.nip}</Text>
+                </View>
+              </View>
             </View>
-          )}
-          <View style={styles.employeeInfo}>
-            <Text style={styles.employeeName}>{item.nama_lengkap}</Text>
-            <Text style={styles.employeeNip}>NIP: {item.nip}</Text>
+            <TouchableOpacity style={styles.detailBtn}>
+              <Ionicons name="chevron-forward" size={16} color="#00695C" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.detailBtn}>
-            <Ionicons name="chevron-forward" size={16} color="#666" />
-          </TouchableOpacity>
-        </View>
 
-        <View style={styles.statusContainer}>
-          {Object.entries(item.summary)
-            .filter(([status, count]) => count > 0)
-            .map(([status, count]) => renderStatusBadge(status, count))}
+          <View style={styles.cardDivider} />
+
+          <View style={styles.statusContainer}>
+            {Object.entries(item.summary)
+              .filter(([status, count]) => count > 0)
+              .map(([status, count]) => renderStatusBadge(status, count))}
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -716,7 +725,7 @@ export default function LaporanDetailAbsenScreen() {
                 <Ionicons name="search-outline" size={20} color="#666" />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Cari pegawai..."
+                  placeholder="Cari Pegawai..."
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholderTextColor="#999"
@@ -1117,12 +1126,12 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
-  stickyHeader: { backgroundColor: "#fff" },
+  stickyHeader: { backgroundColor: "#FAFBFC" },
   header: {
     paddingHorizontal: 20,
     paddingTop: 15,
     paddingBottom: 10,
-    backgroundColor: "#fff",
+    backgroundColor: "#FAFBFC",
   },
   filterRow: {
     flexDirection: "row",
@@ -1146,24 +1155,31 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: "#fff",
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#FAFBFC',
   },
   searchInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#E8F0EF",
     gap: 12,
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: "#333",
-    paddingVertical: 12,
+    paddingVertical: 14,
+    fontWeight: "400",
   },
   statsContainer: {
     marginHorizontal: 20,
@@ -1205,7 +1221,7 @@ const styles = StyleSheet.create({
   sortSection: {
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: "#fff",
+    backgroundColor: "#FAFBFC",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -1239,37 +1255,100 @@ const styles = StyleSheet.create({
 
   listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
   pegawaiCard: {
-    backgroundColor: "#fff",
-    marginBottom: 12,
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
     padding: 16,
-    elevation: 2,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  cardMainContent: { padding: 16 },
+  cardHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 12 
+  },
+  employeeSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#E6F0EF",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#004643',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
-    overflow: "hidden",
+    elevation: 1,
   },
-  avatarImage: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
-  avatarText: { color: "#004643", fontWeight: "bold", fontSize: 16 },
+  avatarImage: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#F0F7F7',
+  },
+  avatarText: { 
+    color: '#FFF', 
+    fontWeight: '700', 
+    fontSize: 18 
+  },
   employeeInfo: { flex: 1 },
   employeeName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 4,
+    letterSpacing: -0.2,
   },
-  employeeNip: { fontSize: 12, color: "#666" },
-  detailBtn: { padding: 8, borderRadius: 8, backgroundColor: "#F5F5F5" },
-  statusContainer: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 10, fontWeight: "bold" },
+  nipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  employeeNip: { 
+    fontSize: 11, 
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  detailBtn: { 
+    padding: 8, 
+    borderRadius: 12, 
+    backgroundColor: '#F0F7F7',
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
+  },
+  cardDivider: { 
+    height: 1, 
+    backgroundColor: '#F1F5F9', 
+    marginBottom: 12 
+  },
+  statusContainer: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 6 
+  },
+  statusBadge: { 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusText: { 
+    fontSize: 10, 
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { marginTop: 10, color: "#666" },
   bottomSheetOverlay: {
@@ -1419,16 +1498,16 @@ const styles = StyleSheet.create({
   },
   // Skeleton untuk Avatar
   skeletonAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#E0E0E0',
     marginRight: 12,
   },
   // Skeleton untuk Employee Name
   skeletonEmployeeName: {
     width: '70%',
-    height: 16,
+    height: 15,
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
     marginBottom: 4,
@@ -1436,7 +1515,7 @@ const styles = StyleSheet.create({
   // Skeleton untuk Employee NIP
   skeletonEmployeeNip: {
     width: '50%',
-    height: 12,
+    height: 11,
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
@@ -1444,8 +1523,10 @@ const styles = StyleSheet.create({
   skeletonDetailBtn: {
     width: 32,
     height: 32,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 8,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
   },
   // Skeleton untuk Status Badge
   skeletonStatusBadge: {

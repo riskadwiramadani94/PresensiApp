@@ -325,7 +325,6 @@ export default function KalenderLiburScreen() {
       <ScrollView style={styles.content}>
         {loading ? (
           <>
-            <View style={styles.skeletonInfoCard} />
             <View style={styles.skeletonCalendarCard}>
               <View style={styles.skeletonCalendarHeader}>
                 <View style={styles.skeletonMonthBtn} />
@@ -353,14 +352,6 @@ export default function KalenderLiburScreen() {
           </>
         ) : (
           <>
-            <View style={styles.infoCard}>
-              <Ionicons name="information-circle" size={20} color="#004643" />
-              <Text style={styles.infoText}>
-                Hari libur ditentukan dari pengaturan jam kerja. Klik tanggal
-                untuk menambah hari libur khusus
-              </Text>
-            </View>
-
             <View style={styles.calendarCard}>
               <View style={styles.calendarHeader}>
                 <TouchableOpacity
@@ -664,15 +655,17 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   calendarCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   calendarHeader: {
     flexDirection: "row",
@@ -754,15 +747,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#E53E3E",
   },
   legendCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   legendTitle: {
     fontSize: 16,
@@ -786,15 +781,17 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   listCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   listTitle: {
     fontSize: 16,
@@ -843,11 +840,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   skeletonCalendarCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    elevation: 3,
   },
   skeletonCalendarHeader: {
     flexDirection: "row",
@@ -885,11 +884,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   skeletonLegendCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    elevation: 3,
   },
   skeletonLegendTitle: {
     width: 100,
@@ -905,11 +906,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   skeletonListCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    elevation: 3,
   },
   skeletonListTitle: {
     width: 140,

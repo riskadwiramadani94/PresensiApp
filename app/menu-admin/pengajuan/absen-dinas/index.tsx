@@ -377,8 +377,93 @@ export default function AbsenDinasValidasiScreen() {
       />
       
       {loading ? (
-        <View style={styles.loadingCenter}>
-          <ActivityIndicator size="large" color="#004643" />
+        <View style={styles.scrollContent}>
+          <View style={styles.mainWrapper}>
+            {/* Skeleton Premium Card */}
+            <View style={styles.premiumCard}>
+              <View style={styles.cardTagRow}>
+                <View style={styles.skeletonTagBadge} />
+                <View style={styles.skeletonSptText} />
+              </View>
+              <View style={styles.skeletonTitle} />
+              <View style={styles.divider} />
+              <View style={styles.infoGrid}>
+                <View style={styles.infoBox}>
+                  <View style={styles.skeletonIcon} />
+                  <View>
+                    <View style={styles.skeletonInfoLabel} />
+                    <View style={styles.skeletonInfoValue} />
+                  </View>
+                </View>
+                <View style={styles.infoBox}>
+                  <View style={styles.skeletonIcon} />
+                  <View>
+                    <View style={styles.skeletonInfoLabel} />
+                    <View style={styles.skeletonInfoValue} />
+                  </View>
+                </View>
+              </View>
+              <View style={[styles.infoBox, { marginTop: 12, alignItems: 'flex-start' }]}>
+                <View style={[styles.skeletonIcon, { marginTop: 2 }]} />
+                <View style={{ flex: 1 }}>
+                  <View style={styles.skeletonInfoLabel} />
+                  <View style={[styles.skeletonInfoValue, { width: '85%', marginTop: 2 }]} />
+                  <View style={[styles.skeletonInfoValue, { width: '70%', marginTop: 2 }]} />
+                </View>
+              </View>
+            </View>
+
+            {/* Skeleton Section Header */}
+            <View style={styles.sectionHeader}>
+              <View style={styles.skeletonSectionTitle} />
+              <View style={styles.activeIndicator} />
+            </View>
+
+            {/* Skeleton Calendar */}
+            <View style={[styles.calendarContainer, { flexDirection: 'row' }]}>
+              {[1, 2, 3, 4, 5].map((item) => (
+                <View key={item} style={styles.skeletonDateCard}>
+                  <View style={styles.skeletonDateDay} />
+                  <View style={styles.skeletonDateNum} />
+                  <View style={styles.skeletonDateMonth} />
+                </View>
+              ))}
+            </View>
+
+            {/* Skeleton Section Header 2 */}
+            <View style={styles.sectionHeader}>
+              <View style={styles.skeletonSectionTitle} />
+              <View style={styles.skeletonDateLabel} />
+            </View>
+
+            {/* Skeleton Employee Cards */}
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={styles.employeeCard}>
+                <View style={styles.empRow}>
+                  <View style={styles.skeletonAvatar} />
+                  <View style={styles.empMainInfo}>
+                    <View style={styles.skeletonEmpName} />
+                    <View style={styles.skeletonEmpNip} />
+                  </View>
+                  <View style={styles.statusContainer}>
+                    <View style={styles.skeletonDot} />
+                    <View style={styles.skeletonStatusText} />
+                  </View>
+                </View>
+                <View style={styles.empLocationBox}>
+                  <View style={styles.skeletonLocationIcon} />
+                  <View style={styles.skeletonLocationText} />
+                </View>
+                <View style={styles.empActions}>
+                  <View style={styles.skeletonBtnCircle} />
+                  <View style={styles.validGroup}>
+                    <View style={styles.skeletonBtnValid} />
+                    <View style={styles.skeletonBtnValid} />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
       ) : (
         <FlatList
@@ -483,5 +568,151 @@ const styles = StyleSheet.create({
   modalTopBar: { padding: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
   closeBtn: { padding: 4 },
-  fullImage: { width: '100%', height: '100%', backgroundColor: '#000' }
+  fullImage: { width: '100%', height: '100%', backgroundColor: '#000' },
+
+  /* ========================================
+     SKELETON STYLES
+  ======================================== */
+  // Premium Card Skeleton
+  skeletonTagBadge: {
+    width: 60,
+    height: 16,
+    backgroundColor: '#E0F2F1',
+    borderRadius: 8,
+  },
+  skeletonSptText: {
+    width: 80,
+    height: 11,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonTitle: {
+    width: '80%',
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 16,
+  },
+  skeletonIcon: {
+    width: 18,
+    height: 18,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 9,
+  },
+  skeletonInfoLabel: {
+    width: 60,
+    height: 11,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  skeletonInfoValue: {
+    width: 80,
+    height: 13,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  
+  // Section Header Skeleton
+  skeletonSectionTitle: {
+    width: 140,
+    height: 14,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonDateLabel: {
+    width: 70,
+    height: 18,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+  },
+  
+  // Calendar Skeleton
+  skeletonDateCard: {
+    width: 68,
+    height: 95,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    gap: 6,
+  },
+  skeletonDateDay: {
+    width: 25,
+    height: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonDateNum: {
+    width: 18,
+    height: 18,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonDateMonth: {
+    width: 20,
+    height: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  
+  // Employee Card Skeleton
+  skeletonAvatar: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+  },
+  skeletonEmpName: {
+    width: '75%',
+    height: 13,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonEmpNip: {
+    width: '55%',
+    height: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonDot: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonStatusText: {
+    width: 50,
+    height: 9,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonLocationIcon: {
+    width: 14,
+    height: 14,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 7,
+  },
+  skeletonLocationText: {
+    flex: 1,
+    height: 9,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  skeletonBtnCircle: {
+    width: 42,
+    height: 42,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+  },
+  skeletonBtnValid: {
+    width: 48,
+    height: 42,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 14,
+  },
 });

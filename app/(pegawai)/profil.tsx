@@ -366,7 +366,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#FFF3E0' }]}>
-                  <Ionicons name="lock-closed-outline" size={20} color="#F57C00" />
+                  <Ionicons name="lock-closed-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#F57C00" />
                 </View>
                 <Text style={styles.menuText}>Keamanan</Text>
               </View>
@@ -376,7 +376,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.menuItem}>
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-                  <Ionicons name="notifications-outline" size={20} color="#1976D2" />
+                  <Ionicons name="notifications-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#1976D2" />
                 </View>
                 <Text style={styles.menuText}>Notifikasi</Text>
               </View>
@@ -394,7 +394,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#E0F2F1' }]}>
-                  <Ionicons name="shield-checkmark-outline" size={20} color="#00897B" />
+                  <Ionicons name="shield-checkmark-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#00897B" />
                 </View>
                 <Text style={styles.menuText}>Kebijakan Privasi</Text>
               </View>
@@ -407,7 +407,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#E8F5E9' }]}>
-                  <Ionicons name="document-text-outline" size={20} color="#388E3C" />
+                  <Ionicons name="document-text-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#388E3C" />
                 </View>
                 <Text style={styles.menuText}>Syarat dan Ketentuan</Text>
               </View>
@@ -425,7 +425,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuLeft}>
                 <View style={[styles.iconCircle, { backgroundColor: '#FFEBEE' }]}>
-                  <Ionicons name="log-out-outline" size={20} color="#D32F2F" />
+                  <Ionicons name="log-out-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#D32F2F" />
                 </View>
                 <Text style={styles.menuText}>Keluar Akun</Text>
               </View>
@@ -502,8 +502,19 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   profileInfo: { flex: 1 },
-  profileName: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  profileEmail: { fontSize: 14, color: '#666', marginBottom: 12 },
+  profileName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
   profileImageWrapper: { position: 'relative' },
   profileAvatar: {
     width: 80,
@@ -533,27 +544,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editProfileBtn: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#004643',
-    borderRadius: 20,
+    backgroundColor: '#F0F7F7',
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignSelf: 'flex-start',
   },
-  editProfileText: { fontSize: 13, fontWeight: '600', color: '#004643' },
+  editProfileText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#00695C',
+    letterSpacing: 0.2,
+  },
   
   divider: { height: 1, backgroundColor: '#E0E0E0', marginVertical: 10 },
   
   section: { paddingHorizontal: 20, marginTop: 10 },
-  sectionLabel: { fontSize: 12, fontWeight: '600', color: '#999', marginBottom: 10, marginLeft: 5, letterSpacing: 0.5 },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#95A5A6',
+    marginBottom: 12,
+    marginLeft: 5,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
   
-  menuCard: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E0E0E0', overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, paddingHorizontal: 15 },
+  menuCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 4,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+  },
   menuLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  iconCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  menuText: { fontSize: 15, color: '#333', fontWeight: '500' },
-  menuDivider: { height: 1, backgroundColor: '#F0F0F0' },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  menuText: {
+    fontSize: 15,
+    color: '#1A1A1A',
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: -15,
+  },
   
   logoutModalOverlay: {
     flex: 1,
@@ -653,13 +712,13 @@ const styles = StyleSheet.create({
     height: 16,
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   skeletonEditBtn: {
     width: 100,
-    height: 36,
+    height: 40,
     backgroundColor: '#E0E0E0',
-    borderRadius: 20,
+    borderRadius: 12,
   },
   skeletonAvatar: {
     width: 80,
@@ -672,21 +731,21 @@ const styles = StyleSheet.create({
     height: 14,
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
-    marginBottom: 10,
+    marginBottom: 12,
     marginLeft: 5,
   },
   skeletonMenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Platform.OS === 'ios' ? 14 : 16,
-    paddingHorizontal: 15,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
   },
   skeletonIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: '#E0E0E0',
-    marginRight: 12,
+    marginRight: 14,
   },
   skeletonMenuText: {
     width: '50%',

@@ -285,17 +285,29 @@ export default function DataPegawaiAdminScreen() {
                   {/* Skeleton Info Section */}
                   <View style={styles.infoSection}>
                     <View style={styles.skeletonName} />
-                    <View style={styles.skeletonInfoRow}>
-                      <View style={styles.skeletonIcon} />
-                      <View style={styles.skeletonEmail} />
+                    
+                    <View style={styles.infoRow}>
+                      <View style={styles.skeletonIconBox} />
+                      <View style={styles.infoContent}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonEmail} />
+                      </View>
                     </View>
-                    <View style={styles.skeletonInfoRow}>
-                      <View style={styles.skeletonIcon} />
-                      <View style={styles.skeletonNip} />
+                    
+                    <View style={styles.infoRow}>
+                      <View style={styles.skeletonIconBox} />
+                      <View style={styles.infoContent}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonNip} />
+                      </View>
                     </View>
-                    <View style={styles.skeletonInfoRow}>
-                      <View style={styles.skeletonIcon} />
-                      <View style={styles.skeletonJabatan} />
+                    
+                    <View style={styles.infoRow}>
+                      <View style={styles.skeletonIconBox} />
+                      <View style={styles.infoContent}>
+                        <View style={styles.skeletonLabel} />
+                        <View style={styles.skeletonJabatan} />
+                      </View>
                     </View>
                   </View>
 
@@ -455,29 +467,40 @@ export default function DataPegawaiAdminScreen() {
                       </Text>
 
                       <View style={styles.infoRow}>
-                        <Ionicons name="mail-outline" size={14} color="#666" />
-                        <Text style={styles.pegawaiEmail}>
-                          {item.email || "Email belum diisi"}
-                        </Text>
+                        <View style={styles.infoIconBox}>
+                          <Ionicons name="mail-outline" size={14} color="#00695C" />
+                        </View>
+                        <View style={styles.infoContent}>
+                          <Text style={styles.infoLabel}>EMAIL</Text>
+                          <Text style={styles.infoValue}>
+                            {item.email || "Email belum diisi"}
+                          </Text>
+                        </View>
                       </View>
 
                       <View style={styles.infoRow}>
-                        <Ionicons name="card-outline" size={14} color="#666" />
-                        <Text style={styles.pegawaiNip}>
-                          {item.nip || "NIP belum diisi"}
-                        </Text>
+                        <View style={styles.infoIconBox}>
+                          <Ionicons name="card-outline" size={14} color="#00695C" />
+                        </View>
+                        <View style={styles.infoContent}>
+                          <Text style={styles.infoLabel}>NIP</Text>
+                          <Text style={styles.infoValue}>
+                            {item.nip || "NIP belum diisi"}
+                          </Text>
+                        </View>
                       </View>
 
                       {item.jabatan && (
                         <View style={styles.infoRow}>
-                          <Ionicons
-                            name="briefcase-outline"
-                            size={14}
-                            color="#666"
-                          />
-                          <Text style={styles.pegawaiJabatan}>
-                            {item.jabatan}
-                          </Text>
+                          <View style={styles.infoIconBox}>
+                            <Ionicons name="briefcase-outline" size={14} color="#00695C" />
+                          </View>
+                          <View style={styles.infoContent}>
+                            <Text style={styles.infoLabel}>JABATAN</Text>
+                            <Text style={styles.jabatanValue}>
+                              {item.jabatan}
+                            </Text>
+                          </View>
                         </View>
                       )}
                     </View>
@@ -495,7 +518,7 @@ export default function DataPegawaiAdminScreen() {
                         <Ionicons
                           name="ellipsis-vertical"
                           size={20}
-                          color="#666"
+                          color="#00695C"
                         />
                       </TouchableOpacity>
                     </View>
@@ -718,97 +741,94 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFBFC",
   },
   pegawaiCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: "#fff",
-    padding: 20,
+    backgroundColor: '#FFF',
     borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
     marginHorizontal: 2,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
-    shadowColor: "#004643",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    position: "relative",
-    overflow: "hidden",
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
 
   // Avatar Section
   avatarSection: {
-    alignItems: "center",
-    marginRight: 16,
+    alignItems: 'center',
+    marginRight: 14,
   },
   profileImage: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 2,
-    borderColor: "#E8F5F4",
+    borderColor: '#F0F7F7',
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#F0F9F8",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#E0F2F1",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#004643',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
   },
   avatarText: {
-    color: "#004643",
-    fontWeight: "600",
+    color: '#FFF',
+    fontWeight: '800',
     fontSize: 18,
     letterSpacing: 0.5,
   },
 
   // Status Badge
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
     marginTop: 6,
-    gap: 5,
-    minWidth: 70,
-    justifyContent: "center",
+    gap: 4,
+    minWidth: 60,
+    justifyContent: 'center',
   },
   statusActive: {
-    backgroundColor: "#E8F8F5",
+    backgroundColor: '#E8F8F5',
     borderWidth: 1,
-    borderColor: "#B2DFDB",
+    borderColor: '#B2DFDB',
   },
   statusInactive: {
-    backgroundColor: "#FFF8E1",
+    backgroundColor: '#FFF8E1',
     borderWidth: 1,
-    borderColor: "#FFE0B2",
+    borderColor: '#FFE0B2',
   },
   statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   dotActive: {
-    backgroundColor: "#00C853",
+    backgroundColor: '#00C853',
   },
   dotInactive: {
-    backgroundColor: "#FF8F00",
+    backgroundColor: '#FF8F00',
   },
   statusText: {
-    fontSize: 9,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    fontSize: 8,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   statusTextActive: {
-    color: "#00695C",
+    color: '#00695C',
   },
   statusTextInactive: {
-    color: "#E65100",
+    color: '#E65100',
   },
 
   // Info Section
@@ -817,58 +837,68 @@ const styles = StyleSheet.create({
     paddingTop: 1,
   },
   pegawaiName: {
-    fontWeight: "600",
-    fontSize: 16,
-    color: "#1A1A1A",
-    marginBottom: 10,
-    letterSpacing: 0.2,
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#1A1A1A',
+    marginBottom: 8,
+    letterSpacing: -0.2,
     lineHeight: 20,
   },
   infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: 7,
-    gap: 10,
   },
-  pegawaiEmail: {
-    color: "#5A6C7D",
-    fontSize: 13,
-    flex: 1,
-    fontWeight: "400",
-    lineHeight: 16,
+  infoIconBox: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    marginTop: 1,
   },
-  pegawaiNip: {
-    color: "#5A6C7D",
-    fontSize: 13,
+  infoContent: {
     flex: 1,
-    fontWeight: "400",
-    lineHeight: 16,
   },
-  pegawaiJabatan: {
-    color: "#004643",
-    fontSize: 13,
-    flex: 1,
-    fontWeight: "500",
-    lineHeight: 16,
+  infoLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#95A5A6',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  infoValue: {
+    color: '#576574',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 15,
+  },
+  jabatanValue: {
+    color: '#004643',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 15,
   },
 
   // Actions Section
   actionsSection: {
-    alignItems: "center",
-    justifyContent: "flex-start",
-    paddingTop: 4,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 2,
   },
   moreBtn: {
-    padding: 12,
-    borderRadius: 20,
-    backgroundColor: "#F8FFFE",
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#F0F7F7',
     borderWidth: 1,
-    borderColor: "#E8F5F4",
-    shadowColor: "#004643",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: '#E8F5F4',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   emptyContainer: {
     flex: 1,
@@ -1089,59 +1119,62 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFCFB",
   },
   skeletonAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#E8F0EF",
   },
   skeletonStatusBadge: {
-    width: 70,
-    height: 24,
-    borderRadius: 20,
+    width: 60,
+    height: 20,
+    borderRadius: 16,
     backgroundColor: "#F0F4F3",
     marginTop: 6,
   },
   skeletonName: {
     width: "75%",
-    height: 16,
-    backgroundColor: "#E8F0EF",
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  skeletonInfoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 7,
-    gap: 10,
-  },
-  skeletonIcon: {
-    width: 14,
     height: 14,
+    backgroundColor: "#E8F0EF",
     borderRadius: 7,
+    marginBottom: 8,
+  },
+  skeletonIconBox: {
+    width: 24,
+    height: 24,
     backgroundColor: "#F0F4F3",
+    borderRadius: 8,
+    marginRight: 10,
+    marginTop: 1,
+  },
+  skeletonLabel: {
+    width: "40%",
+    height: 8,
+    backgroundColor: "#F0F4F3",
+    borderRadius: 4,
+    marginBottom: 2,
   },
   skeletonEmail: {
     width: "80%",
-    height: 13,
+    height: 11,
     backgroundColor: "#F0F4F3",
-    borderRadius: 6,
+    borderRadius: 5,
   },
   skeletonNip: {
     width: "65%",
-    height: 13,
+    height: 11,
     backgroundColor: "#F0F4F3",
-    borderRadius: 6,
+    borderRadius: 5,
   },
   skeletonJabatan: {
     width: "70%",
-    height: 13,
+    height: 11,
     backgroundColor: "#F0F4F3",
-    borderRadius: 6,
+    borderRadius: 5,
   },
   skeletonMoreBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     backgroundColor: "#E8F0EF",
   },
 });

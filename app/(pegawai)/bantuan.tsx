@@ -244,14 +244,19 @@ export default function BantuanScreen() {
             
             {/* Search Box */}
             <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+              <Ionicons name="search-outline" size={20} color="#666" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Cari pertanyaan..."
+                placeholder="Cari Pegawai..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholderTextColor="#999"
               />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
               {searching && <ActivityIndicator size="small" color="#2196F3" />}
             </View>
 
@@ -294,8 +299,8 @@ export default function BantuanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 20, paddingBottom: 20 },
+  container: { flex: 1, backgroundColor: '#FAFBFC' },
+  content: { padding: 20, paddingBottom: 20, backgroundColor: '#FAFBFC' },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
   card: {
@@ -325,19 +330,25 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingHorizontal: 16,
     marginBottom: 16,
     height: 48,
-  },
-  searchIcon: {
-    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    gap: 12,
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#1a1a1a',
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '400',
   },
   searchResultTitle: {
     fontSize: 14,

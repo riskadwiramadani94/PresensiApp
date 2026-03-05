@@ -292,44 +292,64 @@ export default function JamKerjaScreen() {
                    SKELETON LOADING STATE - JAM KERJA
               ======================================== */
               <>
-                <View style={styles.skeletonInfoCard} />
                 {[1, 2, 3, 4, 5, 6, 7].map((item) => (
                   <View key={item} style={styles.hariCard}>
-                    <View style={styles.hariInfo}>
-                      <View style={styles.hariLeft}>
-                        <View style={styles.skeletonHariNama} />
-                        <View style={styles.skeletonHariJam} />
+                    <View style={styles.cardHeader}>
+                      <View style={styles.hariSection}>
+                        <View style={styles.skeletonHariIcon} />
+                        <View style={styles.hariInfo}>
+                          <View style={styles.skeletonHariLabel} />
+                          <View style={styles.skeletonHariNama} />
+                        </View>
                       </View>
                       <View style={styles.hariRight}>
                         <View style={styles.skeletonSwitch} />
-                        <View style={styles.skeletonEditBtn} />
                       </View>
+                    </View>
+
+                    <View style={styles.cardDivider} />
+
+                    <View style={styles.jamInfoGrid}>
+                      <View style={styles.jamInfoRow}>
+                        <View style={styles.skeletonJamIcon} />
+                        <View style={styles.jamInfoContent}>
+                          <View style={styles.skeletonJamLabel} />
+                          <View style={styles.skeletonJamValue} />
+                        </View>
+                      </View>
+                      <View style={styles.jamInfoRow}>
+                        <View style={styles.skeletonJamIcon} />
+                        <View style={styles.jamInfoContent}>
+                          <View style={styles.skeletonJamLabel} />
+                          <View style={styles.skeletonJamValueShort} />
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.cardFooter}>
+                      <View style={styles.statusContainer}>
+                        <View style={styles.skeletonStatusIcon} />
+                        <View style={styles.skeletonStatusText} />
+                      </View>
+                      <View style={styles.skeletonEditBtn} />
                     </View>
                   </View>
                 ))}
               </>
             ) : (
               <>
-                <View style={styles.infoCard}>
-                  <Ionicons name="information-circle" size={20} color="#004643" />
-                  <Text style={styles.infoText}>
-                    Atur jam kerja per hari. Hari libur akan ditandai merah di
-                    kalender
-                  </Text>
-                </View>
-
                 {jamKerjaList.map((item, index) => (
                 <View key={index} style={styles.hariCard}>
-                  <View style={styles.hariInfo}>
-                    <View style={styles.hariLeft}>
-                      <Text style={styles.hariNama}>{item.hari}</Text>
-                      <Text style={styles.hariJam}>
-                        {item.is_kerja
-                          ? `${item.jam_masuk} - ${item.jam_pulang}`
-                          : "Libur"}
-                      </Text>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.hariSection}>
+                      <View style={styles.hariIconBox}>
+                        <Ionicons name="calendar-outline" size={16} color="#00695C" />
+                      </View>
+                      <View style={styles.hariInfo}>
+                        <Text style={styles.hariLabel}>HARI KERJA</Text>
+                        <Text style={styles.hariNama}>{item.hari}</Text>
+                      </View>
                     </View>
-
                     <View style={styles.hariRight}>
                       <Switch
                         value={item.is_kerja}
@@ -345,24 +365,51 @@ export default function JamKerjaScreen() {
                           color="#004643"
                         />
                       )}
-
-                      <TouchableOpacity
-                        style={[
-                          styles.editBtn,
-                          !item.is_kerja && styles.editBtnDisabled,
-                        ]}
-                        onPress={() =>
-                          item.is_kerja && handleEditJam(item, index)
-                        }
-                        disabled={!item.is_kerja}
-                      >
-                        <Ionicons
-                          name="create-outline"
-                          size={20}
-                          color={item.is_kerja ? "#004643" : "#ccc"}
-                        />
-                      </TouchableOpacity>
                     </View>
+                  </View>
+
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.jamInfoGrid}>
+                    <View style={styles.jamInfoRow}>
+                      <View style={styles.jamIconBox}>
+                        <Ionicons name="time-outline" size={14} color="#00695C" />
+                      </View>
+                      <View style={styles.jamInfoContent}>
+                        <Text style={styles.jamInfoLabel}>JAM KERJA</Text>
+                        <Text style={styles.jamInfoValue}>
+                          {item.jam_masuk && item.jam_pulang ? `${item.jam_masuk} - ${item.jam_pulang}` : "08:00 - 17:00"}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.jamInfoRow}>
+                      <View style={styles.jamIconBox}>
+                        <Ionicons name="alarm-outline" size={14} color="#00695C" />
+                      </View>
+                      <View style={styles.jamInfoContent}>
+                        <Text style={styles.jamInfoLabel}>BATAS ABSEN</Text>
+                        <Text style={styles.jamInfoValue}>{item.batas_absen || "08:30"}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <View style={styles.statusContainer}>
+                      <Ionicons 
+                        name={item.is_kerja ? "checkmark-circle" : "close-circle"} 
+                        size={16} 
+                        color={item.is_kerja ? "#4CAF50" : "#F44336"} 
+                      />
+                      <Text style={[styles.statusText, { color: item.is_kerja ? "#4CAF50" : "#F44336" }]}>
+                        {item.is_kerja ? "Hari Kerja Aktif" : "Libur"}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.editBtn}
+                      onPress={() => handleEditJam(item, index)}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#00695C" />
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -506,50 +553,130 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   hariCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 16,
     marginBottom: 12,
     marginHorizontal: 15,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  hariInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  cardMainContent: { flex: 1 },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  hariLeft: {
+  hariSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  hariNama: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
+  hariIconBox: {
+    width: 32,
+    height: 32,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  hariJam: {
-    fontSize: 14,
-    color: "#666",
+  hariInfo: {
+    flex: 1,
+  },
+  hariLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#95A5A6',
+    letterSpacing: 1.1,
+    marginBottom: 3,
+  },
+  hariNama: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: -0.2,
   },
   hariRight: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    minWidth: 100,
-    justifyContent: "flex-end",
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 12,
+  },
+  jamInfoGrid: {
+    gap: 10,
+    marginBottom: 12,
+  },
+  jamInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  jamIconBox: {
+    width: 28,
+    height: 28,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  jamInfoContent: {
+    flex: 1,
+  },
+  jamInfoLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#95A5A6',
+    letterSpacing: 1.1,
+    marginBottom: 3,
+  },
+  jamInfoValue: {
+    color: '#576574',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: -16,
+    marginBottom: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 8,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  statusText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
   },
   editBtn: {
     padding: 8,
-    backgroundColor: "#F0F8F7",
-    borderRadius: 8,
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  editBtnDisabled: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: '#F0F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
   },
 
   modalOverlay: {
@@ -647,24 +774,24 @@ const styles = StyleSheet.create({
   /* ========================================
      SKELETON STYLES - JAM KERJA
   ======================================== */
-  skeletonInfoCard: {
-    height: 60,
-    backgroundColor: '#E0E0E0',
+  skeletonHariIcon: {
+    width: 32,
+    height: 32,
+    backgroundColor: '#F0F7F7',
     borderRadius: 12,
-    marginBottom: 16,
-    marginHorizontal: 15,
+    marginRight: 12,
+  },
+  skeletonHariLabel: {
+    width: 60,
+    height: 9,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 3,
   },
   skeletonHariNama: {
-    width: '40%',
-    height: 16,
+    width: 50,
+    height: 15,
     backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  skeletonHariJam: {
-    width: '60%',
-    height: 14,
-    backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
   skeletonSwitch: {
@@ -673,10 +800,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
     borderRadius: 16,
   },
-  skeletonEditBtn: {
-    width: 36,
-    height: 36,
+  skeletonJamIcon: {
+    width: 28,
+    height: 28,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 10,
+    marginRight: 12,
+    marginTop: 2,
+  },
+  skeletonJamLabel: {
+    width: 50,
+    height: 9,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 3,
+  },
+  skeletonJamValue: {
+    width: 90,
+    height: 13,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonJamValueShort: {
+    width: 40,
+    height: 13,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  skeletonStatusIcon: {
+    width: 16,
+    height: 16,
     backgroundColor: '#F0F0F0',
     borderRadius: 8,
+  },
+  skeletonStatusText: {
+    width: 100,
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  skeletonEditBtn: {
+    width: 34,
+    height: 34,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
   },
 });

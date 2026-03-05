@@ -353,14 +353,19 @@ export default function PengajuanScreen() {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+          <Ionicons name="search-outline" size={20} color="#666" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari pengajuan..."
-            placeholderTextColor="#9CA3AF"
+            placeholder="Cari Pegawai..."
+            placeholderTextColor="#999"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
         <TouchableOpacity style={styles.filterButton} onPress={openFilterModal}>
           <Ionicons name="options" size={20} color="#004643" />
@@ -663,34 +668,38 @@ export default function PengajuanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
+  container: { flex: 1, backgroundColor: '#FAFBFC' },
   searchContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#FAFBFC',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    gap: 10,
+    gap: 12,
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E8F0EF',
     gap: 12,
-  },
-  searchIcon: {
-    marginRight: 0,
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    fontWeight: '400',
   },
   filterButton: {
     width: 40,

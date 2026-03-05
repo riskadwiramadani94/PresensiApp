@@ -20,7 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from "expo-linear-gradient";
 import { API_CONFIG, getApiUrl } from "../../constants/config";
-import { SkeletonLoader, AppHeader, CustomAlert } from "../../components";
+import { AppHeader, CustomAlert } from "../../components";
 import * as ImagePicker from 'expo-image-picker';
 import { useCustomAlert } from "../../hooks/useCustomAlert";
 
@@ -220,7 +220,7 @@ export default function ProfilAdminScreen() {
           foto_profil: result.data?.foto_profil || profile?.foto_profil || null
         });
         
-        alert.showAlert({ type: 'success', message: 'Foto profil berhasil diperbarui', autoClose: true });
+        alert.showAlert({ type: 'success', message: 'Foto profil berhasil diperbarui' });
       } else {
         alert.showAlert({ type: 'error', message: result.message || 'Gagal memperbarui foto profil' });
       }
@@ -531,15 +531,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   profileEmail: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
+    color: '#64748B',
+    marginBottom: 16,
+    fontWeight: '500',
   },
   profileImageWrapper: {
     position: 'relative',
@@ -573,18 +575,19 @@ const styles = StyleSheet.create({
   },
   
   editProfileBtn: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#004643',
-    borderRadius: 20,
+    backgroundColor: '#F0F7F7',
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignSelf: 'flex-start',
   },
   editProfileText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#004643',
+    fontWeight: '700',
+    color: '#00695C',
+    letterSpacing: 0.2,
   },
   
   // Divider
@@ -600,28 +603,36 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#999',
-    marginBottom: 10,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#95A5A6',
+    marginBottom: 12,
     marginLeft: 5,
-    letterSpacing: 0.5,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   
   // Menu Card
   menuCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 4,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
     overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: Platform.OS === 'ios' ? 14 : 16,
-    paddingHorizontal: 15,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
   },
   menuLeft: {
     flexDirection: 'row',
@@ -629,17 +640,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   menuText: {
     fontSize: 15,
-    color: '#333',
-    fontWeight: '500',
+    color: '#1A1A1A',
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   menuDivider: {
     height: 1,

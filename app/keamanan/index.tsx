@@ -201,20 +201,6 @@ export default function PengaturanKeamananScreen() {
 
         {/* FORM UBAH EMAIL & PASSWORD */}
         <View style={styles.content}>
-          {/* INFO KEAMANAN */}
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Ionicons name="information-circle" size={20} color="#004643" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoTitle}>Tips Keamanan</Text>
-                <Text style={styles.infoText}>• Password minimal 6 karakter</Text>
-                <Text style={styles.infoText}>• Kombinasikan huruf besar, kecil, dan angka</Text>
-                <Text style={styles.infoText}>• Jangan gunakan password yang mudah ditebak</Text>
-                <Text style={styles.infoText}>• Ubah password secara berkala</Text>
-                <Text style={styles.infoText}>• Jangan bagikan password kepada siapapun</Text>
-              </View>
-            </View>
-          </View>
 
           {/* UBAH PASSWORD */}
           <View style={styles.sectionHeader}>
@@ -401,34 +387,5 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#F0F8F7',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#D0E8E4',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#004643',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#004643',
-    marginBottom: 4,
-    lineHeight: 18,
-  },
+
 });
