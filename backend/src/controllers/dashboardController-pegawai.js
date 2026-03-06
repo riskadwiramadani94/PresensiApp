@@ -33,78 +33,28 @@ const getDashboard = async (req, res) => {
       LIMIT 1
     `, [hariIni]);
     
-    // Get today's attendance - CEK KEDUA TABEL (presensi + absen_dinas)
+    // Get today's attendance - CEK TABEL PRESENSI (kantor + dinas)
     const [presensiRows] = await db.execute(`
-      SELECT *, 'kantor' as jenis_presensi FROM presensi 
+      SELECT * FROM presensi 
       WHERE id_user = ? 
       AND DATE(tanggal) = CURDATE()
       ORDER BY tanggal DESC
       LIMIT 1
     `, [user_id]);
     
-    const [dinasRows] = await db.execute(`
-      SELECT 
-        id_user,
-        tanggal_absen as tanggal,
-        jam_masuk,
-        jam_pulang,
-        status,
-        status_validasi,
-        'dinas' as jenis_presensi
-      FROM absen_dinas 
-      WHERE id_user = ? 
-      AND tanggal_absen = CURDATE()
-      ORDER BY tanggal_absen DESC
-      LIMIT 1
-    `, [user_id]);
+    let presensi_hari_ini = presensiRows[0] || null;
     
-    // Prioritaskan data yang ada jam_masuk
-    let presensi_hari_ini = null;
-    if (presensiRows[0] && presensiRows[0].jam_masuk) {
-      presensi_hari_ini = presensiRows[0];
-    } else if (dinasRows[0] && dinasRows[0].jam_masuk) {
-      presensi_hari_ini = dinasRows[0];
-    } else {
-      presensi_hari_ini = presensiRows[0] || dinasRows[0] || null;
-    }
-    
-    // Get this month's summary - GABUNGAN presensi + absen_dinas
+    // Get this month's summary - DARI TABEL PRESENSI (kantor + dinas)
     const [summaryRows] = await db.execute(`
       SELECT 
-        (
-          SELECT COUNT(*)
-          FROM presensi 
-          WHERE id_user = ? 
-            AND MONTH(tanggal) = MONTH(CURDATE()) 
-            AND YEAR(tanggal) = YEAR(CURDATE())
-            AND status IN ('Hadir', 'Terlambat')
-            AND jam_masuk IS NOT NULL
-        ) +
-        (
-          SELECT COUNT(*)
-          FROM absen_dinas
-          WHERE id_user = ? 
-            AND MONTH(tanggal_absen) = MONTH(CURDATE()) 
-            AND YEAR(tanggal_absen) = YEAR(CURDATE())
-            AND jam_masuk IS NOT NULL
-        ) as total_hadir,
-        (
-          SELECT COUNT(*)
-          FROM presensi 
-          WHERE id_user = ? 
-            AND MONTH(tanggal) = MONTH(CURDATE()) 
-            AND YEAR(tanggal) = YEAR(CURDATE())
-            AND status = 'Terlambat'
-        ) as total_terlambat,
-        (
-          SELECT COUNT(*)
-          FROM presensi 
-          WHERE id_user = ? 
-            AND MONTH(tanggal) = MONTH(CURDATE()) 
-            AND YEAR(tanggal) = YEAR(CURDATE())
-            AND status = 'Tidak Hadir'
-        ) as total_tidak_hadir
-    `, [user_id, user_id, user_id, user_id]);
+        COUNT(CASE WHEN status IN ('Hadir', 'Terlambat') AND jam_masuk IS NOT NULL THEN 1 END) as total_hadir,
+        COUNT(CASE WHEN status = 'Terlambat' THEN 1 END) as total_terlambat,
+        COUNT(CASE WHEN status = 'Tidak Hadir' THEN 1 END) as total_tidak_hadir
+      FROM presensi 
+      WHERE id_user = ? 
+        AND MONTH(tanggal) = MONTH(CURDATE()) 
+        AND YEAR(tanggal) = YEAR(CURDATE())
+    `, [user_id]);
     
     res.json({
       success: true,

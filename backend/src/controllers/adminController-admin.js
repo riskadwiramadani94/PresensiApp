@@ -173,12 +173,11 @@ const getAdminData = async (req, res) => {
     // Get attendance stats - menghindari duplikasi user
     const [statsRows] = await db.execute(`
       SELECT 
-        COUNT(CASE WHEN (pr.jam_masuk IS NOT NULL OR ad.jam_masuk IS NOT NULL) THEN 1 END) as hadir,
-        COUNT(CASE WHEN (pr.jam_masuk IS NULL AND ad.jam_masuk IS NULL) THEN 1 END) as tidak_hadir
+        COUNT(CASE WHEN pr.jam_masuk IS NOT NULL THEN 1 END) as hadir,
+        COUNT(CASE WHEN pr.jam_masuk IS NULL THEN 1 END) as tidak_hadir
       FROM users u
       LEFT JOIN pegawai p ON u.id_user = p.id_user
       LEFT JOIN presensi pr ON u.id_user = pr.id_user AND DATE(pr.tanggal) = CURDATE()
-      LEFT JOIN absen_dinas ad ON u.id_user = ad.id_user AND ad.tanggal_absen = CURDATE()
       WHERE u.role = 'pegawai'
     `);
     const hadir = parseInt(statsRows[0].hadir || 0);
@@ -186,37 +185,24 @@ const getAdminData = async (req, res) => {
 
     console.log('Dashboard Stats:', { totalPegawai, hadir, tidak_hadir });
 
-    // Get recent activities - GABUNGAN presensi + absen_dinas
+    // Get recent activities - GABUNGAN presensi kantor + dinas
     const [recentRows] = await db.execute(`
       SELECT 
         p.nama_lengkap,
-        'Hadir' as status,
+        CASE 
+          WHEN pr.jenis_presensi = 'dinas' THEN 'Dinas'
+          ELSE 'Hadir'
+        END as status,
         TIME_FORMAT(pr.jam_masuk, '%H:%i:%s') as jam_masuk,
         p.foto_profil,
-        'kantor' as jenis
+        pr.jenis_presensi as jenis
       FROM presensi pr
       LEFT JOIN users u ON pr.id_user = u.id_user
       LEFT JOIN pegawai p ON u.id_user = p.id_user
       WHERE u.role = 'pegawai' 
       AND DATE(pr.tanggal) = CURDATE()
       AND pr.jam_masuk IS NOT NULL
-      
-      UNION ALL
-      
-      SELECT 
-        p.nama_lengkap,
-        'Dinas' as status,
-        TIME_FORMAT(ad.jam_masuk, '%H:%i:%s') as jam_masuk,
-        p.foto_profil,
-        'dinas' as jenis
-      FROM absen_dinas ad
-      LEFT JOIN users u ON ad.id_user = u.id_user
-      LEFT JOIN pegawai p ON u.id_user = p.id_user
-      WHERE u.role = 'pegawai' 
-      AND ad.tanggal_absen = CURDATE()
-      AND ad.jam_masuk IS NOT NULL
-      
-      ORDER BY jam_masuk DESC
+      ORDER BY pr.jam_masuk DESC
       LIMIT 5
     `);
 
