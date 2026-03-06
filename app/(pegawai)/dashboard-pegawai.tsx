@@ -17,6 +17,8 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { PegawaiAPI, getApiUrl, API_CONFIG } from '../../constants/config';
+import { CustomAlert } from '../../components/CustomAlert';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 interface UserData {
   nama: string;
@@ -42,6 +44,7 @@ interface WorkSchedule {
 
 export default function BerandaScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [userData, setUserData] = useState<UserData>({
     nama: '',
     jabatan: '',
@@ -344,6 +347,30 @@ export default function BerandaScreen() {
     return workDays[dayName] === true;
   };
 
+  const getHolidayInfo = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return holidays.find(holiday => holiday.date === dateStr);
+  };
+
+  const handleHolidayPress = (date: Date) => {
+    const holidayInfo = getHolidayInfo(date);
+    if (holidayInfo) {
+      const formattedDate = date.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      
+      alert.showAlert({
+        type: 'info',
+        title: 'Hari Libur',
+        message: `${formattedDate}\n\n${holidayInfo.name}\n\nJenis: ${holidayInfo.type === 'national' ? 'Libur Nasional' : 'Libur Perusahaan'}`,
+        confirmText: 'Tutup'
+      });
+    }
+  };
+
   const renderCalendar = () => {
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
@@ -388,7 +415,13 @@ export default function BerandaScreen() {
       }
       
       days.push(
-        <TouchableOpacity key={day} style={dayStyle} activeOpacity={0.7}>
+        <TouchableOpacity 
+          key={day} 
+          style={dayStyle} 
+          activeOpacity={0.7}
+          onPress={() => isHol ? handleHolidayPress(date) : null}
+          disabled={!isHol}
+        >
           <Text style={textStyle}>{day}</Text>
           {(isHol || isWeek || !isWork) && (
             <View style={styles.calendarDayDot} />
@@ -681,6 +714,17 @@ export default function BerandaScreen() {
           )}
         </ScrollView>
       </View>
+      
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </SafeAreaView>
   );
 }

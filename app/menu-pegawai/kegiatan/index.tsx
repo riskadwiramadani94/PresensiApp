@@ -219,23 +219,44 @@ export default function KegiatanScreen() {
         key={item.id}
         style={styles.card}
         onPress={() => handleDetailPress(item)}
-        activeOpacity={0.7}
+        activeOpacity={0.9}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardLeft}>
-            <Text style={styles.cardTitle}>{item.nama_kegiatan}</Text>
-            <Text style={styles.cardSubtitle}>{item.nomor_spt}</Text>
-            <Text style={styles.cardDate}>
-              {formatDate(item.tanggal_mulai)} - {formatDate(item.tanggal_selesai)}
-            </Text>
+        <View style={[styles.statusAccent, { backgroundColor: status.color }]} />
+        <View style={styles.cardMainContent}>
+          <View style={styles.cardHeader}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.nama_kegiatan}</Text>
+              <View style={styles.sptBadge}>
+                <Text style={styles.cardSubtitle}>{item.nomor_spt}</Text>
+              </View>
+            </View>
+            <View style={styles.headerRight}>
+              <View style={[styles.statusBadge, { backgroundColor: status.color + '15' }]}>
+                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
+                <Text style={[styles.statusText, { color: status.color }]}>
+                  {status.label}
+                </Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.cardRight}>
-            <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
-              <Ionicons name={status.icon as any} size={12} color={status.color} />
-              <Text style={[styles.statusText, { color: status.color }]}>
-                {status.label}
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.infoGrid}>
+            <View style={styles.infoItem}>
+              <View style={styles.iconCircle}><Ionicons name="calendar" size={14} color="#004643" /></View>
+              <Text style={styles.infoText}>
+                {formatDate(item.tanggal_mulai)} - {formatDate(item.tanggal_selesai)}
               </Text>
             </View>
+          </View>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.attendeesContainer}>
+              <Ionicons name="document-text" size={20} color="#64748B" />
+              <Text style={styles.attendeesText}>Kegiatan Dinas</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
           </View>
         </View>
       </TouchableOpacity>
@@ -274,14 +295,35 @@ export default function KegiatanScreen() {
         <View style={styles.content}>
           {[1, 2, 3, 4, 5].map((item) => (
             <View key={item} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardLeft}>
-                  <View style={[styles.skeletonText, { width: '80%', height: 16, marginBottom: 6 }]} />
-                  <View style={[styles.skeletonText, { width: '50%', height: 13, marginBottom: 6 }]} />
-                  <View style={[styles.skeletonText, { width: '60%', height: 13 }]} />
+              <View style={[styles.statusAccent, { backgroundColor: '#E2E8F0' }]} />
+              <View style={styles.cardMainContent}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.titleContainer}>
+                    <View style={[styles.skeletonText, { width: '75%', height: 16, marginBottom: 6 }]} />
+                    <View style={styles.sptBadge}>
+                      <View style={[styles.skeletonText, { width: 60, height: 11 }]} />
+                    </View>
+                  </View>
+                  <View style={styles.headerRight}>
+                    <View style={[styles.statusBadge, styles.skeleton, { width: 80, height: 24 }]} />
+                  </View>
                 </View>
-                <View style={styles.cardRight}>
-                  <View style={[styles.statusBadge, styles.skeleton, { width: 80, height: 24 }]} />
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.infoGrid}>
+                  <View style={styles.infoItem}>
+                    <View style={[styles.iconCircle, styles.skeleton]} />
+                    <View style={[styles.skeletonText, { width: '60%', height: 13 }]} />
+                  </View>
+                </View>
+
+                <View style={styles.cardFooter}>
+                  <View style={styles.attendeesContainer}>
+                    <View style={[styles.iconCircle, styles.skeleton, { width: 20, height: 20 }]} />
+                    <View style={[styles.skeletonText, { width: '30%', height: 12 }]} />
+                  </View>
+                  <View style={[styles.skeletonText, { width: 18, height: 18 }]} />
                 </View>
               </View>
             </View>
@@ -290,6 +332,7 @@ export default function KegiatanScreen() {
       ) : (
         <ScrollView
           style={styles.content}
+          contentContainerStyle={{ paddingBottom: 30 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#004643']} />
@@ -418,8 +461,37 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingTop: 15,
-    paddingBottom: 20,
   },
+  statusAccent: { width: 6, height: '100%' },
+  cardMainContent: { flex: 1, padding: 16 },
+  titleContainer: { flex: 1, marginRight: 8 },
+  sptBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  headerRight: { alignItems: 'flex-end' },
+  statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+  cardDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 12 },
+  infoGrid: { gap: 8, marginBottom: 14 },
+  infoItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center' },
+  infoText: { fontSize: 13, color: '#475569', flex: 1 },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: -16,
+    marginBottom: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  attendeesContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  attendeesText: { fontSize: 12, color: '#64748B' },
   skeleton: {
     backgroundColor: '#E0E0E0',
     overflow: 'hidden',
@@ -429,36 +501,45 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
-    marginHorizontal: 15,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    marginBottom: 16,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    marginHorizontal: 16,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 14,
   },
   cardLeft: {
     flex: 1,
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
   },
   cardSubtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 6,
   },
   cardDate: {
     fontSize: 13,
-    color: '#666',
+    color: '#475569',
   },
   cardRight: {
     alignItems: 'flex-end',
@@ -466,14 +547,15 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
+    borderRadius: 20,
+    gap: 6,
   },
   statusText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   emptyContainer: {
     flex: 1,

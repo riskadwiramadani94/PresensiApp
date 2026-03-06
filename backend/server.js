@@ -26,6 +26,7 @@ const lemburRoutes = require('./src/routes/lembur');
 const inboxPegawaiRoutes = require('./src/routes/inbox-pegawai');
 const faqRoutes = require('./src/routes/faq');
 const calendarRoutes = require('./src/routes/calendar');
+const lupaPasswordRoutes = require('./src/routes/lupa-password');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -60,6 +61,7 @@ app.use('/pegawai/lembur/api', lemburRoutes);
 app.use('/pegawai/inbox/api', inboxPegawaiRoutes);
 app.use('/api/faq', faqRoutes);
 app.use('/api', calendarRoutes);
+app.use('/api/lupa-password', lupaPasswordRoutes);
 
 // Health check
 app.get('/', (req, res) => {
@@ -141,6 +143,9 @@ const startServer = async () => {
       console.log(`   GET  /pegawai/pengajuan/api/pengajuan`);
       console.log(`   POST /pegawai/pengajuan/api/pengajuan`);
       console.log(`   GET  /pegawai/pengajuan/api/pengajuan/izin-hari-ini`);
+      console.log(`   POST /api/lupa-password/kirim-otp`);
+      console.log(`   POST /api/lupa-password/verifikasi-otp`);
+      console.log(`   POST /api/lupa-password/reset-password`);
       console.log(`   GET  /api/faq`);
       console.log(`   GET  /api/faq/search`);
       console.log(`\n🔄 Ready to serve HadirinApp mobile app\n`);

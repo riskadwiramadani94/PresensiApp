@@ -644,40 +644,33 @@ export default function RiwayatScreen() {
             </View>
             <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
               {jenisLaporan === 'harian' && (
-                <View style={styles.calendarContainer} pointerEvents="box-none">
+                <View style={styles.calendarContainer}>
                   <Text style={styles.calendarLabel}>Pilih Tanggal:</Text>
                   <TouchableOpacity 
                     style={styles.calendarButton}
                     onPress={() => {
                       setDatePickerMode('single');
-                      showCalendarModal();
+                      closePeriodeModal();
+                      setTimeout(() => showCalendarModal(), 300);
                     }}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="calendar-outline" size={20} color="#004643" />
                     <Text style={styles.calendarButtonText}>{formatDate(selectedDate)}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.confirmButton}
-                    onPress={() => {
-                      setSelectedPeriode(formatDate(selectedDate));
-                      closePeriodeModal();
-                    }}
-                  >
-                    <Text style={styles.confirmButtonText}>Terapkan</Text>
-                  </TouchableOpacity>
                 </View>
               )}
 
               {jenisLaporan === 'mingguan' && (
-                <View style={styles.calendarContainer} pointerEvents="box-none">
+                <View style={styles.calendarContainer}>
                   <Text style={styles.calendarLabel}>Pilih Periode Minggu:</Text>
                   <View style={styles.dateRangeRow}>
                     <TouchableOpacity 
                       style={styles.calendarButtonSmall}
                       onPress={() => {
                         setDatePickerMode('start');
-                        showCalendarModal();
+                        closePeriodeModal();
+                        setTimeout(() => showCalendarModal(), 300);
                       }}
                       activeOpacity={0.7}
                     >
@@ -689,7 +682,8 @@ export default function RiwayatScreen() {
                       style={styles.calendarButtonSmall}
                       onPress={() => {
                         setDatePickerMode('end');
-                        showCalendarModal();
+                        closePeriodeModal();
+                        setTimeout(() => showCalendarModal(), 300);
                       }}
                       activeOpacity={0.7}
                     >
@@ -697,15 +691,6 @@ export default function RiwayatScreen() {
                       <Text style={styles.calendarButtonText}>{formatDate(selectedEndDate)}</Text>
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity 
-                    style={styles.confirmButton}
-                    onPress={() => {
-                      setSelectedPeriode(formatDateRange(selectedStartDate, selectedEndDate));
-                      closePeriodeModal();
-                    }}
-                  >
-                    <Text style={styles.confirmButtonText}>Terapkan</Text>
-                  </TouchableOpacity>
                 </View>
               )}
 
@@ -769,6 +754,7 @@ export default function RiwayatScreen() {
                   
                   if (datePickerMode === 'single') {
                     setSelectedDate(localDate);
+                    setSelectedPeriode(formatDate(localDate));
                     closeCalendarModal();
                   } else if (datePickerMode === 'start') {
                     setSelectedStartDate(localDate);
@@ -784,11 +770,12 @@ export default function RiwayatScreen() {
                       return;
                     }
                     setSelectedEndDate(localDate);
+                    setSelectedPeriode(formatDateRange(selectedStartDate, localDate));
                     closeCalendarModal();
                   }
                 }}
                 weekendDays={[]}
-                showWeekends={false}
+                showWeekends={true}
                 initialDate={datePickerMode === 'single' ? selectedDate : datePickerMode === 'start' ? selectedStartDate : selectedEndDate}
                 startDate={datePickerMode === 'end' ? selectedStartDate : undefined}
               />
@@ -973,8 +960,7 @@ const styles = StyleSheet.create({
     borderRadius: 12, 
     borderWidth: 1, 
     borderColor: '#E0E0E0', 
-    marginBottom: 16,
-    zIndex: 1
+    marginBottom: 16
   },
   calendarButtonText: { fontSize: 14, color: '#333', fontWeight: '500' },
   dateRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
@@ -984,8 +970,7 @@ const styles = StyleSheet.create({
     padding: 12, 
     borderRadius: 12, 
     borderWidth: 1, 
-    borderColor: '#E0E0E0',
-    zIndex: 1
+    borderColor: '#E0E0E0'
   },
   calendarLabelSmall: { fontSize: 11, color: '#666', marginBottom: 4 },
   dateSeparator: { fontSize: 14, color: '#666', fontWeight: '500' },

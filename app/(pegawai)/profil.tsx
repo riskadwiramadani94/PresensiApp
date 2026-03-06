@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar as RNStatusBar, Image } from 'react-native';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar as RNStatusBar, Image, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { PegawaiAPI, getApiUrl } from '../../constants/config';
 import { AuthStorage } from '../../utils/AuthStorage';
 import { AppHeader, CustomAlert } from '../../components';
 import * as ImagePicker from 'expo-image-picker';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface UserProfile {
   id_user: number;
@@ -64,6 +65,9 @@ export default function ProfileScreen() {
       }
       
       const userId = currentUser.id_user || currentUser.id;
+      console.log('=== DEBUG PROFIL PEGAWAI ===');
+      console.log('User ID:', userId);
+      console.log('Current User Data:', currentUser);
       
       // Set fallback dari AsyncStorage DULU
       const fallbackProfile: UserProfile = {
@@ -80,33 +84,34 @@ export default function ProfileScreen() {
         foto_profil: currentUser.foto_profil || undefined
       };
       
+      console.log('Fallback Profile:', fallbackProfile);
       setProfile(fallbackProfile);
       
       // Coba ambil dari server (opsional)
       try {
-        /* ========================================
-           API ENDPOINTS CONFIGURATION
-           Endpoint: /pegawai/dashboard/api/dashboard
-           Method: GET
-           Params: user_id
-        ======================================== */
+        // Gunakan Dashboard API yang sudah ada dan benar
         const result = await PegawaiAPI.getDashboard(userId.toString());
+        console.log('Dashboard API result:', result);
         
         if (result.success && result.data?.user_info) {
+          console.log('Server Data NIP:', result.data.user_info.nip);
+          console.log('Server Data Tanggal Lahir:', result.data.user_info.tanggal_lahir);
+          
           const serverProfile: UserProfile = {
             id_user: userId,
             nama_lengkap: result.data.user_info.nama_lengkap || fallbackProfile.nama_lengkap,
-            email: currentUser.email || fallbackProfile.email,
+            email: result.data.user_info.email || currentUser.email || fallbackProfile.email,
             jabatan: result.data.user_info.jabatan || fallbackProfile.jabatan,
-            nip: currentUser.nip || fallbackProfile.nip,
-            no_telepon: currentUser.no_telepon || fallbackProfile.no_telepon,
+            nip: result.data.user_info.nip || fallbackProfile.nip,
+            no_telepon: result.data.user_info.no_telepon || fallbackProfile.no_telepon,
             divisi: result.data.user_info.divisi || fallbackProfile.divisi,
-            jenis_kelamin: currentUser.jenis_kelamin || fallbackProfile.jenis_kelamin,
-            alamat: currentUser.alamat || fallbackProfile.alamat,
-            tanggal_lahir: currentUser.tanggal_lahir || fallbackProfile.tanggal_lahir,
+            jenis_kelamin: result.data.user_info.jenis_kelamin || fallbackProfile.jenis_kelamin,
+            alamat: result.data.user_info.alamat || fallbackProfile.alamat,
+            tanggal_lahir: result.data.user_info.tanggal_lahir || fallbackProfile.tanggal_lahir,
             foto_profil: result.data.user_info.foto_profil || fallbackProfile.foto_profil
           };
           
+          console.log('Final Server Profile:', serverProfile);
           setProfile(serverProfile);
           
           // Update AsyncStorage dengan data terbaru
@@ -115,9 +120,13 @@ export default function ProfileScreen() {
             ...serverProfile
           };
           await AuthStorage.setUser(updatedUserData);
+        } else {
+          console.log('Dashboard API Failed or No Data:', result);
         }
       } catch (serverError) {
-        console.log('Server error (using fallback):', serverError);
+        console.log('=== SERVER ERROR ===');
+        console.log('Error Details:', serverError);
+        console.log('Using fallback data instead');
         // Tetap gunakan data fallback yang sudah di-set
       }
     } catch (error) {
@@ -248,54 +257,47 @@ export default function ProfileScreen() {
       />
       <AppHeader title="Profil" showBack={false} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.skeletonProfileSection}>
-          <View style={styles.skeletonProfileInfo}>
-            <View style={styles.skeletonProfileName} />
-            <View style={styles.skeletonProfileEmail} />
-            <View style={styles.skeletonEditBtn} />
-          </View>
-          <View style={styles.skeletonAvatar} />
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.section}>
-          <View style={styles.skeletonSectionLabel} />
-          <View style={styles.menuCard}>
-            {[1, 2].map((item) => (
-              <View key={item}>
-                <View style={styles.skeletonMenuItem}>
-                  <View style={styles.skeletonIconCircle} />
-                  <View style={styles.skeletonMenuText} />
-                </View>
-                {item === 1 && <View style={styles.menuDivider} />}
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.skeletonSectionLabel} />
-          <View style={styles.menuCard}>
-            {[1, 2].map((item) => (
-              <View key={item}>
-                <View style={styles.skeletonMenuItem}>
-                  <View style={styles.skeletonIconCircle} />
-                  <View style={styles.skeletonMenuText} />
-                </View>
-                {item === 1 && <View style={styles.menuDivider} />}
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.menuCard}>
-            <View style={styles.skeletonMenuItem}>
-              <View style={styles.skeletonIconCircle} />
-              <View style={styles.skeletonMenuText} />
+        {/* Skeleton Header */}
+        <LinearGradient colors={["#004643", "#065f46"]} style={styles.profileHeader}>
+          <View style={styles.profileContent}>
+            <View style={styles.photoWrapper}>
+              <View style={styles.skeletonAvatar} />
+            </View>
+            <View style={styles.profileTextInfo}>
+              <View style={styles.skeletonName} />
+              <View style={styles.skeletonNip} />
+              <View style={styles.skeletonBadge} />
             </View>
           </View>
+        </LinearGradient>
+
+        <View style={styles.infoSection}>
+          {/* Skeleton Cards */}
+          {[1, 2, 3, 4].map((item) => (
+            <View key={item} style={styles.elegantCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.skeletonIcon} />
+                <View style={styles.skeletonCardTitle} />
+              </View>
+              <View style={styles.separator} />
+              <View style={styles.infoRowModern}>
+                <View style={styles.skeletonIconBox} />
+                <View style={styles.infoContentModern}>
+                  <View style={styles.skeletonLabel} />
+                  <View style={styles.skeletonValue} />
+                </View>
+              </View>
+              {item < 4 && (
+                <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
+                  <View style={styles.skeletonIconBox} />
+                  <View style={styles.infoContentModern}>
+                    <View style={styles.skeletonLabel} />
+                    <View style={styles.skeletonValue} />
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
         </View>
       </ScrollView>
     </View>
@@ -320,117 +322,257 @@ export default function ProfileScreen() {
       
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        <View style={styles.profileSection}>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{profile?.nama_lengkap || 'User'}</Text>
-            <Text style={styles.profileEmail}>{profile?.email || 'user@example.com'}</Text>
-            
-            <TouchableOpacity 
-              style={styles.editProfileBtn}
-              onPress={() => router.push('/profile-pegawai/edit-profil' as any)}
-            >
-              <Text style={styles.editProfileText}>Edit Profil</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.profileImageWrapper}>
-            {profile?.foto_profil ? (
-              <View style={styles.profileAvatar}>
-                <Image 
-                  source={{ uri: getApiUrl(`/${profile.foto_profil}`) }} 
-                  style={styles.profileAvatarImage}
+        {/* PROFILE HEADER SECTION */}
+        <LinearGradient
+          colors={["#004643", "#00695C"]}
+          style={styles.profileHeader}
+        >
+          <View style={styles.profileContent}>
+            <View style={styles.photoWrapper}>
+              {profile?.foto_profil ? (
+                <Image
+                  source={{ uri: getApiUrl(`/${profile.foto_profil}`) }}
+                  style={styles.avatarImage}
                 />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarInitial}>
+                    {profile?.nama_lengkap?.charAt(0).toUpperCase() || 'U'}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity 
+                style={styles.editPhotoBtn}
+                onPress={pickAndUploadImage}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color="#004643" />
+                ) : (
+                  <Ionicons name="camera-outline" size={16} color="#004643" />
+                )}
+              </TouchableOpacity>
+            </View>
+            <View style={styles.profileTextInfo}>
+              <Text style={styles.mainName}>{profile?.nama_lengkap || 'User'}</Text>
+              <Text style={styles.subText}>{profile?.email || 'user@example.com'}</Text>
+              <View style={styles.badgeMini}>
+                <Text style={styles.badgeTextMini}>{profile?.jabatan || 'Pegawai'}</Text>
               </View>
-            ) : (
-              <View style={styles.profileAvatar}>
-                <Ionicons name="person" size={40} color="#004643" />
-              </View>
-            )}
-            <TouchableOpacity 
-              style={styles.editPhotoBtn}
-              onPress={pickAndUploadImage}
-              disabled={uploading}
-            >
-              <Ionicons name="camera-outline" size={16} color="#004643" />
-            </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </LinearGradient>
 
-        <View style={styles.divider} />
+        <View style={styles.infoSection}>
+          {/* Card 1: Informasi Profil */}
+          <View style={styles.elegantCard}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="person-circle-outline" size={20} color="#004643" />
+              <Text style={styles.cardTitle}>Informasi Profil</Text>
+            </View>
+            
+            <View style={styles.separator} />
+            
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="mail-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>EMAIL</Text>
+                <Text style={styles.valueModern}>{profile?.email || 'user@example.com'}</Text>
+              </View>
+            </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>PENGATURAN AKUN</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => router.push('/keamanan' as any)}
-            >
-              <View style={styles.menuLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: '#FFF3E0' }]}>
-                  <Ionicons name="lock-closed-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#F57C00" />
-                </View>
-                <Text style={styles.menuText}>Keamanan</Text>
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="id-card-outline" size={16} color="#00695C" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-                  <Ionicons name="notifications-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#1976D2" />
-                </View>
-                <Text style={styles.menuText}>Notifikasi</Text>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>NIP</Text>
+                <Text style={styles.valueModern}>{profile?.nip || '-'}</Text>
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+            </View>
+
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="call" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>NOMOR TELEPON</Text>
+                <Text style={styles.valueModern}>{profile?.no_telepon || '-'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="transgender-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>JENIS KELAMIN</Text>
+                <Text style={styles.valueModern}>{profile?.jenis_kelamin || '-'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="calendar-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>TANGGAL LAHIR</Text>
+                <Text style={styles.valueModern}>{profile?.tanggal_lahir ? (() => {
+                  // Cek apakah sudah dalam format DD/MM/YYYY
+                  if (profile.tanggal_lahir.includes('/')) {
+                    return profile.tanggal_lahir;
+                  }
+                  // Jika dalam format ISO atau YYYY-MM-DD
+                  try {
+                    const date = new Date(profile.tanggal_lahir);
+                    if (isNaN(date.getTime())) return '-';
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                  } catch {
+                    return '-';
+                  }
+                })() : '-'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="ribbon-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>JABATAN</Text>
+                <Text style={styles.valueModern}>{profile?.jabatan || '-'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="business-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>DIVISI</Text>
+                <Text style={styles.valueModern}>{profile?.divisi || '-'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="location-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>ALAMAT</Text>
+                <Text style={styles.descriptionText}>{profile?.alamat || 'Alamat belum diisi'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="pencil-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>AKSI</Text>
+                <TouchableOpacity 
+                  style={styles.editProfileBtn}
+                  onPress={() => router.push('/profile-pegawai/edit-profil' as any)}
+                >
+                  <Text style={styles.editProfileText}>Edit Profil</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>INFO DAN DUKUNGAN SELENGKAPNYA</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => router.push('/tentang/kebijakan-privasi' as any)}
-            >
-              <View style={styles.menuLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: '#E0F2F1' }]}>
-                  <Ionicons name="shield-checkmark-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#00897B" />
-                </View>
-                <Text style={styles.menuText}>Kebijakan Privasi</Text>
+          {/* Card 2: Pengaturan Akun */}
+          <View style={styles.elegantCard}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="settings-outline" size={20} color="#004643" />
+              <Text style={styles.cardTitle}>Pengaturan Akun</Text>
+            </View>
+            
+            <View style={styles.separator} />
+            
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="lock-closed-outline" size={16} color="#00695C" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => router.push('/tentang/syarat-ketentuan' as any)}
-            >
-              <View style={styles.menuLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: '#E8F5E9' }]}>
-                  <Ionicons name="document-text-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#388E3C" />
-                </View>
-                <Text style={styles.menuText}>Syarat dan Ketentuan</Text>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>KEAMANAN</Text>
+                <TouchableOpacity onPress={() => router.push('/keamanan' as any)}>
+                  <Text style={styles.linkText}>Pengaturan Keamanan</Text>
+                </TouchableOpacity>
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+            </View>
 
+            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="notifications-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>NOTIFIKASI</Text>
+                <TouchableOpacity>
+                  <Text style={styles.linkText}>Pengaturan Notifikasi</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <View style={styles.menuCard}>
-            <TouchableOpacity 
-              style={styles.menuItem}
-              onPress={() => setLogoutModal(true)}
-            >
-              <View style={styles.menuLeft}>
-                <View style={[styles.iconCircle, { backgroundColor: '#FFEBEE' }]}>
-                  <Ionicons name="log-out-outline" size={Platform.OS === 'ios' ? 20 : 22} color="#D32F2F" />
-                </View>
-                <Text style={styles.menuText}>Keluar Akun</Text>
+          {/* Card 3: Info & Dukungan */}
+          <View style={styles.elegantCard}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="information-circle-outline" size={20} color="#004643" />
+              <Text style={styles.cardTitle}>Info & Dukungan</Text>
+            </View>
+            
+            <View style={styles.separator} />
+            
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="shield-checkmark-outline" size={16} color="#00695C" />
               </View>
-              <Ionicons name="chevron-forward-outline" size={20} color="#999" />
-            </TouchableOpacity>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>KEBIJAKAN PRIVASI</Text>
+                <TouchableOpacity onPress={() => router.push('/tentang/kebijakan-privasi' as any)}>
+                  <Text style={styles.linkText}>Lihat Kebijakan</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="document-text-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>SYARAT & KETENTUAN</Text>
+                <TouchableOpacity onPress={() => router.push('/tentang/syarat-ketentuan' as any)}>
+                  <Text style={styles.linkText}>Lihat Syarat</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Card 4: Keluar Akun */}
+          <View style={styles.elegantCard}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="log-out-outline" size={20} color="#D32F2F" />
+              <Text style={styles.cardTitle}>Keluar Akun</Text>
+            </View>
+            
+            <View style={styles.separator} />
+            
+            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="log-out-outline" size={16} color="#D32F2F" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>LOGOUT</Text>
+                <TouchableOpacity onPress={() => setLogoutModal(true)}>
+                  <Text style={[styles.linkText, { color: '#D32F2F' }]}>Keluar dari Akun</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -490,45 +632,75 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   scrollContent: { paddingBottom: 30 },
   
-  profileSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
+  // Header Section
+  profileHeader: {
     paddingTop: 20,
-    paddingBottom: 20,
+    paddingBottom: 30,
+    paddingHorizontal: 25,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
-  profileInfo: { flex: 1 },
-  profileName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1A1A1A',
-    marginBottom: 6,
-    letterSpacing: -0.3,
+  profileContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  profileEmail: {
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 16,
-    fontWeight: '500',
-  },
-  profileImageWrapper: { position: 'relative' },
-  profileAvatar: {
+  photoWrapper: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E6F0EF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    position: 'relative',
   },
-  profileAvatarImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarInitial: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  profileTextInfo: {
+    marginLeft: 20,
+    flex: 1,
+  },
+  mainName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  subText: {
+    fontSize: 14,
+    color: "#E0F2F1",
+    marginBottom: 8,
+  },
+  badgeMini: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+  },
+  badgeTextMini: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   editPhotoBtn: {
     position: 'absolute',
@@ -543,49 +715,56 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  
   editProfileBtn: {
     backgroundColor: '#F0F7F7',
     borderWidth: 1,
     borderColor: '#E8F5F4',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     alignSelf: 'flex-start',
   },
   editProfileText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#00695C',
-    letterSpacing: 0.2,
+  },
+  linkText: {
+    fontSize: 14,
+    color: '#00695C',
+    fontWeight: '500',
   },
   
-  divider: { height: 1, backgroundColor: '#E0E0E0', marginVertical: 10 },
-  
-  section: { paddingHorizontal: 20, marginTop: 10 },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#95A5A6',
-    marginBottom: 12,
-    marginLeft: 5,
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-  },
-  
-  menuCard: {
+  // Info Section
+  infoSection: { marginTop: -20, paddingHorizontal: 16 },
+  elegantCard: {
     backgroundColor: '#FFF',
-    borderRadius: 18,
-    padding: 4,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E8F0EF',
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
+    marginBottom: 16,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 3,
-    overflow: 'hidden',
   },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10 },
+  separator: { height: 1, backgroundColor: '#F0F3F3', marginBottom: 18 },
+  
+  // Modern Info Rows
+  infoRowModern: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+  infoIconBox: { 
+    width: 34, height: 34, backgroundColor: '#F0F7F7',
+    borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 15, marginTop: 2 
+  },
+  infoContentModern: { flex: 1 },
+  labelModern: { fontSize: 10, fontWeight: '800', color: '#95A5A6', letterSpacing: 1.1, marginBottom: 5 },
+  valueModern: { fontSize: 15, fontWeight: '600', color: '#2C3E50', lineHeight: 20 },
+  descriptionText: { fontSize: 14, color: '#576574', lineHeight: 22, fontWeight: '400' },
+  
+  // Menu Items
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -593,7 +772,11 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 18,
   },
-  menuLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  menuLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   iconCircle: {
     width: 40,
     height: 40,
@@ -611,7 +794,7 @@ const styles = StyleSheet.create({
   menuDivider: {
     height: 1,
     backgroundColor: '#F0F0F0',
-    marginHorizontal: -15,
+    marginHorizontal: -20,
   },
   
   logoutModalOverlay: {
@@ -686,71 +869,14 @@ const styles = StyleSheet.create({
     color: '#fff' 
   },
 
-  /* ========================================
-     SKELETON STYLES - PROFIL PEGAWAI
-  ======================================== */
-  skeletonProfileSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  skeletonProfileInfo: {
-    flex: 1,
-  },
-  skeletonProfileName: {
-    width: '60%',
-    height: 24,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonProfileEmail: {
-    width: '50%',
-    height: 16,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 4,
-    marginBottom: 16,
-  },
-  skeletonEditBtn: {
-    width: 100,
-    height: 40,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 12,
-  },
-  skeletonAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E0E0E0',
-  },
-  skeletonSectionLabel: {
-    width: '40%',
-    height: 14,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginBottom: 12,
-    marginLeft: 5,
-  },
-  skeletonMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-  },
-  skeletonIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#E0E0E0',
-    marginRight: 14,
-  },
-  skeletonMenuText: {
-    width: '50%',
-    height: 16,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 4,
-  },
+  // Skeleton Styles
+  skeletonAvatar: { width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 40 },
+  skeletonName: { width: '70%', height: 20, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 4, marginBottom: 8 },
+  skeletonNip: { width: '50%', height: 14, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, marginBottom: 8 },
+  skeletonBadge: { width: '40%', height: 20, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6 },
+  skeletonIcon: { width: 20, height: 20, backgroundColor: '#E2E8F0', borderRadius: 4 },
+  skeletonCardTitle: { width: '60%', height: 16, backgroundColor: '#E2E8F0', borderRadius: 4, marginLeft: 10 },
+  skeletonIconBox: { width: 34, height: 34, backgroundColor: '#E2E8F0', borderRadius: 12, marginRight: 15, marginTop: 2 },
+  skeletonLabel: { width: '80%', height: 10, backgroundColor: '#F1F5F9', borderRadius: 4, marginBottom: 5 },
+  skeletonValue: { width: '60%', height: 15, backgroundColor: '#E2E8F0', borderRadius: 4 },
 });

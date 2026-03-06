@@ -166,7 +166,10 @@ export default function LoginScreen() {
               </View>
             </View>
             
-            <TouchableOpacity style={styles.forgotPasswordContainer}>
+            <TouchableOpacity 
+              style={styles.forgotPasswordContainer}
+              onPress={() => router.push('/lupa-password' as any)}
+            >
               <Text style={styles.forgotPasswordText}>Lupa Password?</Text>
             </TouchableOpacity>
 

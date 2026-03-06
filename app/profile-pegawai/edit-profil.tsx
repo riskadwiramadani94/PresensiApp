@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Modal,
+  Animated,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -22,6 +26,9 @@ import AppHeader from '../../components/AppHeader';
 import { PegawaiAPI, getApiUrl } from '../../constants/config';
 import { CustomAlert } from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import { CustomCalendar } from '../../components';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const unstable_settings = {
   presentation: 'modal'
@@ -60,6 +67,92 @@ export default function EditProfilPegawaiScreen() {
   const [newPhoto, setNewPhoto] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const calendarTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  const formatDate = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const handleDateSelect = (date: Date) => {
+    // Format ke YYYY-MM-DD untuk database
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dbFormat = `${year}-${month}-${day}`;
+    
+    setProfile({...profile, tanggal_lahir: dbFormat});
+    closeCalendarModal();
+  };
+
+  const showCalendarModal = () => {
+    setShowCalendar(true);
+    Animated.spring(calendarTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const parseSelectedDate = () => {
+    if (!profile.tanggal_lahir) return undefined;
+    
+    // Handle format ISO (2007-09-28T17:00:00.000Z)
+    if (profile.tanggal_lahir.includes('T')) {
+      const date = new Date(profile.tanggal_lahir);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+    
+    // Handle format YYYY-MM-DD dari database
+    if (profile.tanggal_lahir.includes('-') && profile.tanggal_lahir.length === 10) {
+      const [year, month, day] = profile.tanggal_lahir.split('-');
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // Handle format DD/MM/YYYY
+    if (profile.tanggal_lahir.includes('/')) {
+      const [day, month, year] = profile.tanggal_lahir.split('/');
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    return undefined;
+  };
+
+  const closeCalendarModal = () => {
+    Animated.timing(calendarTranslateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowCalendar(false);
+    });
+  };
+
+  const calendarPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        calendarTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeCalendarModal();
+      } else {
+        Animated.spring(calendarTranslateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
 
   useEffect(() => {
     fetchProfile();
@@ -419,13 +512,32 @@ export default function EditProfilPegawaiScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Tanggal Lahir</Text>
-              <TextInput
-                style={styles.input}
-                value={profile.tanggal_lahir}
-                onChangeText={(text) => setProfile({ ...profile, tanggal_lahir: text })}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#999"
-              />
+              <TouchableOpacity onPress={showCalendarModal} style={styles.datePickerButton}>
+                <Text style={[styles.datePickerText, !profile.tanggal_lahir && styles.datePickerPlaceholder]}>
+                  {profile.tanggal_lahir ? (() => {
+                    // Handle format ISO (2007-09-28T17:00:00.000Z)
+                    if (profile.tanggal_lahir.includes('T')) {
+                      const date = new Date(profile.tanggal_lahir);
+                      if (!isNaN(date.getTime())) {
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        return `${day}/${month}/${year}`;
+                      }
+                    }
+                    // Handle format YYYY-MM-DD
+                    if (profile.tanggal_lahir.includes('-') && profile.tanggal_lahir.length === 10) {
+                      const [year, month, day] = profile.tanggal_lahir.split('-');
+                      return `${day}/${month}/${year}`;
+                    }
+                    // Return as is if already DD/MM/YYYY
+                    return profile.tanggal_lahir;
+                  })() : 'DD/MM/YYYY'}
+                </Text>
+                <View style={styles.calendarIconButton}>
+                  <Ionicons name="calendar" size={20} color="#004643" />
+                </View>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.inputGroup}>
@@ -511,6 +623,33 @@ export default function EditProfilPegawaiScreen() {
         onClose={alert.hideAlert}
         onConfirm={alert.handleConfirm}
       />
+
+      {/* Calendar Modal */}
+      <Modal 
+        visible={showCalendar} 
+        transparent
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={closeCalendarModal}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeCalendarModal} />
+          <Animated.View style={[styles.calendarBottomSheet, { transform: [{ translateY: calendarTranslateY }] }]}>
+            <View {...calendarPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            <View style={styles.calendarSheetContent}>
+              <Text style={styles.calendarSheetTitle}>Pilih Tanggal Lahir</Text>
+              <CustomCalendar 
+                onDatePress={(date) => handleDateSelect(date)}
+                initialDate={parseSelectedDate()}
+                weekendDays={[0, 6]}
+                showWeekends={false}
+              />
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -669,5 +808,74 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: '#E0E0E0',
     borderRadius: 12,
+  },
+  
+  // Date Picker Styles
+  datePickerButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1
+  },
+  datePickerPlaceholder: {
+    color: '#999'
+  },
+  calendarIconButton: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: '#F0F8F0'
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)'
+  },
+  modalBackdrop: { 
+    flex: 1 
+  },
+  calendarBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2
+  },
+  calendarSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16
+  },
+  calendarSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center'
   },
 });
