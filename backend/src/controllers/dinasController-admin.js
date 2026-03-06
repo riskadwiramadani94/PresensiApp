@@ -59,10 +59,10 @@ const getDinasAktifAdmin = async (req, res) => {
     const [rows] = await db.execute(`
       SELECT d.*, 
              COUNT(dp.id) as total_pegawai,
-             SUM(CASE WHEN ad.status = 'hadir' THEN 1 ELSE 0 END) as hadir_count
+             SUM(CASE WHEN p.status = 'Hadir' OR p.status = 'Terlambat' THEN 1 ELSE 0 END) as hadir_count
       FROM dinas d 
       LEFT JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas 
-      LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND dp.id_user = ad.id_user
+      LEFT JOIN presensi p ON d.id_dinas = p.dinas_id AND dp.id_user = p.id_user AND p.jenis_presensi = 'dinas'
       ${whereClause}
       GROUP BY d.id_dinas 
       ORDER BY d.tanggal_mulai DESC

@@ -272,19 +272,20 @@ const getPresensi = async (req, res) => {
       // Get absen dinas data for the same period
       const [absenDinasRows] = await db.execute(
         `SELECT 
-          DATE_FORMAT(ad.tanggal_absen, '%Y-%m-%d') as tanggal,
-          TIME_FORMAT(ad.jam_masuk, '%H:%i:%s') as jam_masuk,
-          TIME_FORMAT(ad.jam_pulang, '%H:%i:%s') as jam_keluar,
-          ad.status,
+          DATE_FORMAT(p.tanggal, '%Y-%m-%d') as tanggal,
+          TIME_FORMAT(p.jam_masuk, '%H:%i:%s') as jam_masuk,
+          TIME_FORMAT(p.jam_pulang, '%H:%i:%s') as jam_keluar,
+          p.status,
           d.nama_kegiatan as keterangan,
           'dinas' as jenis_presensi,
-          ad.status_validasi
-        FROM absen_dinas ad
-        JOIN dinas d ON ad.id_dinas = d.id_dinas
-        WHERE ad.id_user = ?
-        AND ad.tanggal_absen BETWEEN ? AND ?
-        AND ad.jam_masuk IS NOT NULL
-        ORDER BY ad.tanggal_absen ASC`,
+          p.status_validasi
+        FROM presensi p
+        JOIN dinas d ON p.dinas_id = d.id_dinas
+        WHERE p.id_user = ?
+        AND p.tanggal BETWEEN ? AND ?
+        AND p.jenis_presensi = 'dinas'
+        AND p.jam_masuk IS NOT NULL
+        ORDER BY p.tanggal ASC`,
         [user_id, start_date, end_date]
       );
       
@@ -605,14 +606,14 @@ const submitPresensi = async (req, res) => {
 
     if (jenis_presensi === 'masuk') {
 
-      // PISAHKAN: Simpan ke absen_dinas atau presensi
+      // PISAHKAN: Simpan ke presensi dengan jenis_presensi
       if (dinasCheckRows.length > 0) {
-        // SEDANG DINAS → Simpan ke absen_dinas
+        // SEDANG DINAS → Simpan ke presensi dengan jenis_presensi='dinas'
         const id_dinas = dinasCheckRows[0].id_dinas;
         
         // Cek apakah sudah absen hari ini
         const [checkDinas] = await db.execute(
-          'SELECT id FROM absen_dinas WHERE id_user = ? AND tanggal_absen = ? AND jam_masuk IS NOT NULL',
+          'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "dinas" AND jam_masuk IS NOT NULL',
           [user_id, tanggal_only]
         );
         
@@ -626,21 +627,21 @@ const submitPresensi = async (req, res) => {
         
         // UPDATE dulu, kalau gagal baru INSERT
         const [updateDinas] = await db.execute(`
-          UPDATE absen_dinas 
+          UPDATE presensi 
           SET jam_masuk = ?, lintang_masuk = ?, bujur_masuk = ?, 
               foto_masuk = ?, status = ?, lokasi_id = ?, status_validasi = ?
-          WHERE id_user = ? AND tanggal_absen = ?
-        `, [jam_sekarang, latitude, longitude, fotoFile || null, status.toLowerCase(), lokasi_id_valid, 'menunggu', user_id, tanggal_only]);
+          WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas'
+        `, [jam_sekarang, latitude, longitude, fotoFile || null, status, lokasi_id_valid, 'menunggu', user_id, tanggal_only]);
         
         if (updateDinas.affectedRows === 0) {
           await db.execute(`
-            INSERT INTO absen_dinas (
-              id_dinas, id_user, tanggal_absen, jam_masuk, lintang_masuk, bujur_masuk, 
-              foto_masuk, status, keterangan, status_validasi, lokasi_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO presensi (
+              id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, 
+              foto_masuk, status, alasan_luar_lokasi, status_validasi, lokasi_id, jenis_presensi, dinas_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'dinas', ?)
           `, [
-            id_dinas, user_id, tanggal_only, jam_sekarang, latitude, longitude, 
-            fotoFile || null, status.toLowerCase(), keterangan || null, 'menunggu', lokasi_id_valid
+            user_id, tanggal_only, jam_sekarang, latitude, longitude, 
+            fotoFile || null, status, keterangan || null, 'menunggu', lokasi_id_valid, id_dinas
           ]);
         }
         
@@ -736,11 +737,11 @@ const submitPresensi = async (req, res) => {
       
       // Update existing record (cek dinas atau presensi)
       if (dinasCheckRows.length > 0) {
-        // Update absen_dinas
+        // Update presensi dinas
         const [result] = await db.execute(`
-          UPDATE absen_dinas SET 
-            jam_pulang = ?, lintang_pulang = ?, bujur_pulang = ?, foto_pulang = ?, keterangan = ? 
-          WHERE id_user = ? AND tanggal_absen = ?
+          UPDATE presensi SET 
+            jam_pulang = ?, lintang_pulang = ?, bujur_pulang = ?, foto_pulang = ?, alasan_luar_lokasi = ? 
+          WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas'
         `, [
           jam_sekarang, latitude, longitude, fotoFile || null, keterangan || nama_lokasi, 
           user_id, tanggal_only
@@ -835,20 +836,21 @@ const getRiwayatGabungan = async (req, res) => {
     // Query 2: Presensi Dinas
     const [presensiDinas] = await db.execute(`
       SELECT 
-        ad.tanggal_absen as tanggal,
-        ad.jam_masuk,
-        ad.jam_pulang as jam_keluar,
-        ad.status,
+        p.tanggal,
+        p.jam_masuk,
+        p.jam_pulang as jam_keluar,
+        p.status,
         'dinas' as jenis_presensi,
-        ad.status_validasi,
+        p.status_validasi,
         lk.nama_lokasi as lokasi,
         d.nama_kegiatan as kegiatan_dinas
-      FROM absen_dinas ad
-      JOIN dinas d ON ad.id_dinas = d.id_dinas
-      LEFT JOIN lokasi_kantor lk ON ad.lokasi_id = lk.id
-      WHERE ad.id_user = ?
-        AND ad.tanggal_absen BETWEEN ? AND ?
-      ORDER BY ad.tanggal_absen DESC
+      FROM presensi p
+      JOIN dinas d ON p.dinas_id = d.id_dinas
+      LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
+      WHERE p.id_user = ?
+        AND p.jenis_presensi = 'dinas'
+        AND p.tanggal BETWEEN ? AND ?
+      ORDER BY p.tanggal DESC
     `, [user_id, start_date, end_date]);
     
     // Gabungkan dan sort by tanggal
@@ -882,8 +884,8 @@ const checkDinasAttendance = async (req, res) => {
     
     const [rows] = await db.execute(`
       SELECT jam_masuk, status_validasi
-      FROM absen_dinas
-      WHERE id_user = ? AND tanggal_absen = ? AND jam_masuk IS NOT NULL
+      FROM presensi
+      WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas' AND jam_masuk IS NOT NULL
       LIMIT 1
     `, [user_id, date]);
     
