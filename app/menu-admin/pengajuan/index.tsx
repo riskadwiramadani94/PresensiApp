@@ -352,8 +352,9 @@ export default function PengajuanScreen() {
       'cuti_sakit': 'Cuti Sakit',
       'cuti_tahunan': 'Cuti Tahunan',
       'izin_pribadi': 'Izin Pribadi',
-      'pulang_cepat_terencana': 'Pulang Cepat',
-      'pulang_cepat_mendadak': 'Pulang Cepat',
+      'izin_datang_terlambat': 'Izin Datang Terlambat',
+      'pulang_cepat_terencana': 'Pulang Cepat Terencana',
+      'pulang_cepat_mendadak': 'Pulang Cepat Mendadak',
       'koreksi_presensi': 'Koreksi Presensi',
       'lembur_hari_kerja': 'Lembur Hari Kerja',
       'lembur_akhir_pekan': 'Lembur Akhir Pekan',
@@ -362,7 +363,7 @@ export default function PengajuanScreen() {
       'dinas_luar_kota': 'Dinas Luar Kota',
       'dinas_luar_negeri': 'Dinas Luar Negeri'
     };
-    return jenisMap[jenis] || jenis;
+    return jenisMap[jenis] || jenis.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
 
@@ -528,8 +529,11 @@ export default function PengajuanScreen() {
     const statusLabel = getStatusLabel(item.status);
 
     return (
-      <View style={styles.pengajuanCard}>
-        <View style={[styles.statusAccent, { backgroundColor: statusColor }]} />
+      <TouchableOpacity 
+        style={styles.pengajuanCard}
+        onPress={() => openActionModal('pengajuan', item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardMainContent}>
           <View style={styles.cardHeader}>
             <View style={styles.titleContainer}>
@@ -593,7 +597,7 @@ export default function PengajuanScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -770,31 +774,36 @@ export default function PengajuanScreen() {
             ======================================== */
             [1, 2, 3, 4].map((item) => (
               <View key={item} style={styles.itemCard}>
-                {/* Skeleton Card Accent */}
-                <View style={styles.cardAccent} />
-                
-                <View style={styles.itemContent}>
-                  {/* Skeleton Header - Nama & Badge */}
-                  <View style={styles.statusRow}>
+                {/* Skeleton Header */}
+                <View style={styles.statusRow}>
+                  <View>
                     <View style={styles.skeletonUserName} />
                     <View style={styles.skeletonPengajuanBadge} />
                   </View>
-                  {/* Skeleton NIP & Jabatan */}
-                  <View style={styles.skeletonUserDetail} />
-                  {/* Skeleton Tanggal */}
-                  <View style={[styles.skeletonInfoLine, { width: '50%' }]} />
-                  {/* Skeleton Jam */}
-                  <View style={[styles.skeletonInfoLine, { width: '35%' }]} />
-                  {/* Skeleton Alasan */}
-                  <View style={styles.skeletonReason} />
-                  {/* Skeleton Dokumen Button */}
-                  <View style={styles.skeletonDocumentBtn} />
+                  <View style={styles.skeletonStatusBadge} />
                 </View>
                 
-                {/* Skeleton Action Buttons */}
-                <View style={styles.actionButtons}>
-                  <View style={styles.skeletonActionBtn} />
-                  <View style={styles.skeletonActionBtn} />
+                {/* Skeleton Info dengan Icon */}
+                <View style={styles.skeletonInfoRow}>
+                  <View style={styles.skeletonIconCircle} />
+                  <View style={styles.skeletonInfoText} />
+                </View>
+                <View style={styles.skeletonInfoRow}>
+                  <View style={styles.skeletonIconCircle} />
+                  <View style={styles.skeletonInfoText} />
+                </View>
+                <View style={styles.skeletonInfoRow}>
+                  <View style={styles.skeletonIconCircle} />
+                  <View style={styles.skeletonInfoText} />
+                </View>
+                
+                {/* Skeleton Footer */}
+                <View style={styles.skeletonFooter}>
+                  <View style={styles.skeletonReason} />
+                  <View style={styles.skeletonActionButtons}>
+                    <View style={styles.skeletonActionBtn} />
+                    <View style={styles.skeletonActionBtn} />
+                  </View>
                 </View>
               </View>
             ))
@@ -1236,25 +1245,32 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   
-  // Pengajuan Card (sama seperti kelola dinas)
+  // Pengajuan Card (sama seperti Absen Dinas)
   pengajuanCard: {
     backgroundColor: '#FFF',
-    borderRadius: 20,
-    marginBottom: 16,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E8F0EF',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  statusAccent: { width: 6, height: '100%' },
-  cardMainContent: { flex: 1, padding: 16 },
+  cardMainContent: { flex: 1 },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8F9FA',
+  },
   titleContainer: { flex: 1, marginRight: 8 },
-  pengajuanTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 6 },
+  pengajuanTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B', marginBottom: 5 },
   employeeBadge: {
     backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
@@ -1267,21 +1283,20 @@ const styles = StyleSheet.create({
   statusTag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 8 },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
   statusTagText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  cardDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 12 },
-  infoGrid: { gap: 8, marginBottom: 14 },
+  cardDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 10 },
+  infoGrid: { gap: 6, marginBottom: 10 },
   infoItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center' },
-  infoText: { fontSize: 13, color: '#475569', flex: 1 },
+  iconCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center' },
+  infoText: { fontSize: 12, color: '#475569', flex: 1 },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    marginHorizontal: -16,
-    marginBottom: -16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 4,
+    backgroundColor: 'transparent',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8F9FA',
   },
   reasonContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 12 },
   reasonText: { fontSize: 12, color: '#64748B', flex: 1 },
@@ -1744,85 +1759,89 @@ const styles = StyleSheet.create({
   itemCard: {
     backgroundColor: '#FFF',
     borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
-    padding: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  cardAccent: {
-    width: 4,
-    height: 60,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 2,
+    borderColor: '#E8F0EF',
   },
   itemContent: {
     flex: 1,
-    paddingLeft: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8F9FA',
   },
-  // Skeleton untuk Nama Pegawai
+  // Skeleton untuk Title & Badge
   skeletonUserName: {
-    flex: 1,
-    height: 14,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  // Skeleton untuk Badge Jenis Pengajuan
-  skeletonPengajuanBadge: {
-    width: 80,
-    height: 24,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 12,
-  },
-  // Skeleton untuk NIP & Jabatan
-  skeletonUserDetail: {
     width: '60%',
-    height: 12,
-    backgroundColor: '#F0F0F0',
+    height: 15,
+    backgroundColor: '#E0E0E0',
     borderRadius: 4,
+    marginBottom: 5,
+  },
+  skeletonPengajuanBadge: {
+    width: 70,
+    height: 18,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 6,
+  },
+  skeletonStatusBadge: {
+    width: 80,
+    height: 22,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 20,
+  },
+  // Skeleton untuk Info dengan Icon
+  skeletonInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 6,
   },
-  // Skeleton untuk Info Lines (tanggal, jam)
-  skeletonInfoLine: {
-    height: 12,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 4,
-    marginBottom: 4,
+  skeletonIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F0F4F3',
+    marginRight: 10,
   },
-  // Skeleton untuk Alasan Text
-  skeletonReason: {
-    width: '90%',
-    height: 12,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 4,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  // Skeleton untuk Dokumen Button
-  skeletonDocumentBtn: {
-    width: 120,
-    height: 28,
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  // Skeleton untuk Action Buttons (Setuju & Tolak)
-  skeletonActionBtn: {
+  skeletonInfoText: {
     flex: 1,
-    height: 36,
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+  },
+  // Skeleton untuk Footer
+  skeletonFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F8F9FA',
+  },
+  skeletonReason: {
+    flex: 1,
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  // Skeleton untuk Action Buttons
+  skeletonActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  skeletonActionBtn: {
+    width: 32,
+    height: 32,
     backgroundColor: '#E0E0E0',
-    borderRadius: 8,
+    borderRadius: 16,
   },
 
 });

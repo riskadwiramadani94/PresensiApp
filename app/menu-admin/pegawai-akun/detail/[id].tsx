@@ -22,15 +22,21 @@ export default function DetailPegawai() {
   const [loading, setLoading] = useState(true);
 
   const formatDateFromISO = (isoDate: string) => {
-    if (!isoDate) return "Belum diisi";
+    if (!isoDate) return "-";
     try {
-      const date = new Date(isoDate);
-      const day = String(date.getDate()).padStart(2, "0");
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
+      // Handle format YYYY-MM-DD dari database
+      if (typeof isoDate === 'string' && isoDate.includes('-')) {
+        const parts = isoDate.split('T')[0].split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+          const day = parts[2].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          const year = parts[0];
+          return `${day}/${month}/${year}`;
+        }
+      }
+      return "-";
     } catch (error) {
-      return "Format tidak valid";
+      return "-";
     }
   };
 
@@ -56,6 +62,8 @@ export default function DetailPegawai() {
       );
       const result = await response.json();
       if (result.success) {
+        console.log('Data pegawai:', result.data);
+        console.log('Tanggal lahir:', result.data.tanggal_lahir);
         setPegawai(result.data);
       } else {
         Alert.alert("Error", result.message || "Gagal memuat data");
@@ -254,6 +262,16 @@ export default function DetailPegawai() {
               </View>
             </View>
 
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="calendar-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>TANGGAL LAHIR</Text>
+                <Text style={styles.valueModern}>{pegawai.tanggal_lahir ? formatDateFromISO(pegawai.tanggal_lahir) : '-'}</Text>
+              </View>
+            </View>
+
             <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
               <View style={styles.infoIconBox}>
                 <Ionicons name="location-outline" size={16} color="#00695C" />
@@ -294,13 +312,23 @@ export default function DetailPegawai() {
               </View>
             </View>
 
-            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
+            <View style={styles.infoRowModern}>
               <View style={styles.infoIconBox}>
                 <Ionicons name="shield-checkmark-outline" size={16} color="#00695C" />
               </View>
               <View style={styles.infoContentModern}>
                 <Text style={styles.labelModern}>STATUS PEGAWAI</Text>
                 <Text style={styles.valueModern}>{pegawai.status_pegawai || 'Aktif'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="calendar-number-outline" size={16} color="#00695C" />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>TERDAFTAR SEJAK</Text>
+                <Text style={styles.valueModern}>{pegawai.tanggal_masuk ? formatDateFromISO(pegawai.tanggal_masuk) : '-'}</Text>
               </View>
             </View>
           </View>

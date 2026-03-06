@@ -332,7 +332,7 @@ const getPresensi = async (req, res) => {
         }
       });
       
-      // Generate all dates in range and check dinas status
+      // Generate all dates in range and fill with libur/weekend/belum absen
       const formattedData = [];
       const currentDate = new Date(start_date);
       const endDateObj = new Date(end_date);
@@ -390,104 +390,39 @@ const getPresensi = async (req, res) => {
           console.log(`✅ Found presensi for ${dateStr}:`, presensiData);
           formattedData.push(presensiData);
         } else {
-          // Check if user is on dinas this day
-          const isDinas = dinasRows.some(dinas => {
-            const dinasStart = new Date(dinas.tanggal_mulai);
-            const dinasEnd = new Date(dinas.tanggal_selesai);
-            const checkDate = new Date(dateStr);
-            return checkDate >= dinasStart && checkDate <= dinasEnd;
-          });
+          // PRIORITY 4: Hari kerja tapi tidak ada presensi
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const checkDate = new Date(dateStr);
+          checkDate.setHours(0, 0, 0, 0);
           
-          if (isDinas) {
-            const dinasInfo = dinasRows.find(dinas => {
-              const dinasStart = new Date(dinas.tanggal_mulai);
-              const dinasEnd = new Date(dinas.tanggal_selesai);
-              const checkDate = new Date(dateStr);
-              return checkDate >= dinasStart && checkDate <= dinasEnd;
+          if (checkDate > today) {
+            // Hari yang akan datang
+            formattedData.push({
+              tanggal: dateStr,
+              jam_masuk: null,
+              jam_keluar: null,
+              status: 'Belum Waktunya',
+              keterangan: 'Belum waktunya absen'
             });
-            
-            // Cek apakah ada presensi dinas untuk tanggal ini
-            const [presensiDinasRows] = await db.execute(`
-              SELECT jam_masuk, jam_pulang, status
-              FROM absen_dinas 
-              WHERE id_user = ? AND tanggal_absen = ?
-            `, [user_id, dateStr]);
-            
-            const startDate = new Date(dinasInfo.tanggal_mulai).toLocaleDateString('id-ID', { day: 'numeric' });
-            const endDate = new Date(dinasInfo.tanggal_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-            
-            if (presensiDinasRows.length > 0) {
-              // Ada presensi dinas - kirim data jam masuk/keluar
-              const presensiDinas = presensiDinasRows[0];
-              formattedData.push({
-                tanggal: dateStr,
-                jam_masuk: presensiDinas.jam_masuk,
-                jam_keluar: presensiDinas.jam_pulang,
-                status: 'Dinas',
-                keterangan: `${dinasInfo.nama_kegiatan} (${startDate}-${endDate})`
-              });
-            } else {
-              // Tidak ada presensi dinas
-              formattedData.push({
-                tanggal: dateStr,
-                jam_masuk: null,
-                jam_keluar: null,
-                status: 'Dinas',
-                keterangan: `${dinasInfo.nama_kegiatan} (${startDate}-${endDate})`
-              });
-            }
+          } else if (checkDate.getTime() === today.getTime()) {
+            // Hari ini - belum absen
+            formattedData.push({
+              tanggal: dateStr,
+              jam_masuk: null,
+              jam_keluar: null,
+              status: 'Belum Absen',
+              keterangan: 'Belum melakukan absensi'
+            });
           } else {
-            // PRIORITY 4: Hari kerja tapi tidak ada presensi dan tidak dinas
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const checkDate = new Date(dateStr);
-            checkDate.setHours(0, 0, 0, 0);
-            
-            if (checkDate > today) {
-              // Hari yang akan datang
-              formattedData.push({
-                tanggal: dateStr,
-                jam_masuk: null,
-                jam_keluar: null,
-                status: 'Belum Waktunya',
-                keterangan: 'Belum waktunya absen'
-              });
-            } else if (checkDate.getTime() === today.getTime()) {
-              // Hari ini - cek apakah sudah absen
-              console.log(`📅 Checking today ${dateStr}, presensiMap has:`, Array.from(presensiMap.keys()));
-              // Cek juga tanggal kemarin karena timezone issue
-              const yesterdayStr = new Date(checkDate.getTime() - 24*60*60*1000).toISOString().split('T')[0];
-              if (presensiMap.has(yesterdayStr)) {
-                console.log(`✅ Found data in yesterday key ${yesterdayStr}`);
-                const presensiData = presensiMap.get(yesterdayStr);
-                formattedData.push({
-                  tanggal: dateStr, // Gunakan tanggal yang benar (2026-03-04)
-                  jam_masuk: presensiData.jam_masuk,
-                  jam_keluar: presensiData.jam_keluar,
-                  status: presensiData.status,
-                  keterangan: presensiData.keterangan,
-                  jenis_presensi: presensiData.jenis_presensi,
-                  status_validasi: presensiData.status_validasi
-                });
-              } else {
-                formattedData.push({
-                  tanggal: dateStr,
-                  jam_masuk: null,
-                  jam_keluar: null,
-                  status: 'Belum Absen',
-                  keterangan: 'Belum melakukan absensi'
-                });
-              }
-            } else {
-              // Hari yang sudah lewat
-              formattedData.push({
-                tanggal: dateStr,
-                jam_masuk: null,
-                jam_keluar: null,
-                status: 'Tidak Hadir',
-                keterangan: 'Tidak hadir'
-              });
-            }
+            // Hari yang sudah lewat - tidak hadir
+            formattedData.push({
+              tanggal: dateStr,
+              jam_masuk: null,
+              jam_keluar: null,
+              status: 'Tidak Hadir',
+              keterangan: 'Tidak hadir'
+            });
           }
         }
         

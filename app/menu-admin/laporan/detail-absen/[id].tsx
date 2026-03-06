@@ -586,34 +586,32 @@ export default function DetailAbsenPegawai() {
         activeOpacity={isDisabled ? 1 : 0.7}
         disabled={isDisabled}
       >
+        <View style={[styles.leftBorder, { backgroundColor: config.color }]} />
+        
         <View style={styles.dateSection}>
           <Text style={styles.dayText}>{dateInfo.day}</Text>
           <Text style={styles.dateText}>{dateInfo.date}</Text>
           <Text style={styles.monthTextSmall}>{dateInfo.month}</Text>
         </View>
         
-        <View style={styles.statusSection}>
-          <View style={styles.statusHeader}>
-            <View style={[styles.statusBadge, { backgroundColor: config.color }]}>
-              <Ionicons name={config.icon as any} size={16} color="white" />
-              <Text style={styles.statusText}>{displayStatus}</Text>
-            </View>
+        <View style={styles.contentSection}>
+          <View style={styles.statusRow}>
+            <Text style={styles.dayFull}>{dateInfo.day}</Text>
+            <Text style={[styles.statusBadgeText, { color: config.color }]}>
+              {displayStatus}
+            </Text>
           </View>
           
-          <Text style={styles.keteranganText}>
+          <Text style={styles.locationText}>
             {displayKeterangan || '-'}
           </Text>
           
           {item.jam_masuk && (
-            <View style={styles.timeInfo}>
-              <Text style={styles.timeText}>
-                Masuk: {item.jam_masuk} | Keluar: {item.jam_keluar || 'Belum'}
-              </Text>
-            </View>
+            <Text style={styles.timeText}>
+              {item.jam_masuk} - {item.jam_keluar || '...'}
+            </Text>
           )}
         </View>
-        
-        {!isDisabled && <Ionicons name="chevron-forward" size={20} color="#666" />}
       </TouchableOpacity>
     );
   };
@@ -923,19 +921,17 @@ export default function DetailAbsenPegawai() {
           >
             {[1, 2, 3, 4, 5].map((item) => (
               <View key={item} style={styles.absenItem}>
-                {/* Skeleton Date Section */}
+                <View style={styles.skeletonLeftBorder} />
                 <View style={styles.dateSection}>
                   <View style={styles.skeletonDayText} />
                   <View style={styles.skeletonDateText} />
                   <View style={styles.skeletonMonthText} />
                 </View>
-                {/* Skeleton Status Section */}
-                <View style={styles.statusSection}>
-                  <View style={styles.skeletonStatusBadge} />
+                <View style={styles.contentSection}>
+                  <View style={styles.skeletonStatusRow} />
                   <View style={styles.skeletonKeterangan} />
                   <View style={styles.skeletonTimeInfo} />
                 </View>
-                {/* Skeleton Chevron */}
                 <View style={styles.skeletonChevron} />
               </View>
             ))}
@@ -1091,32 +1087,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 16,
     marginBottom: 12,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    marginHorizontal: 2,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
   },
   absenItemDisabled: {
     backgroundColor: '#fff',
   },
+  leftBorder: {
+    width: 4,
+    height: '100%',
+  },
   dateSection: {
     alignItems: 'center',
-    marginRight: 16,
-    minWidth: 60,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FAFAFA',
+    minWidth: 70,
   },
   dayText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
+    fontSize: 10,
+    color: '#999',
+    fontWeight: '600',
+    marginBottom: 4,
   },
   dateText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
   },
   monthTextSmall: {
     fontSize: 12,
@@ -1125,36 +1132,43 @@ const styles = StyleSheet.create({
   },
   statusSection: {
     flex: 1,
-    marginRight: 8,
+    padding: 12,
+    justifyContent: 'center',
   },
-  statusHeader: {
+  contentSection: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'center',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
+  dayFull: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
-  statusText: {
-    color: 'white',
+  statusBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    marginLeft: 4,
   },
   keteranganText: {
     fontSize: 12,
-    color: '#666',
+    color: '#999',
     marginBottom: 4,
   },
-  timeInfo: {
-    marginTop: 4,
+  locationText: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
   },
   timeText: {
-    fontSize: 11,
-    color: '#888',
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
@@ -1341,6 +1355,12 @@ const styles = StyleSheet.create({
   /* ========================================
      SKELETON STYLES - DETAIL ABSEN PEGAWAI
   ======================================== */
+  // Skeleton untuk Left Border
+  skeletonLeftBorder: {
+    width: 4,
+    height: '100%',
+    backgroundColor: '#E0E0E0',
+  },
   // Skeleton untuk Pegawai Info
   skeletonAvatar: {
     width: 40,
@@ -1403,11 +1423,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
-  skeletonStatusBadge: {
-    width: 80,
-    height: 24,
+  skeletonStatusRow: {
+    width: '100%',
+    height: 14,
     backgroundColor: '#E0E0E0',
-    borderRadius: 6,
+    borderRadius: 4,
     marginBottom: 6,
   },
   skeletonKeterangan: {
@@ -1424,9 +1444,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   skeletonChevron: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#E0E0E0',
+    width: 18,
+    height: 18,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
   },
 });

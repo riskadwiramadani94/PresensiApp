@@ -236,7 +236,7 @@ export default function KelolaDinasScreen() {
     selesai.setHours(23, 59, 59, 999);
 
     if (today < mulai) {
-      return { status: "Akan Datang", color: "#FF9800" };
+      return { status: "Belum Dimulai", color: "#FF9800" };
     } else if (today >= mulai && today <= selesai) {
       return { status: "Sedang Berlangsung", color: "#4CAF50" };
     } else {
@@ -269,8 +269,8 @@ export default function KelolaDinasScreen() {
             return status === "Sedang Berlangsung";
           case "selesai":
             return status === "Selesai";
-          case "akan_datang":
-            return status === "Akan Datang";
+          case "belum_dimulai":
+            return status === "Belum Dimulai";
           default:
             return true;
         }
@@ -285,7 +285,7 @@ export default function KelolaDinasScreen() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
-  const deleteDinas = async (id: number) => {
+  const deleteDinas = async (id: number, nama: string) => {
     setShowDeleteModal(false);
     try {
       const result = await KelolaDinasAPI.deleteDinas(id);
@@ -305,71 +305,121 @@ export default function KelolaDinasScreen() {
   };
 
   const renderDinasCard = ({ item }: { item: DinasAktif }) => {
-    const info = getDinasStatus(item.tanggal_mulai, item.tanggal_selesai);
-    const totalPegawai = item.pegawai?.length || 0;
-    
-    const canEdit = () => {
-      if (info.status === "Akan Datang") return true;
-      if (info.status === "Berlangsung") {
-        const start = new Date(item.tanggal_mulai + " " + (item.jam_mulai || "08:00:00"));
-        return (new Date().getTime() - start.getTime()) / 3600000 <= 1;
-      }
-      return false;
+    const pegawaiArray = item.pegawai || [];
+    const totalPegawai = pegawaiArray.length;
+    const dinasStatusInfo = getDinasStatus(
+      item.tanggal_mulai,
+      item.tanggal_selesai,
+    );
+    const isBelumDimulai = dinasStatusInfo.status === "Belum Dimulai";
+
+    // Cek apakah dinas berlangsung dan masih dalam 1 jam pertama
+    const canEditBerlangsung = () => {
+      if (dinasStatusInfo.status !== "Sedang Berlangsung") return false;
+
+      const now = new Date();
+      const dinasStart = new Date(
+        item.tanggal_mulai + " " + (item.jam_mulai || "08:00:00"),
+      );
+      const hoursDiff =
+        (now.getTime() - dinasStart.getTime()) / (1000 * 60 * 60);
+
+      return hoursDiff <= 1; // Batas 1 jam
     };
 
+    const showActionButton = isBelumDimulai || canEditBerlangsung();
+
     return (
-      <TouchableOpacity 
-        style={styles.dinasCard} 
-        activeOpacity={0.9}
-        onPress={() => router.push(`/menu-admin/kelola-dinas/detail-dinas/${item.id}` as any)}
+      <TouchableOpacity
+        style={styles.dinasCard}
+        onPress={() =>
+          router.push(`/menu-admin/kelola-dinas/detail-dinas/${item.id}` as any)
+        }
+        activeOpacity={0.7}
       >
-        <View style={[styles.statusAccent, { backgroundColor: info.color }]} />
-        <View style={styles.cardMainContent}>
-          <View style={styles.cardHeader}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.kegiatanName} numberOfLines={1}>{item.namaKegiatan}</Text>
-              <View style={styles.sptBadge}>
-                <Text style={styles.sptNumber}>{item.nomorSpt}</Text>
-              </View>
-            </View>
-            <View style={styles.headerRight}>
-              <View style={[styles.statusTag, { backgroundColor: info.color + '15' }]}>
-                <View style={[styles.statusDot, { backgroundColor: info.color }]} />
-                <Text style={[styles.statusTagText, { color: info.color }]}>{info.status}</Text>
-              </View>
-              {canEdit() && (
-                <TouchableOpacity 
-                  style={styles.moreBtn} 
-                  onPress={(e) => { e.stopPropagation(); setSelectedDinas(item); openModal(); }}
-                >
-                  <Ionicons name="ellipsis-horizontal" size={20} color="#94A3B8" />
-                </TouchableOpacity>
-              )}
-            </View>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitle}>
+            <Text style={styles.kegiatanName}>{item.namaKegiatan}</Text>
+            <Text style={styles.sptNumber}>{item.nomorSpt}</Text>
           </View>
-
-          <View style={styles.cardDivider} />
-
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <View style={styles.iconCircle}><Ionicons name="location" size={14} color="#004643" /></View>
-              <Text style={styles.infoText} numberOfLines={1}>{item.lokasi}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <View style={styles.iconCircle}><Ionicons name="calendar" size={14} color="#004643" /></View>
-              <Text style={styles.infoText}>
-                {new Date(item.tanggal_mulai).toLocaleDateString("id-ID", { day: "numeric", month: "short" })} - {new Date(item.tanggal_selesai).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+          <View style={styles.cardHeaderRight}>
+            <View
+              style={[
+                styles.dinasStatusBadge,
+                { backgroundColor: dinasStatusInfo.color + "20" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.dinasStatusText,
+                  { color: dinasStatusInfo.color },
+                ]}
+              >
+                {dinasStatusInfo.status === "Sedang Berlangsung"
+                  ? "Berlangsung"
+                  : dinasStatusInfo.status === "Belum Dimulai"
+                    ? "Belum Mulai"
+                    : "Selesai"}
               </Text>
             </View>
+            {showActionButton && (
+              <TouchableOpacity
+                style={styles.moreBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setSelectedDinas(item);
+                  openModal();
+                }}
+              >
+                <Ionicons name="ellipsis-vertical" size={18} color="#666" />
+              </TouchableOpacity>
+            )}
           </View>
+        </View>
 
-          <View style={styles.cardFooter}>
-            <View style={styles.attendeesContainer}>
-              <Ionicons name="people-circle" size={20} color="#64748B" />
-              <Text style={styles.attendeesText}><Text style={{fontWeight: '700', color: '#1E293B'}}>{totalPegawai}</Text> Pegawai</Text>
+        <View style={styles.cardInfo}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="location-outline" size={16} color="#00695C" />
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+            <Text style={styles.infoText}>{item.lokasi}</Text>
           </View>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="time-outline" size={16} color="#00695C" />
+            </View>
+            <Text style={styles.infoText}>
+              {item.jam_mulai && item.jam_selesai
+                ? `${item.jam_mulai} - ${item.jam_selesai} (Khusus)`
+                : "Jam Kantor"}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="calendar-outline" size={16} color="#00695C" />
+            </View>
+            <Text style={styles.infoText}>
+              {new Date(item.tanggal_mulai).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "short",
+              })}{" "}
+              -
+              {new Date(item.tanggal_selesai).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "short",
+              })}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.cardFooter}>
+          <View style={styles.footerLeft}>
+            <Ionicons name="people-circle" size={20} color="#64748B" />
+            <Text style={styles.footerText}>
+              <Text style={styles.footerBold}>{totalPegawai}</Text> Pegawai Bertugas
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
         </View>
       </TouchableOpacity>
     );
@@ -377,89 +427,174 @@ export default function KelolaDinasScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" translucent backgroundColor="transparent" />
-      <AppHeader title="Kelola Dinas" showBack={true} showAddButton={true} onAddPress={() => router.push("/menu-admin/kelola-dinas/tambah-dinas" as any)} fallbackRoute="/admin/dashboard-admin" />
-      
+      <StatusBar
+        style="light"
+        translucent={true}
+        backgroundColor="transparent"
+      />
+
+      {/* HEADER */}
+      <AppHeader
+        title="Dinas"
+        showBack={true}
+        showAddButton={true}
+        onAddPress={() => router.push("/menu-admin/kelola-dinas/tambah-dinas" as any)}
+      />
+
       <View style={styles.contentWrapper}>
-        <View style={styles.searchSection}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={20} color="#666" />
-            <TextInput 
-              style={styles.searchInput} 
-              placeholder="Cari Pegawai..." 
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#999"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
-                <Ionicons name="close-circle" size={20} color="#999" />
-              </TouchableOpacity>
-            )}
+        {/* Fixed Search and Date */}
+        <View style={styles.fixedControls}>
+          {/* Search Container with Filter Icon */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchInputWrapper}>
+              <Ionicons name="search-outline" size={20} color="#666" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Cari dinas..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#999"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.filterIconBtn}
+              onPress={openFilterModal}
+            >
+              <Ionicons name="options" size={20} color="#004643" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.filterBtn} onPress={openFilterModal}>
-            <Ionicons name="options-outline" size={22} color="#004643" />
-          </TouchableOpacity>
         </View>
 
+        {/* Scrollable List */}
         {loading ? (
-          <View style={styles.listPadding}>
+          /* ========================================
+               SKELETON LOADING STATE - KELOLA DINAS
+          ======================================== */
+          <View style={styles.listContent}>
             {[1, 2, 3].map((item) => (
               <View key={item} style={styles.dinasCard}>
-                <View style={styles.skeletonStatusAccent} />
-                <View style={styles.cardMainContent}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.titleContainer}>
-                      <View style={styles.skeletonKegiatanName} />
-                      <View style={styles.skeletonSptBadge}>
-                        <View style={styles.skeletonSptNumber} />
-                      </View>
-                    </View>
-                    <View style={styles.headerRight}>
-                      <View style={styles.skeletonStatusTag} />
-                      <View style={styles.skeletonMoreBtn} />
-                    </View>
+                {/* Skeleton Card Header */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitle}>
+                    <View style={styles.skeletonKegiatanName} />
+                    <View style={styles.skeletonSptNumber} />
                   </View>
-
-                  <View style={styles.cardDivider} />
-
-                  <View style={styles.infoGrid}>
-                    <View style={styles.infoItem}>
-                      <View style={styles.skeletonIconCircle} />
-                      <View style={[styles.skeletonInfoText, { width: '60%' }]} />
-                    </View>
-                    <View style={styles.infoItem}>
-                      <View style={styles.skeletonIconCircle} />
-                      <View style={[styles.skeletonInfoText, { width: '45%' }]} />
-                    </View>
+                  <View style={styles.cardHeaderRight}>
+                    <View style={styles.skeletonStatusBadge} />
+                    <View style={styles.skeletonMoreBtn} />
                   </View>
+                </View>
 
-                  <View style={styles.cardFooter}>
-                    <View style={styles.attendeesContainer}>
-                      <View style={styles.skeletonIconCircle} />
-                      <View style={[styles.skeletonInfoText, { width: '30%' }]} />
-                    </View>
-                    <View style={styles.skeletonChevron} />
+                {/* Skeleton Card Info */}
+                <View style={styles.cardInfo}>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIconBox} />
+                    <View style={[styles.skeletonInfoText, { flex: 1 }]} />
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIconBox} />
+                    <View style={[styles.skeletonInfoText, { flex: 1 }]} />
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIconBox} />
+                    <View style={[styles.skeletonInfoText, { flex: 1 }]} />
+                  </View>
+                  <View style={styles.infoRow}>
+                    <View style={styles.skeletonInfoIconBox} />
+                    <View style={[styles.skeletonInfoText, { flex: 1 }]} />
                   </View>
                 </View>
               </View>
             ))}
           </View>
         ) : (
-        <FlatList
-          data={currentData}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderDinasCard}
-          contentContainerStyle={styles.listPadding}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#004643"]} />}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={80} color="#E2E8F0" />
-              <Text style={styles.emptyText}>Tidak ada data dinas ditemukan</Text>
-            </View>
-          }
-        />
+          <FlatList
+            style={styles.flatList}
+            data={currentData}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderDinasCard}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#004643"]}
+                tintColor="#004643"
+              />
+            }
+            ListEmptyComponent={() => (
+              <View style={styles.emptyState}>
+                <Ionicons name="briefcase-outline" size={60} color="#ccc" />
+                <Text style={styles.emptyText}>Tidak ada data dinas</Text>
+              </View>
+            )}
+            ListFooterComponent={() => {
+              if (totalPages <= 1) return null;
+              return (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.pageBtn,
+                      currentPage === 1 && styles.pageBtnDisabled,
+                    ]}
+                    onPress={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <Ionicons
+                      name="chevron-back"
+                      size={16}
+                      color={currentPage === 1 ? "#ccc" : "#004643"}
+                    />
+                  </TouchableOpacity>
+
+                  <View style={styles.pageNumbers}>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => (
+                        <TouchableOpacity
+                          key={page}
+                          style={[
+                            styles.pageNumber,
+                            currentPage === page && styles.pageNumberActive,
+                          ]}
+                          onPress={() => setCurrentPage(page)}
+                        >
+                          <Text
+                            style={[
+                              styles.pageNumberText,
+                              currentPage === page && styles.pageNumberTextActive,
+                            ]}
+                          >
+                            {page}
+                          </Text>
+                        </TouchableOpacity>
+                      ),
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.pageBtn,
+                      currentPage === totalPages && styles.pageBtnDisabled,
+                    ]}
+                    onPress={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={currentPage === totalPages ? "#ccc" : "#004643"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+          />
         )}
       </View>
 
@@ -500,7 +635,7 @@ export default function KelolaDinasScreen() {
                   { value: "semua", label: "Semua Status", icon: "apps" },
                   { value: "berlangsung", label: "Sedang Berlangsung", icon: "play-circle" },
                   { value: "selesai", label: "Selesai", icon: "checkmark-circle" },
-                  { value: "akan_datang", label: "Akan Datang", icon: "time" },
+                  { value: "belum_dimulai", label: "Belum Dimulai", icon: "time" },
                 ].map((option, index, array) => (
                   <TouchableOpacity
                     key={option.value}
@@ -540,6 +675,8 @@ export default function KelolaDinasScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Action Modal */}
       <Modal
         visible={showActionModal}
         transparent={true}
@@ -561,10 +698,12 @@ export default function KelolaDinasScreen() {
               },
             ]}
           >
+            {/* Handle Bar with Pan Gesture */}
             <View {...panResponder.panHandlers} style={styles.handleContainer}>
               <View style={styles.handleBar} />
             </View>
 
+            {/* Header */}
             <View style={styles.bottomSheetHeader}>
               <View style={styles.actionCard}>
                 <View style={styles.bottomSheetActions}>
@@ -633,7 +772,10 @@ export default function KelolaDinasScreen() {
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => {
-                  deleteDinas(selectedDinas?.id || 0);
+                  deleteDinas(
+                    selectedDinas?.id || 0,
+                    selectedDinas?.namaKegiatan || "",
+                  );
                 }}
               >
                 <Text style={styles.deleteButtonText}>Hapus</Text>
@@ -642,7 +784,7 @@ export default function KelolaDinasScreen() {
           </View>
         </View>
       </Modal>
-      
+
       <CustomAlert
         visible={alert.visible}
         type={alert.config.type}
@@ -650,57 +792,69 @@ export default function KelolaDinasScreen() {
         message={alert.config.message}
         onClose={alert.hideAlert}
         onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+        autoClose={alert.config.type === 'success'}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFBFC" },
-  contentWrapper: { flex: 1 },
-  searchSection: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    backgroundColor: '#FAFBFC',
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
+  container: { flex: 1, backgroundColor: "#fff" },
+  contentWrapper: {
+    flex: 1,
+    backgroundColor: "#fff",
   },
-  searchBar: {
+  fixedControls: {
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+    backgroundColor: "#fff",
+  },
+  flatList: {
+    flex: 1,
+  },
+
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+    gap: 10,
+  },
+  searchInputWrapper: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: "#E8F0EF",
+    borderColor: "#E0E0E0",
     gap: 12,
-    shadowColor: "#004643",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
-  searchInput: { 
-    flex: 1, 
-    fontSize: 15, 
-    color: "#333",
-    fontWeight: "400",
-  },
-  filterBtn: {
-    width: 50,
-    height: 50,
-    backgroundColor: "#FFF",
-    borderRadius: 15,
+  filterIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
   },
-  listPadding: { paddingHorizontal: 20, paddingBottom: 30 },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    paddingVertical: 12,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
 
   statusSummary: { marginBottom: 12 },
   statusText: {
@@ -759,62 +913,53 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 10,
   },
-  emptyState: { alignItems: "center", marginTop: 100 },
-  emptyText: { marginTop: 15, color: "#94A3B8", fontSize: 14 },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+    paddingTop: 100,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 10,
+  },
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 24,
-    marginTop: 8,
-    backgroundColor: "#FAFBFC",
+    paddingVertical: 20,
+    marginTop: 10,
   },
   pageBtn: {
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#E8F0EF",
-    shadowColor: "#004643",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#F5F5F5",
   },
   pageBtnDisabled: {
-    backgroundColor: "#F5F7F6",
-    borderColor: "#E0E0E0",
+    backgroundColor: "#F0F0F0",
   },
   pageNumbers: {
     flexDirection: "row",
-    marginHorizontal: 16,
+    marginHorizontal: 15,
   },
   pageNumber: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginHorizontal: 3,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#E8F0EF",
-    shadowColor: "#004643",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginHorizontal: 2,
+    borderRadius: 8,
+    backgroundColor: "#F5F5F5",
   },
   pageNumberActive: {
     backgroundColor: "#004643",
-    borderColor: "#004643",
   },
   pageNumberText: {
     fontSize: 14,
-    color: "#5A6C7D",
+    color: "#666",
     fontWeight: "500",
   },
   pageNumberTextActive: {
     color: "#fff",
-    fontWeight: "600",
+    fontWeight: "bold",
   },
 
   filterBottomSheetModal: {
@@ -887,84 +1032,64 @@ const styles = StyleSheet.create({
   },
 
   dinasCard: {
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    marginBottom: 16,
-    flexDirection: "row",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    marginHorizontal: 2,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  statusAccent: { width: 6, height: "100%" },
-  cardMainContent: { flex: 1, padding: 16 },
-  titleContainer: { flex: 1, marginRight: 8 },
-  sptBadge: {
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-  },
-  headerRight: { alignItems: "flex-end" },
-  statusTag: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 8 },
-  statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-  statusTagText: { fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
-  cardDivider: { height: 1, backgroundColor: "#F1F5F9", marginBottom: 12 },
-  infoGrid: { gap: 8, marginBottom: 14 },
-  infoItem: { flexDirection: "row", alignItems: "center", gap: 10 },
-  iconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: "#F0FDF4", justifyContent: "center", alignItems: "center" },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    marginHorizontal: -16,
-    marginBottom: -16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 4,
-  },
-  attendeesContainer: { flexDirection: "row", alignItems: "center", gap: 6 },
-  attendeesText: { fontSize: 12, color: "#64748B" },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 14,
+    marginBottom: 10,
   },
-  cardTitle: { flex: 1, marginRight: 12 },
+  cardTitle: { flex: 1, marginRight: 10 },
   cardHeaderRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   dinasStatusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 8,
   },
   dinasStatusText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   kegiatanName: { fontSize: 16, fontWeight: "700", color: "#1E293B", marginBottom: 6 },
   sptNumber: { fontSize: 11, color: "#64748B", fontWeight: "600", letterSpacing: 0.5 },
-  cardInfo: { marginBottom: 8 },
+  cardInfo: { marginBottom: 0 },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 8,
-    gap: 10,
   },
-  infoText: { fontSize: 13, color: "#475569", flex: 1 },
+  infoIconBox: {
+    width: 28,
+    height: 28,
+    backgroundColor: "#F0F7F7",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  infoText: {
+    fontSize: 13,
+    color: "#475569",
+    flex: 1,
+  },
   dinasInfoSection: {
     backgroundColor: "#F8F9FA",
     padding: 10,
@@ -977,7 +1102,35 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
-  moreBtn: { padding: 4 },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    marginHorizontal: -14,
+    marginBottom: -14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  footerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 12,
+    color: "#64748B",
+  },
+  footerBold: {
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  moreBtn: {
+    padding: 8,
+  },
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
@@ -1106,15 +1259,44 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
 
-  /* Skeleton Styles */
-  skeletonStatusAccent: { width: 6, height: "100%", backgroundColor: "#E2E8F0" },
-  skeletonKegiatanName: { width: '75%', height: 16, backgroundColor: '#E2E8F0', borderRadius: 8, marginBottom: 6 },
-  skeletonSptBadge: { backgroundColor: "#F1F5F9", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: "flex-start" },
-  skeletonSptNumber: { width: 60, height: 11, backgroundColor: '#F1F5F9', borderRadius: 6 },
-  skeletonStatusTag: { width: 80, height: 24, backgroundColor: '#E2E8F0', borderRadius: 20, marginBottom: 8 },
-  skeletonMoreBtn: { width: 20, height: 20, backgroundColor: '#E2E8F0', borderRadius: 4 },
-  skeletonIconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: "#F1F5F9" },
-  skeletonInfoText: { height: 13, backgroundColor: '#F1F5F9', borderRadius: 6 },
-  skeletonChevron: { width: 18, height: 18, backgroundColor: '#F1F5F9', borderRadius: 4 },
+  /* ========================================
+     SKELETON STYLES - KELOLA DINAS
+  ======================================== */
+  skeletonKegiatanName: {
+    width: '70%',
+    height: 16,
+    backgroundColor: '#E8F0EF',
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  skeletonSptNumber: {
+    width: '45%',
+    height: 11,
+    backgroundColor: '#F0F4F3',
+    borderRadius: 4,
+  },
+  skeletonStatusBadge: {
+    width: 85,
+    height: 24,
+    backgroundColor: '#E8F0EF',
+    borderRadius: 8,
+  },
+  skeletonMoreBtn: {
+    width: 34,
+    height: 34,
+    backgroundColor: '#E8F0EF',
+    borderRadius: 17,
+  },
+  skeletonInfoIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: '#F0F4F3',
+    marginRight: 10,
+  },
+  skeletonInfoText: {
+    height: 13,
+    backgroundColor: '#E8F0EF',
+    borderRadius: 6,
+  },
 });
-

@@ -292,68 +292,65 @@ export default function PengajuanScreen() {
   const renderPengajuanCard = (item: PengajuanData) => {
     const status = getStatusInfo(item.status);
     const jenisLabel = getJenisPengajuanLabel(item.jenis_pengajuan);
+    const jenisIcon = getJenisIcon(item.jenis_pengajuan);
     
     return (
-      <TouchableOpacity
-        key={item.id_pengajuan}
+      <TouchableOpacity 
+        key={item.id_pengajuan} 
         style={styles.card}
         onPress={() => openDetailModal(item)}
-        activeOpacity={0.9}
+        activeOpacity={0.7}
       >
-        <View style={[styles.statusAccent, { backgroundColor: status.color }]} />
-        <View style={styles.cardMainContent}>
-          <View style={styles.cardHeader}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {jenisLabel}
-              </Text>
-              <View style={styles.sptBadge}>
-                <Text style={styles.cardSubtitle}>
-                  {formatDate(item.tanggal_mulai)}
-                  {item.tanggal_selesai && ` - ${formatDate(item.tanggal_selesai)}`}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.headerRight}>
-              <View style={[styles.statusBadge, { backgroundColor: status.color + '15' }]}>
-                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-                <Text style={[styles.statusText, { color: status.color }]}>
-                  {status.label}
-                </Text>
-              </View>
-            </View>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitle}>
+            <Text style={styles.kegiatanName}>{jenisLabel}</Text>
+            <Text style={styles.sptNumber}>ID: {item.id_pengajuan}</Text>
           </View>
+          <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>
+              {status.label}
+            </Text>
+          </View>
+        </View>
 
-          <View style={styles.cardDivider} />
-
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="document-text" size={14} color="#004643" />
+        <View style={styles.cardInfo}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="calendar-outline" size={16} color="#00695C" />
+            </View>
+            <Text style={styles.infoText}>
+              {formatDate(item.tanggal_mulai)}
+              {item.tanggal_selesai && ` - ${formatDate(item.tanggal_selesai)}`}
+            </Text>
+          </View>
+          {(item.jam_mulai || item.jam_selesai) && (
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="time-outline" size={16} color="#00695C" />
               </View>
-              <Text style={styles.infoText} numberOfLines={2}>
-                {item.alasan_text}
+              <Text style={styles.infoText}>
+                {formatTime(item.jam_mulai || '')} - {formatTime(item.jam_selesai || '')}
               </Text>
             </View>
-            {(item.jam_mulai || item.jam_selesai) && (
-              <View style={styles.infoItem}>
-                <View style={styles.iconCircle}>
-                  <Ionicons name="time" size={14} color="#004643" />
-                </View>
-                <Text style={styles.infoText}>
-                  {formatTime(item.jam_mulai || '')} - {formatTime(item.jam_selesai || '')}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.cardFooter}>
-            <View style={styles.attendeesContainer}>
-              <Ionicons name="document-text" size={20} color="#64748B" />
-              <Text style={styles.attendeesText}>Pengajuan</Text>
+          )}
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="document-text-outline" size={16} color="#00695C" />
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+            <Text style={styles.infoText} numberOfLines={2}>
+              {item.alasan_text}
+            </Text>
           </View>
+        </View>
+
+        <View style={styles.cardFooter}>
+          <View style={styles.footerLeft}>
+            <Ionicons name="time-outline" size={20} color="#64748B" />
+            <Text style={styles.footerText}>
+              Diajukan {formatDate(item.tanggal_pengajuan)}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
         </View>
       </TouchableOpacity>
     );
@@ -397,36 +394,29 @@ export default function PengajuanScreen() {
         <View style={styles.content}>
           {[1, 2, 3, 4, 5].map((item) => (
             <View key={item} style={styles.card}>
-              <View style={[styles.statusAccent, { backgroundColor: '#E2E8F0' }]} />
-              <View style={styles.cardMainContent}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.titleContainer}>
-                    <View style={[styles.skeletonText, { width: '75%', height: 16, marginBottom: 6 }]} />
-                    <View style={styles.sptBadge}>
-                      <View style={[styles.skeletonText, { width: 60, height: 11 }]} />
-                    </View>
-                  </View>
-                  <View style={styles.headerRight}>
-                    <View style={[styles.statusBadge, styles.skeleton, { width: 80, height: 24 }]} />
-                  </View>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitle}>
+                  <View style={[styles.skeletonText, { width: '70%', height: 16, marginBottom: 6 }]} />
+                  <View style={[styles.skeletonText, { width: '40%', height: 11 }]} />
                 </View>
-
-                <View style={styles.cardDivider} />
-
-                <View style={styles.infoGrid}>
-                  <View style={styles.infoItem}>
-                    <View style={[styles.iconCircle, styles.skeleton]} />
-                    <View style={[styles.skeletonText, { width: '60%', height: 13 }]} />
-                  </View>
+                <View style={[styles.skeletonText, { width: 70, height: 24, borderRadius: 8 }]} />
+              </View>
+              <View style={styles.cardInfo}>
+                <View style={styles.infoRow}>
+                  <View style={[styles.skeletonText, { width: 28, height: 28, borderRadius: 10, marginRight: 10 }]} />
+                  <View style={[styles.skeletonText, { flex: 1, height: 13 }]} />
                 </View>
-
-                <View style={styles.cardFooter}>
-                  <View style={styles.attendeesContainer}>
-                    <View style={[styles.iconCircle, styles.skeleton, { width: 20, height: 20 }]} />
-                    <View style={[styles.skeletonText, { width: '30%', height: 12 }]} />
-                  </View>
-                  <View style={[styles.skeletonText, { width: 18, height: 18 }]} />
+                <View style={styles.infoRow}>
+                  <View style={[styles.skeletonText, { width: 28, height: 28, borderRadius: 10, marginRight: 10 }]} />
+                  <View style={[styles.skeletonText, { flex: 1, height: 13 }]} />
                 </View>
+                <View style={styles.infoRow}>
+                  <View style={[styles.skeletonText, { width: 28, height: 28, borderRadius: 10, marginRight: 10 }]} />
+                  <View style={[styles.skeletonText, { flex: 1, height: 13 }]} />
+                </View>
+              </View>
+              <View style={styles.cardFooter}>
+                <View style={[styles.skeletonText, { width: '60%', height: 12 }]} />
               </View>
             </View>
           ))}
@@ -434,7 +424,6 @@ export default function PengajuanScreen() {
       ) : (
         <ScrollView
           style={styles.content}
-          contentContainerStyle={{ paddingBottom: 30 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#004643']} />
@@ -711,38 +700,33 @@ export default function PengajuanScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff'},
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    backgroundColor: '#ffffff',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: '#E8F0EF',
+    borderColor: '#E0E0E0',
     gap: 12,
-    shadowColor: '#004643',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     color: '#333',
-    paddingVertical: 14,
-    fontWeight: '400',
+    paddingVertical: 12,
   },
   filterButton: {
     width: 40,
@@ -754,7 +738,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingTop: 15,
+    paddingTop: 10,
+    backgroundColor: '#fff',
   },
   skeleton: {
     backgroundColor: '#E0E0E0',
@@ -767,68 +752,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFF',
     borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    shadowColor: '#000',
+    marginHorizontal: 20,
+    marginTop: 2,
+    borderWidth: 1,
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginHorizontal: 16,
-  },
-  statusAccent: { width: 6, height: '100%' },
-  cardMainContent: { flex: 1, padding: 12 },
-  titleContainer: { flex: 1, marginRight: 8 },
-  sptBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  headerRight: { alignItems: 'flex-end' },
-  statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-  cardDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 8 },
-  infoGrid: { gap: 6, marginBottom: 10 },
-  infoItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center' },
-  infoText: { fontSize: 12, color: '#475569', flex: 1 },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    marginHorizontal: -12,
-    marginBottom: -12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginTop: 2,
-  },
-  attendeesContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  attendeesText: { fontSize: 11, color: '#64748B' },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#F0F7F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E8F5F4',
-  },
-  cardContent: {
-    flex: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 80,
-    gap: 12,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -836,30 +770,68 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 10,
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontSize: 10,
-    color: '#64748B',
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  statusBadge: {
+  cardTitle: { flex: 1, marginRight: 10 },
+  kegiatanName: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 6 },
+  sptNumber: { fontSize: 11, color: '#64748B', fontWeight: '600', letterSpacing: 0.5 },
+  cardInfo: { marginBottom: 0 },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoIconBox: {
+    width: 28,
+    height: 28,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#475569',
+    flex: 1,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: -14,
+    marginBottom: -14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 6,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 80,
+    gap: 12,
   },
   emptyTitle: {
     fontSize: 16,
@@ -987,6 +959,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  infoItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
   },
   infoLabel: {
     fontSize: 11,

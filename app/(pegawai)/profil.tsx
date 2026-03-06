@@ -364,25 +364,22 @@ export default function ProfileScreen() {
         </LinearGradient>
 
         <View style={styles.infoSection}>
-          {/* Card 1: Informasi Profil */}
+          {/* Card 1: Informasi Pribadi */}
           <View style={styles.elegantCard}>
             <View style={styles.cardHeader}>
               <Ionicons name="person-circle-outline" size={20} color="#004643" />
-              <Text style={styles.cardTitle}>Informasi Profil</Text>
+              <Text style={styles.cardTitle}>Informasi Pribadi</Text>
+              <TouchableOpacity 
+                style={styles.editProfileBtnHeader}
+                onPress={() => router.push('/profile-pegawai/edit-profil' as any)}
+              >
+                <Ionicons name="pencil-outline" size={16} color="#00695C" />
+                <Text style={styles.editProfileTextHeader}>Edit</Text>
+              </TouchableOpacity>
             </View>
             
             <View style={styles.separator} />
             
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="mail-outline" size={16} color="#00695C" />
-              </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>EMAIL</Text>
-                <Text style={styles.valueModern}>{profile?.email || 'user@example.com'}</Text>
-              </View>
-            </View>
-
             <View style={styles.infoRowModern}>
               <View style={styles.infoIconBox}>
                 <Ionicons name="id-card-outline" size={16} color="#00695C" />
@@ -393,94 +390,13 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <View style={styles.infoRowModern}>
+            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
               <View style={styles.infoIconBox}>
                 <Ionicons name="call" size={16} color="#00695C" />
               </View>
               <View style={styles.infoContentModern}>
                 <Text style={styles.labelModern}>NOMOR TELEPON</Text>
                 <Text style={styles.valueModern}>{profile?.no_telepon || '-'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="transgender-outline" size={16} color="#00695C" />
-              </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>JENIS KELAMIN</Text>
-                <Text style={styles.valueModern}>{profile?.jenis_kelamin || '-'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="calendar-outline" size={16} color="#00695C" />
-              </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>TANGGAL LAHIR</Text>
-                <Text style={styles.valueModern}>{profile?.tanggal_lahir ? (() => {
-                  // Cek apakah sudah dalam format DD/MM/YYYY
-                  if (profile.tanggal_lahir.includes('/')) {
-                    return profile.tanggal_lahir;
-                  }
-                  // Jika dalam format ISO atau YYYY-MM-DD
-                  try {
-                    const date = new Date(profile.tanggal_lahir);
-                    if (isNaN(date.getTime())) return '-';
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                  } catch {
-                    return '-';
-                  }
-                })() : '-'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="ribbon-outline" size={16} color="#00695C" />
-              </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>JABATAN</Text>
-                <Text style={styles.valueModern}>{profile?.jabatan || '-'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="business-outline" size={16} color="#00695C" />
-              </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>DIVISI</Text>
-                <Text style={styles.valueModern}>{profile?.divisi || '-'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="location-outline" size={16} color="#00695C" />
-              </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>ALAMAT</Text>
-                <Text style={styles.descriptionText}>{profile?.alamat || 'Alamat belum diisi'}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="pencil-outline" size={16} color="#00695C" />
-              </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>AKSI</Text>
-                <TouchableOpacity 
-                  style={styles.editProfileBtn}
-                  onPress={() => router.push('/profile-pegawai/edit-profil' as any)}
-                >
-                  <Text style={styles.editProfileText}>Edit Profil</Text>
-                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -494,29 +410,30 @@ export default function ProfileScreen() {
             
             <View style={styles.separator} />
             
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="lock-closed-outline" size={16} color="#00695C" />
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/keamanan' as any)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#F0F7F7' }]}>
+                  <Ionicons name="lock-closed-outline" size={18} color="#00695C" />
+                </View>
+                <Text style={styles.menuText}>Pengaturan Keamanan</Text>
               </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>KEAMANAN</Text>
-                <TouchableOpacity onPress={() => router.push('/keamanan' as any)}>
-                  <Text style={styles.linkText}>Pengaturan Keamanan</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+              <Ionicons name="chevron-forward" size={20} color="#00695C" />
+            </TouchableOpacity>
 
-            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="notifications-outline" size={16} color="#00695C" />
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity style={styles.menuItem}>
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#F0F7F7' }]}>
+                  <Ionicons name="notifications-outline" size={18} color="#00695C" />
+                </View>
+                <Text style={styles.menuText}>Pengaturan Notifikasi</Text>
               </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>NOTIFIKASI</Text>
-                <TouchableOpacity>
-                  <Text style={styles.linkText}>Pengaturan Notifikasi</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+              <Ionicons name="chevron-forward" size={20} color="#00695C" />
+            </TouchableOpacity>
           </View>
 
           {/* Card 3: Info & Dukungan */}
@@ -528,29 +445,33 @@ export default function ProfileScreen() {
             
             <View style={styles.separator} />
             
-            <View style={styles.infoRowModern}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="shield-checkmark-outline" size={16} color="#00695C" />
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/tentang/kebijakan-privasi' as any)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#F0F7F7' }]}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color="#00695C" />
+                </View>
+                <Text style={styles.menuText}>Kebijakan Privasi</Text>
               </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>KEBIJAKAN PRIVASI</Text>
-                <TouchableOpacity onPress={() => router.push('/tentang/kebijakan-privasi' as any)}>
-                  <Text style={styles.linkText}>Lihat Kebijakan</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+              <Ionicons name="chevron-forward" size={20} color="#00695C" />
+            </TouchableOpacity>
 
-            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="document-text-outline" size={16} color="#00695C" />
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => router.push('/tentang/syarat-ketentuan' as any)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#F0F7F7' }]}>
+                  <Ionicons name="document-text-outline" size={18} color="#00695C" />
+                </View>
+                <Text style={styles.menuText}>Syarat & Ketentuan</Text>
               </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>SYARAT & KETENTUAN</Text>
-                <TouchableOpacity onPress={() => router.push('/tentang/syarat-ketentuan' as any)}>
-                  <Text style={styles.linkText}>Lihat Syarat</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+              <Ionicons name="chevron-forward" size={20} color="#00695C" />
+            </TouchableOpacity>
           </View>
 
           {/* Card 4: Keluar Akun */}
@@ -562,17 +483,18 @@ export default function ProfileScreen() {
             
             <View style={styles.separator} />
             
-            <View style={[styles.infoRowModern, { marginBottom: 0 }]}>
-              <View style={styles.infoIconBox}>
-                <Ionicons name="log-out-outline" size={16} color="#D32F2F" />
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => setLogoutModal(true)}
+            >
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#FFEBEE' }]}>
+                  <Ionicons name="log-out-outline" size={18} color="#D32F2F" />
+                </View>
+                <Text style={[styles.menuText, { color: '#D32F2F' }]}>Keluar dari Akun</Text>
               </View>
-              <View style={styles.infoContentModern}>
-                <Text style={styles.labelModern}>LOGOUT</Text>
-                <TouchableOpacity onPress={() => setLogoutModal(true)}>
-                  <Text style={[styles.linkText, { color: '#D32F2F' }]}>Keluar dari Akun</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+              <Ionicons name="chevron-forward" size={20} color="#D32F2F" />
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -730,6 +652,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#00695C',
   },
+  
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0F7F7',
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 6,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#00695C',
+    flex: 1,
+  },
+  logoutButton: {
+    backgroundColor: '#FFEBEE',
+    borderColor: '#FFCDD2',
+  },
+  logoutButtonText: {
+    color: '#D32F2F',
+  },
   linkText: {
     fontSize: 14,
     color: '#00695C',
@@ -750,8 +698,25 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10, flex: 1 },
   separator: { height: 1, backgroundColor: '#F0F3F3', marginBottom: 18 },
+  
+  editProfileBtnHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F7F7',
+    borderWidth: 1,
+    borderColor: '#E8F5F4',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  editProfileTextHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#00695C',
+  },
   
   // Modern Info Rows
   infoRowModern: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
@@ -769,8 +734,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 18,
-    paddingHorizontal: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 0,
   },
   menuLeft: {
     flexDirection: 'row',
@@ -778,23 +743,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   menuText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#1A1A1A',
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   menuDivider: {
     height: 1,
-    backgroundColor: '#F0F0F0',
-    marginHorizontal: -20,
+    backgroundColor: '#F0F3F3',
+    marginVertical: 4,
   },
   
   logoutModalOverlay: {

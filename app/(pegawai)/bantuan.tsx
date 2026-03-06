@@ -306,15 +306,18 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    marginHorizontal: 2,
+    borderWidth: 1,
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   iconBox: {
     width: 48,
@@ -383,7 +386,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   faqQuestion: { fontSize: 14, fontWeight: '600', color: '#1a1a1a', flex: 1, marginRight: 8 },
-  faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
+  faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20, marginTop: 12 },
 
   /* ========================================
      SKELETON STYLES - BANTUAN

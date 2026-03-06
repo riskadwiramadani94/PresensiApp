@@ -670,21 +670,21 @@ export default function DataPegawaiAdminScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAFBFC",
+    backgroundColor: "#ffffff",
   },
   contentContainer: {
     flex: 1,
-    backgroundColor: "#FAFBFC",
+    backgroundColor: "#ffffff",
   },
   content: {
     flex: 1,
-    backgroundColor: "#FAFBFC",
+    backgroundColor: "#ffffff",
   },
   searchContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
-    backgroundColor: "#FAFBFC",
+    backgroundColor: "#ffffff",
   },
   searchInputWrapper: {
     flexDirection: "row",
@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#b2bbc5",
     borderWidth: 1,
     borderColor: "#E5E5E5",
     gap: 6,
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 20,
-    backgroundColor: "#FAFBFC",
+    backgroundColor: "#ffffff",
   },
   pegawaiCard: {
     backgroundColor: '#FFF',

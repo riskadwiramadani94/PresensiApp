@@ -174,12 +174,12 @@ const getDetailPegawai = async (req, res) => {
         p.nama_lengkap,
         p.nip,
         p.jenis_kelamin,
-        p.tanggal_lahir,
+        DATE_FORMAT(p.tanggal_lahir, '%Y-%m-%d') as tanggal_lahir,
         p.alamat,
         p.no_telepon,
         p.jabatan,
         p.divisi,
-        p.tanggal_masuk,
+        DATE_FORMAT(p.tanggal_masuk, '%Y-%m-%d') as tanggal_masuk,
         CASE 
           WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
           THEN CONCAT('/uploads/pegawai/', p.foto_profil)
@@ -203,12 +203,12 @@ const getDetailPegawai = async (req, res) => {
           p.nama_lengkap,
           p.nip,
           p.jenis_kelamin,
-          p.tanggal_lahir,
+          DATE_FORMAT(p.tanggal_lahir, '%Y-%m-%d') as tanggal_lahir,
           p.alamat,
           p.no_telepon,
           p.jabatan,
           p.divisi,
-          p.tanggal_masuk,
+          DATE_FORMAT(p.tanggal_masuk, '%Y-%m-%d') as tanggal_masuk,
           CASE 
             WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
             THEN CONCAT('/uploads/pegawai/', p.foto_profil)
@@ -265,6 +265,15 @@ const createPegawai = async (req, res) => {
       }
     }
 
+    // Convert tanggal_lahir dari DD/MM/YYYY ke YYYY-MM-DD
+    let tanggal_lahir_formatted = null;
+    if (tanggal_lahir) {
+      const parts = tanggal_lahir.split('/');
+      if (parts.length === 3) {
+        tanggal_lahir_formatted = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    }
+
     const db = await getConnection();
     connection = await db.getConnection();
     
@@ -287,7 +296,7 @@ const createPegawai = async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Aktif', NOW())
       `, [
         userId, nama_lengkap, nip, jenis_kelamin || null, jabatan || null, 
-        divisi || null, no_telepon || null, alamat || null, tanggal_lahir || null
+        divisi || null, no_telepon || null, alamat || null, tanggal_lahir_formatted
       ]);
 
       await connection.commit();

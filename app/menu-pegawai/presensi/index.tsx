@@ -464,16 +464,24 @@ export default function RiwayatScreen() {
           </View>
           {[1, 2, 3, 4, 5].map((item) => (
             <View key={item} style={styles.logCard}>
-              <SkeletonBox width={4} height="100%" style={{ borderRadius: 0 }} />
+              {/* Left Border Skeleton */}
+              <SkeletonBox width={4} height={90} style={{ borderRadius: 0, marginRight: 0 }} />
+              
+              {/* Date Section Skeleton */}
               <View style={styles.dateSection}>
-                <SkeletonBox width={40} height={10} style={{ marginBottom: 4 }} />
-                <SkeletonBox width={30} height={24} style={{ marginBottom: 2 }} />
-                <SkeletonBox width={35} height={12} />
+                <SkeletonBox width={45} height={10} style={{ marginBottom: 4, borderRadius: 3 }} />
+                <SkeletonBox width={32} height={28} style={{ marginBottom: 2, borderRadius: 4 }} />
+                <SkeletonBox width={38} height={12} style={{ borderRadius: 3 }} />
               </View>
+              
+              {/* Content Section Skeleton */}
               <View style={styles.contentSection}>
-                <SkeletonBox width="70%" height={14} style={{ marginBottom: 4 }} />
-                <SkeletonBox width="50%" height={12} style={{ marginBottom: 4 }} />
-                <SkeletonBox width="60%" height={13} />
+                <View style={styles.statusRow}>
+                  <SkeletonBox width={60} height={14} style={{ borderRadius: 3 }} />
+                  <SkeletonBox width={70} height={12} style={{ borderRadius: 10 }} />
+                </View>
+                <SkeletonBox width="75%" height={12} style={{ marginBottom: 4, borderRadius: 3 }} />
+                <SkeletonBox width="55%" height={13} style={{ borderRadius: 3 }} />
               </View>
             </View>
           ))}
@@ -866,16 +874,19 @@ const styles = StyleSheet.create({
     color: '#004643',
     fontWeight: '600',
   },
-  logCard: { 
+  logCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    marginBottom: 12,
+    marginHorizontal: 2,
+    borderWidth: 1,
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
     flexDirection: 'row',
-    backgroundColor: '#fff', 
-    marginBottom: 10,
-    borderRadius: 12, 
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     overflow: 'hidden',
   },
   leftBorder: {
@@ -884,9 +895,10 @@ const styles = StyleSheet.create({
   dateSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     backgroundColor: '#FAFAFA',
+    minWidth: 70,
   },
   dayName: {
     fontSize: 10,
