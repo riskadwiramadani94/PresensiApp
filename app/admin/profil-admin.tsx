@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10, flex: 1 },
   separator: { height: 1, backgroundColor: '#F0F3F3', marginBottom: 18 },
   
   // Modern Info Rows

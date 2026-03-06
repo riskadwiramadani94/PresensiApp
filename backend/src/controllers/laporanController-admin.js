@@ -148,31 +148,57 @@ const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, mon
         if (dateStr < currentDate || (dateStr === currentDate && currentTime > batas_absen)) {
           // For each pegawai, check if they have attendance
           for (const pegawai of pegawaiList) {
-            // Check if already has presensi
-            const [presensiRows] = await db.execute(
-              'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ?',
-              [pegawai.id_user, dateStr]
-            );
-            
-            // Check if on dinas
-            const [dinasRows] = await db.execute(
-              'SELECT id FROM dinas_pegawai dp JOIN dinas d ON dp.id_dinas = d.id_dinas WHERE dp.id_user = ? AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai) AND dp.status_konfirmasi = "konfirmasi"',
-              [pegawai.id_user, dateStr]
-            );
-            
             // Check if on cuti
             const [cutiRows] = await db.execute(
               'SELECT id_pengajuan FROM pengajuan WHERE id_user = ? AND tanggal_mulai <= ? AND (tanggal_selesai >= ? OR tanggal_selesai IS NULL) AND status = "disetujui" AND jenis_pengajuan IN ("cuti_sakit", "cuti_tahunan", "cuti_alasan_penting")',
               [pegawai.id_user, dateStr, dateStr]
             );
             
-            // Hanya insert "Tidak Hadir" jika TIDAK sedang dinas DAN belum ada presensi
-            if (presensiRows.length === 0 && cutiRows.length === 0 && dinasRows.length === 0) {
-              // Tidak dinas, tidak presensi, tidak cuti -> Tidak Hadir
+            // Skip jika sedang cuti
+            if (cutiRows.length > 0) {
+              continue;
+            }
+            
+            // Check if on dinas
+            const [dinasRows] = await db.execute(
+              'SELECT d.id_dinas FROM dinas_pegawai dp JOIN dinas d ON dp.id_dinas = d.id_dinas WHERE dp.id_user = ? AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai) AND dp.status_konfirmasi = "konfirmasi"',
+              [pegawai.id_user, dateStr]
+            );
+            
+            if (dinasRows.length > 0) {
+              // Sedang dinas - HAPUS presensi kantor jika ada
               await db.execute(
-                'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi) VALUES (?, ?, "Tidak Hadir", "disetujui")',
+                'DELETE FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "kantor"',
                 [pegawai.id_user, dateStr]
               );
+              
+              // Cek apakah sudah ada presensi dinas
+              const [presensiDinasRows] = await db.execute(
+                'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "dinas"',
+                [pegawai.id_user, dateStr]
+              );
+              
+              if (presensiDinasRows.length === 0) {
+                // Belum ada presensi dinas → Insert "Tidak Hadir" DINAS
+                await db.execute(
+                  'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id) VALUES (?, ?, "Tidak Hadir", "disetujui", "dinas", ?)',
+                  [pegawai.id_user, dateStr, dinasRows[0].id_dinas]
+                );
+              }
+            } else {
+              // Tidak sedang dinas - cek presensi kantor
+              const [presensiKantorRows] = await db.execute(
+                'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "kantor"',
+                [pegawai.id_user, dateStr]
+              );
+              
+              if (presensiKantorRows.length === 0) {
+                // Belum ada presensi kantor → Insert "Tidak Hadir" KANTOR
+                await db.execute(
+                  'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi) VALUES (?, ?, "Tidak Hadir", "disetujui", "kantor")',
+                  [pegawai.id_user, dateStr]
+                );
+              }
             }
           }
         }
@@ -283,37 +309,22 @@ const getLaporan = async (req, res) => {
       const data = [];
       
       for (const pegawai of pegawaiResults) {
-        // Query gabungan presensi dan dinas dengan UNION untuk menghindari duplikasi
+        // Query untuk menghitung SEMUA presensi (kantor + dinas) tanpa duplikasi per tanggal
         const gabunganQuery = `
           SELECT 
-            DATE(tanggal) as tanggal_unik,
             CASE 
               WHEN status IN ('Hadir', 'hadir') THEN 'Hadir'
               WHEN status IN ('Terlambat', 'terlambat') THEN 'Terlambat' 
               WHEN status IN ('Tidak Hadir', 'tidak_hadir') THEN 'Tidak Hadir'
               ELSE status
             END as status_final
-          FROM (
-            SELECT tanggal, status FROM presensi WHERE id_user = ? ${dateFilter.replace(/pr\./g, '')}
-            UNION ALL
-            SELECT tanggal_absen as tanggal, status FROM absen_dinas ad 
-            JOIN dinas_pegawai dp ON ad.id_dinas = dp.id_dinas 
-            WHERE ad.id_user = ? AND dp.status_konfirmasi = 'konfirmasi' ${dateFilter.replace(/pr\.tanggal/g, 'ad.tanggal_absen')}
-          ) combined
+          FROM presensi
+          WHERE id_user = ? ${dateFilter.replace(/pr\./g, '')}
         `;
         
-        const [gabunganRows] = await db.execute(gabunganQuery, [pegawai.id_user, ...dateParams, pegawai.id_user, ...dateParams]);
+        const [gabunganRows] = await db.execute(gabunganQuery, [pegawai.id_user, ...dateParams]);
         
-        // Group by tanggal untuk menghindari duplikasi per hari
-        const perTanggal = {};
-        gabunganRows.forEach(row => {
-          const tgl = row.tanggal_unik;
-          if (!perTanggal[tgl] || row.status_final !== 'Tidak Hadir') {
-            perTanggal[tgl] = row.status_final;
-          }
-        });
-        
-        // Hitung summary dari data yang sudah di-merge
+        // Hitung summary dari SEMUA data (tidak ada filter duplikasi)
         let adjustedSummary = {
           'Hadir': 0,
           'Terlambat': 0, 
@@ -327,7 +338,9 @@ const getLaporan = async (req, res) => {
           'Libur': 0
         };
         
-        Object.values(perTanggal).forEach(status => {
+        // Hitung SEMUA status tanpa filter per tanggal
+        gabunganRows.forEach(row => {
+          const status = row.status_final;
           if (adjustedSummary[status] !== undefined) {
             adjustedSummary[status]++;
           }
@@ -361,13 +374,13 @@ const getLaporan = async (req, res) => {
           p.jabatan,
           p.foto_profil,
           dp.status_konfirmasi,
-          COUNT(DISTINCT ad.id) as total_absen,
-          SUM(CASE WHEN ad.jam_masuk IS NOT NULL AND ad.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap,
+          COUNT(DISTINCT pr.id_presensi) as total_absen,
+          SUM(CASE WHEN pr.jam_masuk IS NOT NULL AND pr.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap,
           GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas
         FROM dinas d
         INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
         INNER JOIN pegawai p ON dp.id_user = p.id_user
-        LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND ad.id_user = dp.id_user
+        LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
         LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
         LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
         WHERE 1=1
@@ -781,8 +794,8 @@ const getDetailAbsenPegawai = async (req, res) => {
         // Sedang dinas - cek apakah ada absen dinas
         const [absenDinasRows] = await db.execute(`
           SELECT jam_masuk, jam_pulang, status
-          FROM absen_dinas 
-          WHERE id_user = ? AND tanggal_absen = ?
+          FROM presensi 
+          WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas'
         `, [user_id, dateStr]);
         
         const absenDinas = absenDinasRows[0];
@@ -984,12 +997,12 @@ const getDetailLaporan = async (req, res) => {
           dp.status_konfirmasi,
           dp.tanggal_konfirmasi,
           GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas,
-          COUNT(DISTINCT ad.id) as total_absen,
-          SUM(CASE WHEN ad.jam_masuk IS NOT NULL AND ad.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap
+          COUNT(DISTINCT pr.id_presensi) as total_absen,
+          SUM(CASE WHEN pr.jam_masuk IS NOT NULL AND pr.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap
         FROM dinas d
         INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
         INNER JOIN pegawai p ON dp.id_user = p.id_user
-        LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND ad.id_user = dp.id_user
+        LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
         LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
         LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
         WHERE d.id_dinas = ?
@@ -1128,11 +1141,11 @@ const exportPDF = async (req, res) => {
             GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas,
             d.status,
             dp.status_konfirmasi,
-            COUNT(DISTINCT ad.id) as total_absen
+            COUNT(DISTINCT pr.id_presensi) as total_absen
           FROM dinas d
           INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
           INNER JOIN pegawai p ON dp.id_user = p.id_user
-          LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND ad.id_user = dp.id_user
+          LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
           LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
           LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
           WHERE d.tanggal_mulai BETWEEN ? AND ?

@@ -85,23 +85,12 @@ export const CustomAlert: React.FC<CustomAlertProps> = ({
               </TouchableOpacity>
             )}
             
-            {isConfirm ? (
-              <TouchableOpacity 
-                style={[styles.confirmButton, { flex: 1, backgroundColor: '#F44336' }]} 
-                onPress={handleConfirm}
-              >
-                <Text style={styles.confirmButtonText}>{confirmText}</Text>
-              </TouchableOpacity>
-            ) : (
-              !autoClose && (
-                <TouchableOpacity 
-                  style={[styles.confirmButton, { width: '100%' }]} 
-                  onPress={handleConfirm}
-                >
-                  <Text style={styles.confirmButtonText}>{confirmText}</Text>
-                </TouchableOpacity>
-              )
-            )}
+            <TouchableOpacity 
+              style={[styles.confirmButton, isConfirm ? { flex: 1, backgroundColor: '#F44336' } : { width: '100%' }]} 
+              onPress={handleConfirm}
+            >
+              <Text style={styles.confirmButtonText}>{confirmText}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

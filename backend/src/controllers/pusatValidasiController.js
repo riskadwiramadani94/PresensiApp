@@ -8,37 +8,37 @@ const pusatValidasiController = {
       const db = await getConnection();
       const query = `
         SELECT 
-          ad.id,
-          ad.id_dinas,
-          ad.id_user,
-          ad.tanggal_absen,
-          ad.jam_masuk,
-          ad.lintang_masuk as latitude_masuk,
-          ad.bujur_masuk as longitude_masuk,
+          pr.id_presensi as id,
+          pr.dinas_id as id_dinas,
+          pr.id_user,
+          pr.tanggal as tanggal_absen,
+          pr.jam_masuk,
+          pr.lintang_masuk as latitude_masuk,
+          pr.bujur_masuk as longitude_masuk,
           CASE 
-            WHEN ad.foto_masuk IS NOT NULL AND ad.foto_masuk != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_masuk)
+            WHEN pr.foto_masuk IS NOT NULL AND pr.foto_masuk != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_masuk)
             ELSE NULL
           END as foto_masuk,
           CASE 
-            WHEN ad.foto_pulang IS NOT NULL AND ad.foto_pulang != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_pulang)
+            WHEN pr.foto_pulang IS NOT NULL AND pr.foto_pulang != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_pulang)
             ELSE NULL
           END as foto_pulang,
-          ad.status,
-          ad.status_validasi,
-          ad.keterangan,
+          pr.status,
+          pr.status_validasi,
+          pr.alasan_luar_lokasi as keterangan,
           pg.nama_lengkap,
           pg.nip,
           d.nama_kegiatan,
           d.nomor_spt,
           d.alamat_lengkap
-        FROM absen_dinas ad
-        JOIN users u ON ad.id_user = u.id_user
+        FROM presensi pr
+        JOIN users u ON pr.id_user = u.id_user
         JOIN pegawai pg ON u.id_user = pg.id_user
-        JOIN dinas d ON ad.id_dinas = d.id_dinas
-        WHERE ad.status_validasi = 'menunggu'
-        ORDER BY ad.tanggal_absen DESC, ad.jam_masuk DESC
+        JOIN dinas d ON pr.dinas_id = d.id_dinas
+        WHERE pr.jenis_presensi = 'dinas' AND pr.status_validasi = 'menunggu'
+        ORDER BY pr.tanggal DESC, pr.jam_masuk DESC
       `;
       
       const [results] = await db.execute(query);
@@ -62,36 +62,37 @@ const pusatValidasiController = {
       const db = await getConnection();
       const query = `
         SELECT 
-          ad.id,
-          ad.id_dinas,
-          ad.id_user,
-          ad.tanggal_absen,
-          ad.jam_masuk,
-          ad.lintang_masuk as latitude_masuk,
-          ad.bujur_masuk as longitude_masuk,
+          pr.id_presensi as id,
+          pr.dinas_id as id_dinas,
+          pr.id_user,
+          pr.tanggal as tanggal_absen,
+          pr.jam_masuk,
+          pr.lintang_masuk as latitude_masuk,
+          pr.bujur_masuk as longitude_masuk,
           CASE 
-            WHEN ad.foto_masuk IS NOT NULL AND ad.foto_masuk != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_masuk)
+            WHEN pr.foto_masuk IS NOT NULL AND pr.foto_masuk != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_masuk)
             ELSE NULL
           END as foto_masuk,
           CASE 
-            WHEN ad.foto_pulang IS NOT NULL AND ad.foto_pulang != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', ad.foto_pulang)
+            WHEN pr.foto_pulang IS NOT NULL AND pr.foto_pulang != '' 
+            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_pulang)
             ELSE NULL
           END as foto_pulang,
-          ad.status,
-          ad.status_validasi,
-          ad.keterangan,
+          pr.status,
+          pr.status_validasi,
+          pr.alasan_luar_lokasi as keterangan,
           pg.nama_lengkap,
           pg.nip,
           d.nama_kegiatan,
           d.nomor_spt,
           d.alamat_lengkap
-        FROM absen_dinas ad
-        JOIN users u ON ad.id_user = u.id_user
+        FROM presensi pr
+        JOIN users u ON pr.id_user = u.id_user
         JOIN pegawai pg ON u.id_user = pg.id_user
-        JOIN dinas d ON ad.id_dinas = d.id_dinas
-        ORDER BY ad.tanggal_absen DESC, ad.jam_masuk DESC
+        JOIN dinas d ON pr.dinas_id = d.id_dinas
+        WHERE pr.jenis_presensi = 'dinas'
+        ORDER BY pr.tanggal DESC, pr.jam_masuk DESC
         LIMIT 100
       `;
       
@@ -210,16 +211,17 @@ const pusatValidasiController = {
       // Perlu Validasi
       const [perluValidasi] = await db.execute(`
         SELECT COUNT(*) as count 
-        FROM absen_dinas 
-        WHERE status IN ('hadir', 'terlambat') 
+        FROM presensi 
+        WHERE jenis_presensi = 'dinas'
+        AND status IN ('Hadir', 'Terlambat') 
         AND status_validasi = 'menunggu'
       `);
 
-      // Sudah Divalidasi
       const [sudahValidasi] = await db.execute(`
         SELECT COUNT(*) as count 
-        FROM absen_dinas 
-        WHERE status_validasi = 'disetujui'
+        FROM presensi 
+        WHERE jenis_presensi = 'dinas'
+        AND status_validasi = 'disetujui'
       `);
 
       // Tidak Hadir (pegawai yang tidak ada record absen & sudah lewat batas absen)
@@ -253,10 +255,11 @@ const pusatValidasiController = {
             SELECT COUNT(*) as count 
             FROM dinas_pegawai dp
             INNER JOIN dinas d ON dp.id_dinas = d.id_dinas
-            LEFT JOIN absen_dinas ad ON dp.id_user = ad.id_user 
-              AND ad.id_dinas = dp.id_dinas 
-              AND ad.tanggal_absen = CURDATE()
-            WHERE ad.id IS NULL 
+            LEFT JOIN presensi pr ON dp.id_user = pr.id_user 
+              AND pr.dinas_id = dp.id_dinas 
+              AND pr.tanggal = CURDATE()
+              AND pr.jenis_presensi = 'dinas'
+            WHERE pr.id_presensi IS NULL 
             AND CURDATE() BETWEEN d.tanggal_mulai AND d.tanggal_selesai
             AND dp.status_konfirmasi = 'konfirmasi'
           `);
@@ -326,12 +329,12 @@ const pusatValidasiController = {
       switch (type) {
         case 'absen_dinas':
           query = `
-            UPDATE absen_dinas 
+            UPDATE presensi 
             SET status_validasi = 'disetujui',
                 divalidasi_oleh = ?,
                 catatan_validasi = ?,
                 waktu_validasi = NOW()
-            WHERE id = ?
+            WHERE id_presensi = ? AND jenis_presensi = 'dinas'
           `;
           params = [adminId, catatan || null, id];
           break;
@@ -390,12 +393,12 @@ const pusatValidasiController = {
       switch (type) {
         case 'absen_dinas':
           query = `
-            UPDATE absen_dinas 
+            UPDATE presensi 
             SET status_validasi = 'ditolak',
                 divalidasi_oleh = ?,
                 catatan_validasi = ?,
                 waktu_validasi = NOW()
-            WHERE id = ?
+            WHERE id_presensi = ? AND jenis_presensi = 'dinas'
           `;
           params = [adminId, catatan, id];
           break;

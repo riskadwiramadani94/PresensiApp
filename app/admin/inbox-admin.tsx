@@ -64,7 +64,7 @@ export default function InboxAdmin() {
             nama_pegawai: absen.nama_lengkap || '-',
             nip: absen.nip || '-',
             waktu: absen.jam_masuk || '-',
-            tanggal: absen.tanggal_absen || '-',
+            tanggal: formatTanggal(absen.tanggal_absen),
             data: absen,
             isProcessed: absen.status_validasi !== 'menunggu'
           });
@@ -149,12 +149,16 @@ export default function InboxAdmin() {
   };
 
   const formatWaktu = (dateString: string) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
     return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatTanggal = (dateString: string) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
@@ -168,20 +172,8 @@ export default function InboxAdmin() {
   };
 
   const handleItemPress = (item: InboxItem) => {
-    // Redirect ke Pusat Validasi dengan tab yang sesuai
-    if (item.type === 'absen_dinas') {
-      // Untuk absen dinas, buka tab absen dinas
-      router.push({
-        pathname: '/menu-admin/pusat-validasi',
-        params: { initialTab: 'absen_dinas' }
-      } as any);
-    } else {
-      // Untuk pengajuan, buka tab pengajuan
-      router.push({
-        pathname: '/menu-admin/pusat-validasi',
-        params: { initialTab: 'pengajuan' }
-      } as any);
-    }
+    // Redirect ke halaman pengajuan dengan tab yang sesuai
+    router.push('/menu-admin/pengajuan' as any);
   };
 
   /* ========================================
@@ -256,7 +248,7 @@ export default function InboxAdmin() {
       />
       
       {loading ? (
-        <View style={styles.content}>
+        <View style={styles.listContent}>
           {/* ========================================
                SKELETON LOADING STATE - KOTAK MASUK
           ======================================== */}
@@ -419,24 +411,27 @@ const styles = StyleSheet.create({
   /* ========================================
      SKELETON STYLES - KOTAK MASUK
   ======================================== */
-  loadingContent: {
-    padding: 16,
-  },
   skeletonCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
+    marginHorizontal: 2,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   skeletonIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E0E0E0',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E5E7EB',
     marginRight: 12,
   },
   skeletonContent: {
@@ -444,28 +439,29 @@ const styles = StyleSheet.create({
   },
   skeletonTitle: {
     width: '70%',
-    height: 16,
-    backgroundColor: '#E0E0E0',
+    height: 15,
+    backgroundColor: '#E5E7EB',
     borderRadius: 4,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   skeletonSubtitle: {
     width: '50%',
-    height: 14,
-    backgroundColor: '#F0F0F0',
+    height: 13,
+    backgroundColor: '#F3F4F6',
     borderRadius: 4,
-    marginBottom: 6,
+    marginBottom: 2,
   },
   skeletonTime: {
     width: '40%',
     height: 12,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#F3F4F6',
     borderRadius: 4,
+    marginTop: 4,
   },
   skeletonChevron: {
     width: 20,
     height: 20,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#E5E7EB',
     borderRadius: 4,
   },
 });

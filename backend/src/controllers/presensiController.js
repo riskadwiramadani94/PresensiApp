@@ -352,13 +352,29 @@ const getPresensi = async (req, res) => {
         );
         const isHoliday = hariLiburRows.length > 0;
         
-        // PRIORITY 2: Check if it's a work day from jam_kerja_history (HISTORIS)
-        const [jamKerjaRows] = await db.execute(`
+        // PRIORITY 2: Check if it's a work day from jam_kerja_history (HISTORIS) atau jam_kerja_hari (FALLBACK)
+        let isWorkDay = false;
+        
+        // Cek jam_kerja_history dulu
+        const [jamKerjaHistoryRows] = await db.execute(`
           SELECT is_kerja FROM jam_kerja_history 
           WHERE hari = ? 
           AND ? BETWEEN tanggal_mulai_berlaku AND IFNULL(tanggal_selesai_berlaku, '9999-12-31')
+          ORDER BY tanggal_mulai_berlaku DESC
+          LIMIT 1
         `, [dayName, dateStr]);
-        const isWorkDay = jamKerjaRows.length > 0 && jamKerjaRows[0].is_kerja === 1;
+        
+        if (jamKerjaHistoryRows.length > 0) {
+          // Ada data di jam_kerja_history
+          isWorkDay = jamKerjaHistoryRows[0].is_kerja === 1;
+        } else {
+          // Tidak ada data di jam_kerja_history, fallback ke jam_kerja_hari
+          const [jamKerjaHariRows] = await db.execute(
+            'SELECT is_kerja FROM jam_kerja_hari WHERE hari = ?',
+            [dayName]
+          );
+          isWorkDay = jamKerjaHariRows.length > 0 && jamKerjaHariRows[0].is_kerja === 1;
+        }
         
         // ✅ CEK LIBUR & WEEKEND DULU sebelum cek presensi
         if (isHoliday) {
@@ -485,16 +501,56 @@ const submitPresensi = async (req, res) => {
 
     const db = await getConnection();
 
+    // Gunakan waktu Indonesia (WIB/WITA/WIT)
+    const now = new Date();
+    const indonesiaTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+    
+    const year = indonesiaTime.getUTCFullYear();
+    const month = String(indonesiaTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(indonesiaTime.getUTCDate()).padStart(2, '0');
+    const hours = String(indonesiaTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(indonesiaTime.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(indonesiaTime.getUTCSeconds()).padStart(2, '0');
+    
+    const tanggal_only = `${year}-${month}-${day}`;
+    const jam_sekarang = `${hours}:${minutes}:${seconds}`;
+    
+    console.log('Waktu Indonesia:', `${tanggal_only} ${jam_sekarang}`, '| Tanggal:', tanggal_only);
+
+    // Cek apakah pegawai sedang terdaftar dinas hari ini
+    const [dinasCheckRows] = await db.execute(`
+      SELECT d.id_dinas
+      FROM dinas d
+      INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
+      WHERE dp.id_user = ?
+        AND ? BETWEEN d.tanggal_mulai AND d.tanggal_selesai
+        AND d.status = 'aktif'
+        AND dp.status_konfirmasi = 'konfirmasi'
+      LIMIT 1
+    `, [user_id, tanggal_only]);
+
     // Validasi lokasi
     let lokasi_valid = false;
     let nama_lokasi = '';
     let jenis_lokasi_absen = 'tetap';
     let lokasi_id_valid = null;
+    let lokasiRows = [];
 
-    // Ambil semua lokasi yang aktif (kantor tetap + dinas aktif)
-    const [lokasiRows] = await db.execute(
-      'SELECT * FROM lokasi_kantor WHERE status = "aktif" AND is_active = 1'
-    );
+    // Jika sedang dinas, ambil HANYA lokasi dinas
+    if (dinasCheckRows.length > 0) {
+      const id_dinas = dinasCheckRows[0].id_dinas;
+      [lokasiRows] = await db.execute(`
+        SELECT lk.* 
+        FROM dinas_lokasi dl
+        JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+        WHERE dl.id_dinas = ? AND lk.status = 'aktif' AND lk.is_active = 1
+      `, [id_dinas]);
+    } else {
+      // Tidak dinas, ambil lokasi kantor tetap
+      [lokasiRows] = await db.execute(
+        'SELECT * FROM lokasi_kantor WHERE jenis_lokasi = "tetap" AND status = "aktif" AND is_active = 1'
+      );
+    }
 
     // Cek apakah user berada di salah satu lokasi yang diizinkan
     for (const lokasi of lokasiRows) {
@@ -523,36 +579,6 @@ const submitPresensi = async (req, res) => {
     if (!lokasi_valid) {
       return res.json({ success: false, message: 'Anda berada di luar radius lokasi yang diizinkan' });
     }
-
-    // Gunakan waktu Indonesia (WIB/WITA/WIT)
-    const now = new Date();
-    // Tambahkan 7 jam untuk WIB (UTC+7)
-    const indonesiaTime = new Date(now.getTime() + (7 * 60 * 60 * 1000));
-    
-    // Format: YYYY-MM-DD (tanggal saja, bukan datetime)
-    const year = indonesiaTime.getUTCFullYear();
-    const month = String(indonesiaTime.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(indonesiaTime.getUTCDate()).padStart(2, '0');
-    const hours = String(indonesiaTime.getUTCHours()).padStart(2, '0');
-    const minutes = String(indonesiaTime.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(indonesiaTime.getUTCSeconds()).padStart(2, '0');
-    
-    const tanggal_only = `${year}-${month}-${day}`; // YYYY-MM-DD saja
-    const jam_sekarang = `${hours}:${minutes}:${seconds}`;
-    
-    console.log('Waktu Indonesia:', `${tanggal_only} ${jam_sekarang}`, '| Tanggal:', tanggal_only);
-
-    // Cek apakah pegawai sedang terdaftar dinas hari ini
-    const [dinasCheckRows] = await db.execute(`
-      SELECT d.id_dinas
-      FROM dinas d
-      INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
-      WHERE dp.id_user = ?
-        AND ? BETWEEN d.tanggal_mulai AND d.tanggal_selesai
-        AND d.status = 'aktif'
-        AND dp.status_konfirmasi = 'konfirmasi'
-      LIMIT 1
-    `, [user_id, tanggal_only]);
     
     // Jika terdaftar dinas, apapun lokasinya harus validasi
     const status_validasi = dinasCheckRows.length > 0 ? 'menunggu' : 'disetujui';
@@ -641,7 +667,7 @@ const submitPresensi = async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'dinas', ?)
           `, [
             user_id, tanggal_only, jam_sekarang, latitude, longitude, 
-            fotoFile || null, status, keterangan || null, 'menunggu', lokasi_id_valid, id_dinas
+            fotoFile || null, status, nama_lokasi, 'menunggu', lokasi_id_valid, id_dinas
           ]);
         }
         
@@ -743,7 +769,7 @@ const submitPresensi = async (req, res) => {
             jam_pulang = ?, lintang_pulang = ?, bujur_pulang = ?, foto_pulang = ?, alasan_luar_lokasi = ? 
           WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas'
         `, [
-          jam_sekarang, latitude, longitude, fotoFile || null, keterangan || nama_lokasi, 
+          jam_sekarang, latitude, longitude, fotoFile || null, nama_lokasi, 
           user_id, tanggal_only
         ]);
         

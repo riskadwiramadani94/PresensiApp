@@ -90,19 +90,20 @@ const getDinasAktifAdmin = async (req, res) => {
 
       // Get pegawai details for this dinas with specific date filter
       const [pegawaiRows] = await db.execute(`
-        SELECT dp.*, p.nama_lengkap, p.nip,
-               ad.id as absen_id,
-               ad.jam_masuk, ad.jam_pulang, ad.status as absen_status,
-               ad.foto_masuk, ad.foto_pulang, ad.status_validasi,
-               ad.lintang_masuk, ad.bujur_masuk,
+        SELECT dp.*, pg.nama_lengkap, pg.nip,
+               pr.id_presensi as absen_id,
+               pr.jam_masuk, pr.jam_pulang, pr.status as absen_status,
+               pr.foto_masuk, pr.foto_pulang, pr.status_validasi,
+               pr.lintang_masuk, pr.bujur_masuk,
                lk.nama_lokasi as lokasi_absen
         FROM dinas_pegawai dp 
         JOIN users u ON dp.id_user = u.id_user
-        JOIN pegawai p ON u.id_user = p.id_user
-        LEFT JOIN absen_dinas ad ON dp.id_dinas = ad.id_dinas 
-          AND dp.id_user = ad.id_user 
-          AND DATE(ad.tanggal_absen) = ?
-        LEFT JOIN lokasi_kantor lk ON ad.lokasi_id = lk.id
+        JOIN pegawai pg ON u.id_user = pg.id_user
+        LEFT JOIN presensi pr ON dp.id_dinas = pr.dinas_id 
+          AND dp.id_user = pr.id_user 
+          AND DATE(pr.tanggal) = ?
+          AND pr.jenis_presensi = 'dinas'
+        LEFT JOIN lokasi_kantor lk ON pr.lokasi_id = lk.id
         WHERE dp.id_dinas = ?
       `, [filterDate, row.id_dinas]);
 
@@ -359,10 +360,10 @@ const getRiwayatDinasAdmin = async (req, res) => {
     const [rows] = await db.execute(`
       SELECT d.*, 
              COUNT(dp.id) as total_pegawai,
-             SUM(CASE WHEN ad.status = 'hadir' THEN 1 ELSE 0 END) as hadir_count
+             SUM(CASE WHEN pr.status = 'Hadir' THEN 1 ELSE 0 END) as hadir_count
       FROM dinas d 
       LEFT JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas 
-      LEFT JOIN absen_dinas ad ON d.id_dinas = ad.id_dinas AND dp.id_user = ad.id_user
+      LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND dp.id_user = pr.id_user AND pr.jenis_presensi = 'dinas'
       WHERE d.status IN ('selesai', 'dibatalkan')
       GROUP BY d.id_dinas 
       ORDER BY d.tanggal_mulai DESC
@@ -383,14 +384,14 @@ const getValidasiAbsenAdmin = async (req, res) => {
   try {
     const db = await getConnection();
 
-    // Remove the status_validasi filter since the column doesn't exist
     const [rows] = await db.execute(`
-      SELECT ad.*, p.nama_lengkap, p.nip, d.nama_kegiatan
-      FROM absen_dinas ad
-      JOIN users u ON ad.id_user = u.id_user
-      JOIN pegawai p ON u.id_user = p.id_user
-      JOIN dinas d ON ad.id_dinas = d.id_dinas
-      ORDER BY ad.tanggal_absen DESC
+      SELECT pr.*, pg.nama_lengkap, pg.nip, d.nama_kegiatan
+      FROM presensi pr
+      JOIN users u ON pr.id_user = u.id_user
+      JOIN pegawai pg ON u.id_user = pg.id_user
+      JOIN dinas d ON pr.dinas_id = d.id_dinas
+      WHERE pr.jenis_presensi = 'dinas'
+      ORDER BY pr.tanggal DESC
     `);
 
     res.json({
@@ -443,11 +444,11 @@ const getDinasStats = async (req, res) => {
       SELECT COUNT(DISTINCT dp.id_user) as count 
       FROM dinas d
       JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
-      LEFT JOIN absen_dinas ad ON dp.id_dinas = ad.id_dinas AND dp.id_user = ad.id_user AND DATE(ad.tanggal_absen) = ?
+      LEFT JOIN presensi pr ON dp.id_dinas = pr.dinas_id AND dp.id_user = pr.id_user AND DATE(pr.tanggal) = ? AND pr.jenis_presensi = 'dinas'
       WHERE DATE(d.tanggal_mulai) <= ? 
       AND (DATE(d.tanggal_selesai) >= ? OR d.tanggal_selesai IS NULL)
       AND d.status = 'aktif'
-      AND ad.id_user IS NULL
+      AND pr.id_user IS NULL
     `, [today, today, today]);
     
     const stats = {
@@ -615,7 +616,7 @@ const deleteDinas = async (req, res) => {
     try {
       await connection.execute('DELETE FROM dinas_pegawai WHERE id_dinas = ?', [id]);
       await connection.execute('DELETE FROM dinas_lokasi WHERE id_dinas = ?', [id]);
-      await connection.execute('DELETE FROM absen_dinas WHERE id_dinas = ?', [id]);
+      await connection.execute('DELETE FROM presensi WHERE dinas_id = ? AND jenis_presensi = "dinas"', [id]);
       await connection.execute('DELETE FROM dinas WHERE id_dinas = ?', [id]);
 
       await connection.commit();
@@ -788,12 +789,12 @@ const validateAbsenDinas = async (req, res) => {
     const status = action === 'approve' ? 'disetujui' : 'ditolak';
     
     await db.execute(`
-      UPDATE absen_dinas 
+      UPDATE presensi 
       SET status_validasi = ?, 
           divalidasi_oleh = ?,
           catatan_validasi = ?,
           waktu_validasi = NOW()
-      WHERE id = ?
+      WHERE id_presensi = ? AND jenis_presensi = 'dinas'
     `, [status, adminId, catatan || null, id]);
     
     res.json({

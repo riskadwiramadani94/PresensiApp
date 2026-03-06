@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, Dimensions, Animated, Platform, PanResponder } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Animated, Platform, PanResponder } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { PegawaiAPI, API_CONFIG } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PresensiMap from '../../components/PresensiMap';
-import { AppHeader } from '../../components';
+import { AppHeader, CustomAlert } from '../../components';
+import { useCustomAlert } from '../../hooks/useCustomAlert';
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
 
 export default function PresensiScreen() {
+  const alert = useCustomAlert();
   const [location, setLocation] = useState<any>(null);
   const [distance, setDistance] = useState<number>(0);
   const [availableLocations, setAvailableLocations] = useState<any[]>([]);
@@ -612,19 +614,20 @@ export default function PresensiScreen() {
         
         // Tampilkan pesan berbeda untuk dinas vs kantor
         if (result.already_checked_in) {
-          Alert.alert(
-            'Informasi',
-            'Anda sudah melakukan presensi masuk hari ini',
-            [{ text: 'OK' }]
-          );
+          alert.showAlert({
+            type: 'info',
+            message: 'Anda sudah melakukan presensi masuk hari ini'
+          });
         } else if (result.status_validasi === 'menunggu') {
-          Alert.alert(
-            'Presensi Tercatat',
-            `Absensi ${type} berhasil dicatat di ${result.nama_lokasi}.\n\nStatus: Menunggu Validasi Admin`,
-            [{ text: 'OK' }]
-          );
+          alert.showAlert({
+            type: 'success',
+            message: `Absensi ${type} berhasil dicatat di ${result.nama_lokasi}.\n\nStatus: Menunggu Validasi Admin`
+          });
         } else {
-          Alert.alert('Berhasil', `Absensi ${type} berhasil dicatat di ${result.nama_lokasi}`);
+          alert.showAlert({
+            type: 'success',
+            message: `Absensi ${type} berhasil dicatat di ${result.nama_lokasi}`
+          });
         }
         
         if (type === 'masuk' && !result.already_checked_in) {
@@ -632,10 +635,16 @@ export default function PresensiScreen() {
           setCheckInTime(new Date().toLocaleTimeString('id-ID'));
         }
       } else {
-        Alert.alert('Error', result.message || 'Gagal mencatat absensi');
+        alert.showAlert({
+          type: 'error',
+          message: result.message || 'Gagal mencatat absensi'
+        });
       }
     } catch (error) {
-      Alert.alert('Error', 'Terjadi kesalahan: ' + (error as Error).message);
+      alert.showAlert({
+        type: 'error',
+        message: 'Terjadi kesalahan: ' + (error as Error).message
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -949,7 +958,17 @@ export default function PresensiScreen() {
         </View>
       </Animated.View>
 
-
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+        autoClose={false}
+      />
     </View>
   );
 }
