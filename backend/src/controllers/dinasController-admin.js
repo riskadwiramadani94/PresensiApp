@@ -93,8 +93,9 @@ const getDinasAktifAdmin = async (req, res) => {
         SELECT dp.*, pg.nama_lengkap, pg.nip,
                pr.id_presensi as absen_id,
                pr.jam_masuk, pr.jam_pulang, pr.status as absen_status,
-               pr.foto_masuk, pr.foto_pulang, pr.status_validasi,
-               pr.lintang_masuk, pr.bujur_masuk,
+               pr.foto_masuk, pr.foto_pulang, 
+               pr.status_validasi, pr.status_validasi_masuk, pr.status_validasi_pulang,
+               pr.lintang_masuk, pr.bujur_masuk, pr.lintang_pulang, pr.bujur_pulang,
                lk.nama_lokasi as lokasi_absen
         FROM dinas_pegawai dp 
         JOIN users u ON dp.id_user = u.id_user
@@ -113,9 +114,13 @@ const getDinasAktifAdmin = async (req, res) => {
           status = 'hadir';
         }
 
-        let fotoUrl = null;
+        let fotoMasukUrl = null;
+        let fotoPulangUrl = null;
         if (pegawaiRow.foto_masuk) {
-          fotoUrl = `http://192.168.1.7:3000/uploads/presensi/${pegawaiRow.foto_masuk}`;
+          fotoMasukUrl = `http://${process.env.HOST}:${process.env.PORT}/uploads/presensi/${pegawaiRow.foto_masuk}`;
+        }
+        if (pegawaiRow.foto_pulang) {
+          fotoPulangUrl = `http://${process.env.HOST}:${process.env.PORT}/uploads/presensi/${pegawaiRow.foto_pulang}`;
         }
 
         // Hitung apakah lokasi sesuai radius
@@ -140,11 +145,20 @@ const getDinasAktifAdmin = async (req, res) => {
           nama: pegawaiRow.nama_lengkap,
           nip: pegawaiRow.nip,
           status: status,
+          // Data lama untuk backward compatibility
           jamAbsen: pegawaiRow.jam_masuk,
-          fotoAbsen: fotoUrl,
+          fotoAbsen: fotoMasukUrl,
+          // Data baru untuk validasi terpisah
+          jam_masuk: pegawaiRow.jam_masuk,
+          jam_pulang: pegawaiRow.jam_pulang,
+          foto_masuk: fotoMasukUrl,
+          foto_pulang: fotoPulangUrl,
           lokasiAbsen: pegawaiRow.lokasi_absen,
           isLokasiSesuai: isLokasiSesuai,
-          statusValidasi: pegawaiRow.status_validasi
+          // Status validasi lama dan baru
+          statusValidasi: pegawaiRow.status_validasi,
+          status_validasi_masuk: pegawaiRow.status_validasi_masuk,
+          status_validasi_pulang: pegawaiRow.status_validasi_pulang
         };
       });
 
@@ -760,16 +774,16 @@ const updateDinas = async (req, res) => {
   }
 };
 
-// NEW: Validate absen dinas
+// NEW: Validate absen dinas with separate masuk/pulang
 const validateAbsenDinas = async (req, res) => {
   try {
     const { id } = req.params;
-    const { action, catatan } = req.body;
+    const { action, catatan, absen_type } = req.body;
     
-    if (!id || !action) {
+    if (!id || !action || !absen_type) {
       return res.status(400).json({
         success: false,
-        message: 'ID absen dan action wajib diisi'
+        message: 'ID absen, action, dan absen_type wajib diisi'
       });
     }
     
@@ -777,6 +791,13 @@ const validateAbsenDinas = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Action harus approve atau reject'
+      });
+    }
+    
+    if (!['masuk', 'pulang'].includes(absen_type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'absen_type harus masuk atau pulang'
       });
     }
     
@@ -788,18 +809,32 @@ const validateAbsenDinas = async (req, res) => {
     
     const status = action === 'approve' ? 'disetujui' : 'ditolak';
     
-    await db.execute(`
-      UPDATE presensi 
-      SET status_validasi = ?, 
-          divalidasi_oleh = ?,
-          catatan_validasi = ?,
-          waktu_validasi = NOW()
-      WHERE id_presensi = ? AND jenis_presensi = 'dinas'
-    `, [status, adminId, catatan || null, id]);
+    // Update berdasarkan absen_type
+    if (absen_type === 'masuk') {
+      await db.execute(`
+        UPDATE presensi 
+        SET status_validasi_masuk = ?, 
+            status_validasi = ?,
+            divalidasi_masuk_oleh = ?,
+            catatan_validasi_masuk = ?,
+            waktu_validasi_masuk = NOW()
+        WHERE id_presensi = ? AND jenis_presensi = 'dinas'
+      `, [status, status, adminId, catatan || null, id]);
+    } else {
+      await db.execute(`
+        UPDATE presensi 
+        SET status_validasi_pulang = ?, 
+            status_validasi = ?,
+            divalidasi_pulang_oleh = ?,
+            catatan_validasi_pulang = ?,
+            waktu_validasi_pulang = NOW()
+        WHERE id_presensi = ? AND jenis_presensi = 'dinas'
+      `, [status, status, adminId, catatan || null, id]);
+    }
     
     res.json({
       success: true,
-      message: `Absen berhasil ${status}`
+      message: `Absen ${absen_type} berhasil ${status}`
     });
     
   } catch (error) {

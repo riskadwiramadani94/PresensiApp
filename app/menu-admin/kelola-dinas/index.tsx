@@ -390,8 +390,8 @@ export default function KelolaDinasScreen() {
             </View>
             <Text style={styles.infoText}>
               {item.jam_mulai && item.jam_selesai
-                ? `${item.jam_mulai} - ${item.jam_selesai} (Khusus)`
-                : "Jam Kantor"}
+                ? `${item.jam_mulai} - ${item.jam_selesai}`
+                : "Perjalanan Lokal"}
             </Text>
           </View>
           <View style={styles.infoRow}>
@@ -809,8 +809,6 @@ const styles = StyleSheet.create({
   fixedControls: {
     paddingTop: 8,
     paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
     backgroundColor: "#fff",
   },
   flatList: {
@@ -821,7 +819,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingTop: 20,
+    paddingBottom: 12,
     backgroundColor: "#fff",
     gap: 10,
   },
@@ -830,11 +829,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#E8F0EF",
     gap: 12,
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   filterIconBtn: {
     width: 40,
@@ -846,9 +850,10 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: "#333",
-    paddingVertical: 12,
+    paddingVertical: 14,
+    fontWeight: "400",
   },
   listContent: {
     paddingHorizontal: 20,

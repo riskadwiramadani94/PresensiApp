@@ -450,7 +450,10 @@ export default function JamKerjaScreen() {
                   <Text style={styles.label}>Jam Masuk</Text>
                   <TouchableOpacity
                     style={styles.timeButton}
-                    onPress={() => setShowJamMasukPicker(true)}
+                    onPress={() => {
+                      closeModal();
+                      setTimeout(() => setShowJamMasukPicker(true), 300);
+                    }}
                   >
                     <Text style={styles.timeButtonText}>{editJamMasuk}</Text>
                     <Ionicons name="time" size={20} color="#004643" />
@@ -461,7 +464,10 @@ export default function JamKerjaScreen() {
                   <Text style={styles.label}>Jam Pulang</Text>
                   <TouchableOpacity
                     style={styles.timeButton}
-                    onPress={() => setShowJamPulangPicker(true)}
+                    onPress={() => {
+                      closeModal();
+                      setTimeout(() => setShowJamPulangPicker(true), 300);
+                    }}
                   >
                     <Text style={styles.timeButtonText}>{editJamPulang}</Text>
                     <Ionicons name="time" size={20} color="#004643" />
@@ -473,7 +479,10 @@ export default function JamKerjaScreen() {
                 <Text style={styles.label}>Batas Absen</Text>
                 <TouchableOpacity
                   style={styles.timeButton}
-                  onPress={() => setShowBatasAbsenPicker(true)}
+                  onPress={() => {
+                    closeModal();
+                    setTimeout(() => setShowBatasAbsenPicker(true), 300);
+                  }}
                 >
                   <Text style={styles.timeButtonText}>{editBatasAbsen}</Text>
                   <Ionicons name="time" size={20} color="#004643" />
@@ -491,22 +500,40 @@ export default function JamKerjaScreen() {
       <AnalogTimePicker
         visible={showJamMasukPicker}
         initialTime={editJamMasuk}
-        onTimeSelect={(time) => setEditJamMasuk(time)}
-        onClose={() => setShowJamMasukPicker(false)}
+        onTimeSelect={(time) => {
+          setEditJamMasuk(time);
+          setTimeout(() => openModal(), 300);
+        }}
+        onClose={() => {
+          setShowJamMasukPicker(false);
+          setTimeout(() => openModal(), 300);
+        }}
       />
 
       <AnalogTimePicker
         visible={showBatasAbsenPicker}
         initialTime={editBatasAbsen}
-        onTimeSelect={(time) => setEditBatasAbsen(time)}
-        onClose={() => setShowBatasAbsenPicker(false)}
+        onTimeSelect={(time) => {
+          setEditBatasAbsen(time);
+          setTimeout(() => openModal(), 300);
+        }}
+        onClose={() => {
+          setShowBatasAbsenPicker(false);
+          setTimeout(() => openModal(), 300);
+        }}
       />
 
       <AnalogTimePicker
         visible={showJamPulangPicker}
         initialTime={editJamPulang}
-        onTimeSelect={(time) => setEditJamPulang(time)}
-        onClose={() => setShowJamPulangPicker(false)}
+        onTimeSelect={(time) => {
+          setEditJamPulang(time);
+          setTimeout(() => openModal(), 300);
+        }}
+        onClose={() => {
+          setShowJamPulangPicker(false);
+          setTimeout(() => openModal(), 300);
+        }}
       />
 
       <CustomAlert

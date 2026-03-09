@@ -472,12 +472,17 @@ export const KelolaDinasAPI = {
     }
   },
   
-  validateAbsen: async (absenId: number, action: 'approve' | 'reject') => {
+  validateAbsen: async (absenId: number, action: 'approve' | 'reject', absenType?: 'masuk' | 'pulang') => {
     try {
+      const body: any = { action };
+      if (absenType) {
+        body.absen_type = absenType;
+      }
+      
       const response = await fetchWithRetry(`${getApiUrl('/admin/kelola-dinas/api/validate-absen')}/${absenId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(body),
       });
       return response.json();
     } catch (error) {

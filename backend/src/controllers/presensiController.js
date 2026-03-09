@@ -441,8 +441,14 @@ const getPresensi = async (req, res) => {
           checkDate.setHours(0, 0, 0, 0);
           
           if (checkDate > today) {
-            // Hari yang akan datang - tidak perlu ditampilkan
-            // Skip tanggal masa depan
+            // Hari yang akan datang - tampilkan sebagai "Belum Waktunya"
+            formattedData.push({
+              tanggal: dateStr,
+              jam_masuk: null,
+              jam_keluar: null,
+              status: 'Belum Waktunya',
+              keterangan: `Hari ${dayName} - Belum waktunya absen`
+            });
           } else if (checkDate.getTime() === today.getTime()) {
             // Hari ini - cek apakah sudah lewat batas absen
             const now = new Date();
@@ -732,7 +738,7 @@ const submitPresensi = async (req, res) => {
         
         // Cek apakah sudah absen hari ini
         const [checkDinas] = await db.execute(
-          'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "dinas" AND jam_masuk IS NOT NULL',
+          'SELECT id_presensi FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? AND jenis_presensi = "dinas" AND jam_masuk IS NOT NULL',
           [user_id, tanggal_only]
         );
         
@@ -749,7 +755,7 @@ const submitPresensi = async (req, res) => {
           UPDATE presensi 
           SET jam_masuk = ?, lintang_masuk = ?, bujur_masuk = ?, 
               foto_masuk = ?, status = ?, lokasi_id = ?, status_validasi = ?
-          WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas'
+          WHERE id_user = ? AND DATE(tanggal) = ? AND jenis_presensi = 'dinas'
         `, [jam_sekarang, latitude, longitude, fotoFile || null, status, lokasi_id_valid, 'menunggu', user_id, tanggal_only]);
         
         if (updateDinas.affectedRows === 0) {
@@ -814,6 +820,37 @@ const submitPresensi = async (req, res) => {
       }
 
     } else { // keluar
+      // Cek apakah sudah absen pulang hari ini
+      if (dinasCheckRows.length > 0) {
+        // Cek absen pulang dinas
+        const [checkDinasPulang] = await db.execute(
+          'SELECT id_presensi FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? AND jenis_presensi = "dinas" AND jam_pulang IS NOT NULL',
+          [user_id, tanggal_only]
+        );
+        
+        if (checkDinasPulang.length > 0) {
+          return res.json({ 
+            success: false, 
+            message: 'Anda sudah melakukan absen pulang hari ini',
+            already_checked_out: true
+          });
+        }
+      } else {
+        // Cek absen pulang biasa
+        const [checkPresensiPulang] = await db.execute(
+          'SELECT id_presensi FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? AND jam_pulang IS NOT NULL',
+          [user_id, tanggal_only]
+        );
+        
+        if (checkPresensiPulang.length > 0) {
+          return res.json({ 
+            success: false, 
+            message: 'Anda sudah melakukan absen pulang hari ini',
+            already_checked_out: true
+          });
+        }
+      }
+      
       // Cek izin pulang cepat yang disetujui
       const [izinPulangCepatRows] = await db.execute(`
         SELECT jam_mulai 
@@ -860,7 +897,7 @@ const submitPresensi = async (req, res) => {
         const [result] = await db.execute(`
           UPDATE presensi SET 
             jam_pulang = ?, lintang_pulang = ?, bujur_pulang = ?, foto_pulang = ?, alasan_luar_lokasi = ? 
-          WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas'
+          WHERE id_user = ? AND DATE(tanggal) = ? AND jenis_presensi = 'dinas'
         `, [
           jam_sekarang, latitude, longitude, fotoFile || null, nama_lokasi, 
           user_id, tanggal_only
@@ -876,10 +913,10 @@ const submitPresensi = async (req, res) => {
         const [result] = await db.execute(`
           UPDATE presensi SET 
             jam_pulang = ?, lintang_pulang = ?, bujur_pulang = ?, foto_pulang = ?, lokasi_pulang = ? 
-          WHERE id_user = ? AND tanggal LIKE ?
+          WHERE id_user = ? AND DATE(tanggal) = ? AND jam_masuk IS NOT NULL
         `, [
           jam_sekarang, latitude, longitude, fotoFile || null, nama_lokasi, 
-          user_id, tanggal_only + '%'
+          user_id, tanggal_only
         ]);
         
         console.log(`✓ Presensi BIASA pulang updated`);
@@ -996,34 +1033,54 @@ const checkDinasAttendance = async (req, res) => {
     const { user_id, date } = req.query;
     
     if (!user_id || !date) {
-      return res.json({ success: false, has_checked_in: false });
+      return res.json({ success: false, has_checked_in: false, has_checked_out: false });
     }
     
     const db = await getConnection();
     
     const [rows] = await db.execute(`
-      SELECT jam_masuk, status_validasi
+      SELECT jam_masuk, jam_pulang, status_validasi, status_validasi_masuk, status_validasi_pulang
       FROM presensi
-      WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas' AND jam_masuk IS NOT NULL
+      WHERE id_user = ? AND DATE(tanggal) = ? AND jenis_presensi = 'dinas'
       LIMIT 1
     `, [user_id, date]);
     
     if (rows.length > 0) {
+      const hasCheckedIn = rows[0].jam_masuk !== null;
+      const hasCheckedOut = rows[0].jam_pulang !== null;
+      
+      // Gunakan status validasi masuk jika sudah absen masuk
+      let finalStatusValidasi = rows[0].status_validasi || 'menunggu';
+      if (hasCheckedIn && rows[0].status_validasi_masuk) {
+        finalStatusValidasi = rows[0].status_validasi_masuk;
+      }
+      
+      console.log('🔍 Check dinas attendance:', {
+        user_id, date, hasCheckedIn, hasCheckedOut,
+        status_validasi: rows[0].status_validasi,
+        status_validasi_masuk: rows[0].status_validasi_masuk,
+        status_validasi_pulang: rows[0].status_validasi_pulang,
+        finalStatusValidasi
+      });
+      
       return res.json({
         success: true,
-        has_checked_in: true,
-        check_in_time: rows[0].jam_masuk,
-        status_validasi: rows[0].status_validasi
+        has_checked_in: hasCheckedIn,
+        has_checked_out: hasCheckedOut,
+        check_in_time: hasCheckedIn ? rows[0].jam_masuk : null,
+        check_out_time: hasCheckedOut ? rows[0].jam_pulang : null,
+        status_validasi: finalStatusValidasi
       });
     }
     
     return res.json({
       success: true,
-      has_checked_in: false
+      has_checked_in: false,
+      has_checked_out: false
     });
   } catch (error) {
     console.error('Check dinas attendance error:', error);
-    return res.json({ success: false, has_checked_in: false });
+    return res.json({ success: false, has_checked_in: false, has_checked_out: false });
   }
 };
 

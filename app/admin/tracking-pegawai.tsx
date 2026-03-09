@@ -384,9 +384,9 @@ export default function TrackingPegawaiScreen() {
       >
         {pegawaiList
           .filter((p: PegawaiData) => p.latitude && p.longitude)
-          .map((pegawai: PegawaiData) => (
+          .map((pegawai: PegawaiData, index: number) => (
             <Marker
-              key={pegawai.id_user}
+              key={`marker-${pegawai.id_user}-${index}`}
               coordinate={{
                 latitude: pegawai.latitude,
                 longitude: pegawai.longitude,
@@ -451,18 +451,8 @@ export default function TrackingPegawaiScreen() {
 
                   <View style={styles.statusContainer}>
                     <Text style={styles.statusLabel}>Status: </Text>
-                    <Text style={[
-                      styles.statusTextGreen,
-                      !selectedPegawai.jam_masuk && styles.statusTextStrike
-                    ]}>
-                      Sudah Absen
-                    </Text>
-                    <Text style={styles.statusSeparator}> | </Text>
-                    <Text style={[
-                      styles.statusTextRed,
-                      selectedPegawai.jam_masuk && styles.statusTextStrike
-                    ]}>
-                      Belum Absen
+                    <Text style={selectedPegawai.jam_masuk ? styles.statusTextGreen : styles.statusTextRed}>
+                      {selectedPegawai.jam_masuk ? 'Sudah Absen' : 'Belum Absen'}
                     </Text>
                   </View>
 

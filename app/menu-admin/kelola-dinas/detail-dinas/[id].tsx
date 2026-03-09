@@ -312,6 +312,7 @@ export default function DetailDinasScreen() {
             <Ionicons name="time-outline" size={20} color="#004643" />
             <Text style={styles.cardTitle}>Waktu & Linimasa</Text>
           </View>
+          <View style={styles.separator} />
           
           <View style={styles.timelineContainer}>
             <View style={styles.timePoint}>

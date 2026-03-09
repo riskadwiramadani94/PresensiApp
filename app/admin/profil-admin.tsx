@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 0,
   },
   menuLeft: {
@@ -788,10 +788,10 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10, flex: 1 },
-  separator: { height: 1, backgroundColor: '#F0F3F3', marginBottom: 18 },
+  separator: { height: 1, backgroundColor: '#F0F3F3', marginBottom: 0 },
   
   // Modern Info Rows
-  infoRowModern: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+  infoRowModern: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   infoIconBox: { 
     width: 34, height: 34, backgroundColor: '#F0F7F7',
     borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 15, marginTop: 2 

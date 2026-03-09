@@ -23,7 +23,9 @@ export default function PresensiScreen() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
+  const [hasCheckedOut, setHasCheckedOut] = useState(false);
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
+  const [checkOutTime, setCheckOutTime] = useState<string | null>(null);
   const [validationStatus, setValidationStatus] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lastCheckedDate, setLastCheckedDate] = useState<string>('');
@@ -50,6 +52,11 @@ export default function PresensiScreen() {
     fetchIzinHariIni();
     checkWorkDay();
     
+    // Auto refresh setiap 30 detik untuk update status validasi
+    const refreshInterval = setInterval(() => {
+      checkTodayAttendance();
+    }, 30000);
+    
     const timer = setInterval(() => {
       const now = new Date();
       setCurrentTime(now);
@@ -62,7 +69,9 @@ export default function PresensiScreen() {
         
         // Reset state dulu
         setHasCheckedIn(false);
+        setHasCheckedOut(false);
         setCheckInTime(null);
+        setCheckOutTime(null);
         setValidationStatus(null);
         setLastCheckedDate(currentDate);
         
@@ -75,7 +84,10 @@ export default function PresensiScreen() {
       }
     }, 1000);
     
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      clearInterval(refreshInterval);
+    };
   }, [lastCheckedDate]);
 
   // Panggil getCurrentLocation setelah availableLocations ter-set
@@ -105,40 +117,69 @@ export default function PresensiScreen() {
       const response2 = await fetch(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-attendance?user_id=${userId}&date=${today}`);
       const data2 = await response2.json();
       
-      console.log('📋 Absen dinas:', data2);
+      console.log('📋 Absen dinas response:', data2);
       
-      // Cek dari response presensi - PERBAIKAN: cek jam_masuk langsung
+      // Cek dari response presensi - PERBAIKAN: cek jam_masuk dan jam_pulang
       const hasPresensi = response1.success && 
                           response1.data?.presensi_hari_ini && 
                           response1.data.presensi_hari_ini.jam_masuk;
       
+      const hasPresensiPulang = response1.success && 
+                               response1.data?.presensi_hari_ini && 
+                               response1.data.presensi_hari_ini.jam_pulang;
+      
       const hasDinas = data2.success && data2.has_checked_in;
+      const hasDinasPulang = data2.success && data2.has_checked_out;
       
-      console.log('✅ Check results:', { hasPresensi, hasDinas });
+      console.log('✅ Check results:', { hasPresensi, hasPresensiPulang, hasDinas, hasDinasPulang });
       
+      // Set status absen masuk
       if (hasPresensi || hasDinas) {
-        console.log('✅ Sudah absen hari ini');
+        console.log('✅ Sudah absen masuk hari ini');
         setHasCheckedIn(true);
         
-        if (hasPresensi) {
+        if (hasDinas) {
+          // PRIORITAS DINAS - gunakan status dari API dinas
+          setCheckInTime(data2.check_in_time);
+          setValidationStatus(data2.status_validasi || 'menunggu');
+          console.log('📋 Absen dinas - Status validasi:', data2.status_validasi);
+        } else if (hasPresensi) {
+          // Fallback ke presensi biasa
           const jamMasuk = response1.data.presensi_hari_ini.jam_masuk;
           setCheckInTime(jamMasuk.length > 8 ? jamMasuk.substring(0, 8) : jamMasuk);
           setValidationStatus(response1.data.presensi_hari_ini.status_validasi || 'disetujui');
-        } else if (hasDinas) {
-          setCheckInTime(data2.check_in_time);
-          setValidationStatus(data2.status_validasi || 'menunggu');
+          console.log('📋 Presensi biasa - Status validasi:', response1.data.presensi_hari_ini.status_validasi);
         }
       } else {
-        console.log('❌ Belum absen hari ini');
+        console.log('❌ Belum absen masuk hari ini');
         setHasCheckedIn(false);
         setCheckInTime(null);
         setValidationStatus(null);
+      }
+      
+      // Set status absen pulang
+      if (hasPresensiPulang || hasDinasPulang) {
+        console.log('✅ Sudah absen pulang hari ini');
+        setHasCheckedOut(true);
+        
+        if (hasPresensiPulang) {
+          const jamPulang = response1.data.presensi_hari_ini.jam_pulang;
+          setCheckOutTime(jamPulang.length > 8 ? jamPulang.substring(0, 8) : jamPulang);
+        } else if (hasDinasPulang) {
+          setCheckOutTime(data2.check_out_time);
+        }
+      } else {
+        console.log('❌ Belum absen pulang hari ini');
+        setHasCheckedOut(false);
+        setCheckOutTime(null);
       }
     } catch (error) {
       console.error('Error checking attendance:', error);
       // Jika error, set ke belum absen untuk safety
       setHasCheckedIn(false);
+      setHasCheckedOut(false);
       setCheckInTime(null);
+      setCheckOutTime(null);
       setValidationStatus(null);
     }
   };
@@ -531,7 +572,87 @@ export default function PresensiScreen() {
   };
 
   const handleAbsenPulang = async () => {
+    // Cek apakah sudah waktunya absen pulang
+    const canCheckOut = await validateCheckOutTime();
+    if (!canCheckOut.allowed) {
+      alert.showAlert({ 
+        type: 'warning', 
+        message: canCheckOut.message 
+      });
+      return;
+    }
+    
     await takePhotoAndSubmit('pulang');
+  };
+
+  const validateCheckOutTime = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (!userData) return { allowed: false, message: 'Data user tidak ditemukan' };
+      
+      const user = JSON.parse(userData);
+      const userId = user.id_user || user.id;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Get jam pulang standar untuk hari ini
+      const now = new Date();
+      const hari_ini = now.toLocaleDateString('en-US', { weekday: 'long' });
+      const hari_indonesia = {
+        'Monday': 'Senin',
+        'Tuesday': 'Selasa', 
+        'Wednesday': 'Rabu',
+        'Thursday': 'Kamis',
+        'Friday': 'Jumat',
+        'Saturday': 'Sabtu',
+        'Sunday': 'Minggu'
+      };
+      const hari = hari_indonesia[hari_ini] || 'Senin';
+      
+      // Ambil jam pulang dari jam kerja
+      const jamKerjaResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/admin/pengaturan/api/jam-kerja`
+      );
+      const jamKerjaData = await jamKerjaResponse.json();
+      
+      let jamPulangStandar = '17:00:00';
+      if (jamKerjaData.success && jamKerjaData.data) {
+        const hariKerja = jamKerjaData.data.find((h: any) => h.hari === hari);
+        if (hariKerja) {
+          jamPulangStandar = hariKerja.jam_pulang;
+        }
+      }
+      
+      // Get waktu sekarang dalam format HH:mm:ss
+      const currentTime = now.toTimeString().slice(0, 8);
+      
+      // Cek apakah sudah waktunya pulang
+      if (currentTime >= jamPulangStandar) {
+        return { allowed: true, message: 'Sudah waktunya pulang' };
+      }
+      
+      // Cek apakah ada izin pulang cepat yang disetujui
+      const izinResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`
+      );
+      const izinData = await izinResponse.json();
+      
+      if (izinData.success && izinData.data?.izin_pulang_cepat) {
+        const jamIzinPulang = izinData.data.izin_pulang_cepat.jam + ':00';
+        if (currentTime >= jamIzinPulang) {
+          return { allowed: true, message: 'Bisa pulang sesuai izin' };
+        }
+      }
+      
+      // Belum waktunya pulang
+      return { 
+        allowed: false, 
+        message: `Belum waktunya absen pulang. Jam pulang: ${jamPulangStandar.slice(0, 5)}` 
+      };
+      
+    } catch (error) {
+      console.error('Error validating checkout time:', error);
+      return { allowed: true, message: 'Error validasi, diizinkan absen' };
+    }
   };
 
   const takePhotoAndSubmit = async (type: 'masuk' | 'pulang') => {
@@ -634,6 +755,9 @@ export default function PresensiScreen() {
         if (type === 'masuk' && !result.already_checked_in) {
           setHasCheckedIn(true);
           setCheckInTime(new Date().toLocaleTimeString('id-ID'));
+        } else if (type === 'pulang' && !result.already_checked_out) {
+          setHasCheckedOut(true);
+          setCheckOutTime(new Date().toLocaleTimeString('id-ID'));
         }
       } else {
         alert.showAlert({
@@ -889,6 +1013,15 @@ export default function PresensiScreen() {
                                isValidLocation ? 'Absen Masuk' : 'Tidak Bisa Absen'}
                             </Text>
                           </TouchableOpacity>
+                        ) : hasCheckedOut ? (
+                          <View style={styles.completedContainer}>
+                            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+                            <Text style={styles.completedTitle}>Absensi Selesai</Text>
+                            <Text style={styles.completedSubtext}>
+                              Anda sudah melakukan absen pulang hari ini.
+                              Silahkan absen kembali esok hari.
+                            </Text>
+                          </View>
                         ) : (
                           <TouchableOpacity 
                             style={[
@@ -922,6 +1055,9 @@ export default function PresensiScreen() {
                 <View style={styles.checkInInfo}>
                   <View style={styles.checkInRow}>
                     <Text style={styles.checkInText}>Masuk: {checkInTime}</Text>
+                    {checkOutTime && (
+                      <Text style={styles.checkOutText}>Pulang: {checkOutTime}</Text>
+                    )}
                     {validationStatus && (
                       <View style={[
                         styles.validationBadge,
@@ -1233,6 +1369,34 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     fontSize: 14,
     fontWeight: '500',
+  },
+  checkOutText: {
+    color: '#2196F3',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  completedContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+  },
+  completedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#4CAF50',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  completedSubtext: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   validationBadge: {
     flexDirection: 'row',

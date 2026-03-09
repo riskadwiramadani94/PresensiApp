@@ -47,6 +47,8 @@ export default function KalenderLiburScreen() {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [selectedHolidayInfo, setSelectedHolidayInfo] = useState<HariLibur | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [selectedHoliday, setSelectedHoliday] = useState<HariLibur | null>(null);
   const [hariLibur, setHariLibur] = useState<HariLibur[]>([]);
@@ -221,13 +223,22 @@ export default function KalenderLiburScreen() {
     if (!date) return;
     const holiday = getHolidayInfo(date);
     if (holiday) {
-      setSelectedHoliday(holiday);
-      setShowDeleteModal(true);
+      setSelectedHolidayInfo(holiday);
+      setShowInfoModal(true);
     } else {
       setSelectedDate(date);
       setFormData({ namaLibur: "", jenis: "nasional" });
       openModal();
     }
+  };
+
+  const handleHolidayAction = (action: 'edit' | 'delete') => {
+    setShowInfoModal(false);
+    if (action === 'delete' && selectedHolidayInfo) {
+      setSelectedHoliday(selectedHolidayInfo);
+      setShowDeleteModal(true);
+    }
+    // Edit functionality can be added later if needed
   };
 
   const handleSaveHoliday = async () => {
@@ -589,6 +600,55 @@ export default function KalenderLiburScreen() {
                 onPress={handleDeleteHoliday}
               >
                 <Text style={styles.deleteConfirmButtonText}>Hapus</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Holiday Info Modal */}
+      <Modal
+        visible={showInfoModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowInfoModal(false)}
+      >
+        <View style={styles.infoModalOverlay}>
+          <View style={styles.infoModalContainer}>
+            <View style={styles.infoIconContainer}>
+              <Ionicons name="calendar" size={48} color="#fff" />
+            </View>
+            
+            <Text style={styles.infoModalTitle}>Hari Libur</Text>
+            
+            {selectedHolidayInfo && (
+              <>
+                <Text style={styles.infoModalDate}>
+                  {new Date(selectedHolidayInfo.tanggal).toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </Text>
+                
+                <Text style={styles.infoModalName}>
+                  {selectedHolidayInfo.nama_libur}
+                </Text>
+                
+                <Text style={styles.infoModalType}>
+                  Jenis: {selectedHolidayInfo.jenis.charAt(0).toUpperCase() + selectedHolidayInfo.jenis.slice(1)}
+                </Text>
+              </>
+            )}
+            
+            <View style={styles.infoModalButtons}>
+              <TouchableOpacity
+                style={styles.infoCloseButtonFull}
+                onPress={() => setShowInfoModal(false)}
+              >
+                <Text style={styles.infoCloseButtonText}>Tutup</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1134,5 +1194,85 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     fontWeight: '600',
+  },
+
+  // Holiday Info Modal Styles
+  infoModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  infoModalContainer: {
+    backgroundColor: '#004643',
+    borderRadius: 20,
+    padding: 32,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  infoIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  infoModalTitle: {
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  infoModalDate: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  infoModalName: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  infoModalType: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  infoModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  infoCloseButtonFull: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  infoCloseButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  infoDeleteButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

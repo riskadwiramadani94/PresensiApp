@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, FlatList, 
-  ActivityIndicator, ScrollView, Platform, RefreshControl, Modal, Image, Dimensions
+  ActivityIndicator, ScrollView, Platform, RefreshControl, Modal, Image, Dimensions, Animated, PanResponder
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import { KelolaDinasAPI } from '../../../../constants/config';
 import { CustomAlert } from '../../../../components/CustomAlert';
 import { useCustomAlert } from '../../../../hooks/useCustomAlert';
 
-const { width } = Dimensions.get('window');
+const { width, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface DinasItem {
   id: number;
@@ -31,14 +31,35 @@ interface DinasItem {
   }>;
   pegawai: Array<{
     absenId?: number;
+    absenMasukId?: number;
+    absenPulangId?: number;
     nama: string;
     nip: string;
     status: string;
     jamAbsen: string | null;
+    jamMasuk: string | null;
+    jamPulang: string | null;
     lokasiAbsen?: string;
+    lokasiAbsenMasuk?: string;
+    lokasiAbsenPulang?: string;
     isLokasiSesuai?: boolean;
+    isLokasiSesuaiMasuk?: boolean;
+    isLokasiSesuaiPulang?: boolean;
     fotoAbsen?: string;
+    fotoAbsenMasuk?: string;
+    fotoAbsenPulang?: string;
     statusValidasi?: string;
+    statusValidasiMasuk?: string;
+    statusValidasiPulang?: string;
+    // Tambahan field dari database presensi
+    jam_masuk?: string;
+    jam_pulang?: string;
+    foto_masuk?: string;
+    foto_pulang?: string;
+    lintang_masuk?: number;
+    bujur_masuk?: number;
+    lintang_pulang?: number;
+    bujur_pulang?: number;
   }>;
 }
 
@@ -60,15 +81,19 @@ export default function AbsenDinasValidasiScreen() {
   const [pegawaiData, setPegawaiData] = useState<any[]>([]);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string>('');
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
   const [showValidationAlert, setShowValidationAlert] = useState(false);
   const [validationData, setValidationData] = useState<{
     absenId: number;
     type: 'approve' | 'reject';
     nama: string;
+    absenType: 'masuk' | 'pulang';
   } | null>(null);
   const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
   
   const calendarRef = useRef<ScrollView>(null);
+  const photoTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -134,46 +159,68 @@ export default function AbsenDinasValidasiScreen() {
     return dates;
   };
 
-  const getAttendanceStatus = (jamAbsen: string | null, jamKerja: string, selectedDate: string) => {
-    const [jamMasuk] = jamKerja.split(' - ');
-    const [jamMasukHour, jamMasukMinute] = jamMasuk.split(':').map(Number);
+  const getAttendanceStatus = (jamMasuk: string | null, jamPulang: string | null, jamKerja: string, selectedDate: string, type: 'masuk' | 'pulang') => {
+    const [jamMasukStandar, jamPulangStandar] = jamKerja.split(' - ');
+    const [jamMasukHour, jamMasukMinute] = jamMasukStandar.split(':').map(Number);
+    const [jamPulangHour, jamPulangMinute] = jamPulangStandar.split(':').map(Number);
     
-    // Waktu sekarang
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     
-    // Jika tanggal yang dipilih adalah hari besok atau masa depan
     if (selectedDate > today) {
-      return { status: 'belum_waktunya', text: 'Belum Waktunya Absen', color: '#94A3B8' };
+      return { status: 'belum_waktunya', text: 'Belum Waktunya', color: '#94A3B8' };
     }
     
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const currentMenit = currentHour * 60 + currentMinute;
     
-    const jamMasukMenit = jamMasukHour * 60 + jamMasukMinute;
-    
-    if (!jamAbsen) {
-      // Jika tanggal yang dipilih adalah hari ini
-      if (selectedDate === today) {
-        if (currentMenit < jamMasukMenit) {
-          return { status: 'belum_absen', text: 'Belum Absen', color: '#F59E0B' };
+    if (type === 'masuk') {
+      const jamMasukMenit = jamMasukHour * 60 + jamMasukMinute;
+      
+      if (!jamMasuk) {
+        if (selectedDate === today) {
+          if (currentMenit < jamMasukMenit) {
+            return { status: 'belum_absen', text: 'Belum Absen', color: '#F59E0B' };
+          } else {
+            return { status: 'tidak_hadir', text: 'Tidak Hadir', color: '#EF4444' };
+          }
         } else {
           return { status: 'tidak_hadir', text: 'Tidak Hadir', color: '#EF4444' };
         }
-      } else {
-        // Jika tanggal yang dipilih adalah hari kemarin atau masa lalu
-        return { status: 'tidak_hadir', text: 'Tidak Hadir', color: '#EF4444' };
       }
-    }
-    
-    const [jamAbsenHour, jamAbsenMinute] = jamAbsen.split(':').map(Number);
-    const jamAbsenMenit = jamAbsenHour * 60 + jamAbsenMinute;
-    
-    if (jamAbsenMenit <= jamMasukMenit) {
-      return { status: 'hadir', text: jamAbsen, color: '#10B981' };
+      
+      const [jamAbsenHour, jamAbsenMinute] = jamMasuk.split(':').map(Number);
+      const jamAbsenMenit = jamAbsenHour * 60 + jamAbsenMinute;
+      
+      if (jamAbsenMenit <= jamMasukMenit + 15) {
+        return { status: 'hadir', text: jamMasuk, color: '#10B981' };
+      } else {
+        return { status: 'terlambat', text: jamMasuk, color: '#F59E0B' };
+      }
     } else {
-      return { status: 'terlambat', text: jamAbsen, color: '#F59E0B' };
+      const jamPulangMenit = jamPulangHour * 60 + jamPulangMinute;
+      
+      if (!jamPulang) {
+        if (selectedDate === today) {
+          if (currentMenit < jamPulangMenit) {
+            return { status: 'belum_absen', text: 'Belum Pulang', color: '#F59E0B' };
+          } else {
+            return { status: 'tidak_hadir', text: 'Tidak Pulang', color: '#EF4444' };
+          }
+        } else {
+          return { status: 'tidak_hadir', text: 'Tidak Pulang', color: '#EF4444' };
+        }
+      }
+      
+      const [jamAbsenHour, jamAbsenMinute] = jamPulang.split(':').map(Number);
+      const jamAbsenMenit = jamAbsenHour * 60 + jamAbsenMinute;
+      
+      if (jamAbsenMenit >= jamPulangMenit - 30) {
+        return { status: 'hadir', text: jamPulang, color: '#10B981' };
+      } else {
+        return { status: 'pulang_cepat', text: jamPulang, color: '#F59E0B' };
+      }
     }
   };
 
@@ -190,8 +237,67 @@ export default function AbsenDinasValidasiScreen() {
     }
   };
 
-  const handleValidation = (absenId: number, type: 'approve' | 'reject', nama: string) => {
-    setValidationData({ absenId, type, nama });
+  const openPhotoModal = (photoUrl: string) => {
+    if (!photoUrl) return;
+    
+    console.log('Opening photo modal with URL:', photoUrl);
+    
+    setSelectedPhoto(photoUrl);
+    setPhotoLoading(true);
+    setPhotoError(false);
+    setShowPhotoModal(true);
+    
+    // Timeout untuk loading jika terlalu lama
+    setTimeout(() => {
+      if (photoLoading) {
+        setPhotoLoading(false);
+        setPhotoError(true);
+      }
+    }, 10000); // 10 detik timeout
+    
+    Animated.spring(photoTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closePhotoModal = () => {
+    Animated.timing(photoTranslateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true
+    }).start(() => {
+      setShowPhotoModal(false);
+      setSelectedPhoto('');
+      setPhotoLoading(false);
+      setPhotoError(false);
+    });
+  };
+
+  const photoPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        photoTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closePhotoModal();
+      } else {
+        Animated.spring(photoTranslateY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const handleValidation = (absenId: number, type: 'approve' | 'reject', nama: string, absenType: 'masuk' | 'pulang') => {
+    setValidationData({ absenId, type, nama, absenType });
     setShowValidationAlert(true);
   };
 
@@ -199,15 +305,25 @@ export default function AbsenDinasValidasiScreen() {
     if (!validationData) return;
     
     try {
-      const result = await KelolaDinasAPI.validateAbsen(validationData.absenId, validationData.type);
+      const result = await KelolaDinasAPI.validateAbsen(
+        validationData.absenId, 
+        validationData.type, 
+        validationData.absenType
+      );
       if (result.success) {
         showAlert({ type: 'success', title: 'Sukses', message: 'Status berhasil diperbarui' });
-        fetchDinasData(selectedDate);
+        // Refresh data setelah validasi berhasil
+        await fetchDinasData(selectedDate);
+      } else {
+        showAlert({ type: 'error', title: 'Error', message: result.message || 'Gagal memproses validasi' });
       }
     } catch (error) {
+      console.error('Validation error:', error);
       showAlert({ type: 'error', title: 'Error', message: 'Gagal memproses data' });
+    } finally {
+      setShowValidationAlert(false);
+      setValidationData(null);
     }
-    setValidationData(null);
   };
 
   const renderDinasCard = ({ item }: { item: DinasItem }) => {
@@ -294,10 +410,33 @@ export default function AbsenDinasValidasiScreen() {
 
         {pegawaiData.length > 0 ? (
           pegawaiData.map((p, idx) => {
-            const attendanceStatus = getAttendanceStatus(p.jamAbsen, item.jamKerja, selectedDate);
-            const canValidate = p.jamAbsen && p.isLokasiSesuai && p.fotoAbsen && 
-              attendanceStatus.status !== 'belum_absen' && attendanceStatus.status !== 'belum_waktunya' &&
-              p.statusValidasi !== 'disetujui' && p.statusValidasi !== 'ditolak';
+            // Enhanced fallback mapping untuk backward compatibility
+            const jamMasukFinal = p.jamMasuk || p.jamAbsen || p.jam_masuk;
+            const jamPulangFinal = p.jamPulang || p.jam_pulang;
+            const fotoMasukFinal = p.fotoAbsenMasuk || p.fotoAbsen || p.foto_masuk;
+            const fotoPulangFinal = p.fotoAbsenPulang || p.foto_pulang;
+            const lokasiMasukFinal = p.lokasiAbsenMasuk || p.lokasiAbsen;
+            const lokasiPulangFinal = p.lokasiAbsenPulang || p.lokasiAbsen; // Fallback ke lokasi yang sama
+            const isLokasiSesuaiMasukFinal = p.isLokasiSesuaiMasuk ?? p.isLokasiSesuai ?? true; // Default true untuk yang sudah absen
+            const isLokasiSesuaiPulangFinal = p.isLokasiSesuaiPulang ?? p.isLokasiSesuai ?? (jamPulangFinal ? true : false);
+            const statusValidasiMasukFinal = p.status_validasi_masuk || p.statusValidasiMasuk || p.statusValidasi || 'menunggu';
+            const statusValidasiPulangFinal = p.status_validasi_pulang || p.statusValidasiPulang || (jamPulangFinal ? 'menunggu' : null);
+            const absenMasukIdFinal = p.absenMasukId || p.absenId || p.absen_id;
+            const absenPulangIdFinal = p.absenPulangId || p.absenId || p.absen_id;
+            
+            const attendanceStatusMasuk = getAttendanceStatus(jamMasukFinal, jamPulangFinal, item.jamKerja, selectedDate, 'masuk');
+            const attendanceStatusPulang = getAttendanceStatus(jamMasukFinal, jamPulangFinal, item.jamKerja, selectedDate, 'pulang');
+            
+            // Kondisi validasi yang benar - hanya bisa validasi jika belum disetujui/ditolak
+            const canValidateMasuk = jamMasukFinal && 
+              attendanceStatusMasuk.status !== 'belum_absen' && 
+              attendanceStatusMasuk.status !== 'belum_waktunya' &&
+              statusValidasiMasukFinal === 'menunggu';
+              
+            const canValidatePulang = jamPulangFinal && 
+              attendanceStatusPulang.status !== 'belum_absen' && 
+              attendanceStatusPulang.status !== 'belum_waktunya' &&
+              statusValidasiPulangFinal === 'menunggu';
             
             return (
             <View key={idx} style={styles.employeeCard}>
@@ -309,52 +448,114 @@ export default function AbsenDinasValidasiScreen() {
                   <Text style={styles.empName} numberOfLines={1}>{p.nama}</Text>
                   <Text style={styles.empNip}>NIP. {p.nip || '-'}</Text>
                 </View>
-                <View style={styles.statusContainer}>
-                   <View style={[styles.dot, { backgroundColor: attendanceStatus.color }]} />
-                   <Text style={[styles.statusTxt, { color: attendanceStatus.status === 'hadir' ? '#065F46' : attendanceStatus.status === 'terlambat' ? '#92400E' : '#991B1B' }]}>
-                     {attendanceStatus.text}
-                   </Text>
-                </View>
               </View>
 
-              {p.lokasiAbsen && (
-                <View style={styles.empLocationBox}>
-                  <Ionicons name="map-outline" size={14} color="#64748B" />
-                  <Text style={styles.locationTxt} numberOfLines={1}>
-                    {p.lokasiAbsen} 
-                    <Text style={{ color: p.isLokasiSesuai ? '#10B981' : '#EF4444', fontWeight: '700' }}>
-                      {p.isLokasiSesuai ? ' (Sesuai)' : ' (Luar Radius)'}
+              {/* Absen Masuk Section */}
+              <View style={styles.absenSection}>
+                <Text style={styles.absenSectionTitle}>Absen Masuk</Text>
+                <View style={styles.absenRow}>
+                  <View style={styles.statusContainer}>
+                    <View style={[styles.dot, { backgroundColor: attendanceStatusMasuk.color }]} />
+                    <Text style={[styles.statusTxt, { color: attendanceStatusMasuk.status === 'hadir' ? '#065F46' : attendanceStatusMasuk.status === 'terlambat' ? '#92400E' : '#991B1B' }]}>
+                      {attendanceStatusMasuk.text}
                     </Text>
-                  </Text>
+                  </View>
+                  <View style={styles.validGroup}>
+                    <TouchableOpacity 
+                      onPress={() => openPhotoModal(fotoMasukFinal!)}
+                      disabled={!fotoMasukFinal}
+                      style={[styles.btnCircle, !fotoMasukFinal && styles.btnDisabled]}
+                    >
+                      <Ionicons name="image" size={16} color={fotoMasukFinal ? '#004643' : '#CBD5E1'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => handleValidation(absenMasukIdFinal, 'approve', p.nama, 'masuk')}
+                      disabled={!canValidateMasuk}
+                      style={[styles.btnValid, styles.btnCheck, statusValidasiMasukFinal === 'disetujui' && styles.activeApprove, !canValidateMasuk && styles.btnDisabled]}
+                    >
+                      <Ionicons name="checkmark-done" size={16} color={statusValidasiMasukFinal === 'disetujui' ? '#FFF' : !canValidateMasuk ? '#CBD5E1' : '#10B981'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => handleValidation(absenMasukIdFinal, 'reject', p.nama, 'masuk')}
+                      disabled={!canValidateMasuk}
+                      style={[styles.btnValid, styles.btnCross, statusValidasiMasukFinal === 'ditolak' && styles.activeReject, !canValidateMasuk && styles.btnDisabled]}
+                    >
+                      <Ionicons name="close" size={16} color={statusValidasiMasukFinal === 'ditolak' ? '#FFF' : !canValidateMasuk ? '#CBD5E1' : '#EF4444'} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              )}
+                {!jamMasukFinal ? (
+                  <View style={styles.empLocationBox}>
+                    <Ionicons name="map-outline" size={12} color="#64748B" />
+                    <Text style={styles.locationTxt} numberOfLines={1}>
+                      Belum melakukan absen masuk
+                    </Text>
+                  </View>
+                ) : lokasiMasukFinal ? (
+                  <View style={styles.empLocationBox}>
+                    <Ionicons name="map-outline" size={12} color="#64748B" />
+                    <Text style={styles.locationTxt} numberOfLines={1}>
+                      {lokasiMasukFinal} 
+                      <Text style={{ color: isLokasiSesuaiMasukFinal ? '#10B981' : '#EF4444', fontWeight: '700' }}>
+                        {isLokasiSesuaiMasukFinal ? ' (Sesuai)' : ' (Luar Radius)'}
+                      </Text>
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
 
-              <View style={styles.empActions}>
-                <TouchableOpacity 
-                  onPress={() => { setSelectedPhoto(p.fotoAbsen!); setShowPhotoModal(true); }}
-                  disabled={!p.fotoAbsen}
-                  style={[styles.btnCircle, !p.fotoAbsen && styles.btnDisabled]}
-                >
-                  <Ionicons name="image" size={20} color={p.fotoAbsen ? '#004643' : '#CBD5E1'} />
-                </TouchableOpacity>
-
-                <View style={styles.validGroup}>
-                  <TouchableOpacity 
-                    onPress={() => handleValidation(p.absenId, 'approve', p.nama)}
-                    disabled={!canValidate}
-                    style={[styles.btnValid, styles.btnCheck, p.statusValidasi === 'disetujui' && styles.activeApprove, !canValidate && styles.btnDisabled]}
-                  >
-                    <Ionicons name="checkmark-done" size={20} color={!canValidate ? '#CBD5E1' : p.statusValidasi === 'disetujui' ? '#FFF' : '#10B981'} />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    onPress={() => handleValidation(p.absenId, 'reject', p.nama)}
-                    disabled={!canValidate}
-                    style={[styles.btnValid, styles.btnCross, p.statusValidasi === 'ditolak' && styles.activeReject, !canValidate && styles.btnDisabled]}
-                  >
-                    <Ionicons name="close" size={20} color={!canValidate ? '#CBD5E1' : p.statusValidasi === 'ditolak' ? '#FFF' : '#EF4444'} />
-                  </TouchableOpacity>
+              {/* Absen Pulang Section - Selalu tampil */}
+              <View style={styles.absenSection}>
+                <Text style={styles.absenSectionTitle}>Absen Pulang</Text>
+                <View style={styles.absenRow}>
+                  <View style={styles.statusContainer}>
+                    <View style={[styles.dot, { backgroundColor: attendanceStatusPulang.color }]} />
+                    <Text style={[styles.statusTxt, { color: attendanceStatusPulang.status === 'hadir' ? '#065F46' : attendanceStatusPulang.status === 'pulang_cepat' ? '#92400E' : '#991B1B' }]}>
+                      {attendanceStatusPulang.text}
+                    </Text>
+                  </View>
+                  <View style={styles.validGroup}>
+                    <TouchableOpacity 
+                      onPress={() => openPhotoModal(fotoPulangFinal!)}
+                      disabled={!fotoPulangFinal}
+                      style={[styles.btnCircle, !fotoPulangFinal && styles.btnDisabled]}
+                    >
+                      <Ionicons name="image" size={16} color={fotoPulangFinal ? '#004643' : '#CBD5E1'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => handleValidation(absenPulangIdFinal, 'approve', p.nama, 'pulang')}
+                      disabled={!canValidatePulang}
+                      style={[styles.btnValid, styles.btnCheck, statusValidasiPulangFinal === 'disetujui' && styles.activeApprove, !canValidatePulang && styles.btnDisabled]}
+                    >
+                      <Ionicons name="checkmark-done" size={16} color={statusValidasiPulangFinal === 'disetujui' ? '#FFF' : !canValidatePulang ? '#CBD5E1' : '#10B981'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => handleValidation(absenPulangIdFinal, 'reject', p.nama, 'pulang')}
+                      disabled={!canValidatePulang}
+                      style={[styles.btnValid, styles.btnCross, statusValidasiPulangFinal === 'ditolak' && styles.activeReject, !canValidatePulang && styles.btnDisabled]}
+                    >
+                      <Ionicons name="close" size={16} color={statusValidasiPulangFinal === 'ditolak' ? '#FFF' : !canValidatePulang ? '#CBD5E1' : '#EF4444'} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
+                {!jamPulangFinal ? (
+                  <View style={styles.empLocationBox}>
+                    <Ionicons name="map-outline" size={12} color="#64748B" />
+                    <Text style={styles.locationTxt} numberOfLines={1}>
+                      Belum melakukan absen pulang
+                    </Text>
+                  </View>
+                ) : (lokasiPulangFinal || jamPulangFinal) ? (
+                  <View style={styles.empLocationBox}>
+                    <Ionicons name="map-outline" size={12} color="#64748B" />
+                    <Text style={styles.locationTxt} numberOfLines={1}>
+                      {lokasiPulangFinal || 'Lokasi sama dengan masuk'} 
+                      <Text style={{ color: isLokasiSesuaiPulangFinal ? '#10B981' : '#EF4444', fontWeight: '700' }}>
+                        {isLokasiSesuaiPulangFinal ? ' (Sesuai)' : ' (Luar Radius)'}
+                      </Text>
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           )})
@@ -447,20 +648,45 @@ export default function AbsenDinasValidasiScreen() {
                     <View style={styles.skeletonEmpName} />
                     <View style={styles.skeletonEmpNip} />
                   </View>
-                  <View style={styles.statusContainer}>
-                    <View style={styles.skeletonDot} />
-                    <View style={styles.skeletonStatusText} />
+                </View>
+
+                {/* Skeleton Absen Masuk Section */}
+                <View style={styles.absenSection}>
+                  <View style={styles.skeletonAbsenSectionTitle} />
+                  <View style={styles.absenRow}>
+                    <View style={styles.statusContainer}>
+                      <View style={styles.skeletonDot} />
+                      <View style={styles.skeletonStatusText} />
+                    </View>
+                    <View style={styles.validGroup}>
+                      <View style={styles.skeletonBtnCircle} />
+                      <View style={styles.skeletonBtnValid} />
+                      <View style={styles.skeletonBtnValid} />
+                    </View>
+                  </View>
+                  <View style={styles.empLocationBox}>
+                    <View style={styles.skeletonLocationIcon} />
+                    <View style={styles.skeletonLocationText} />
                   </View>
                 </View>
-                <View style={styles.empLocationBox}>
-                  <View style={styles.skeletonLocationIcon} />
-                  <View style={styles.skeletonLocationText} />
-                </View>
-                <View style={styles.empActions}>
-                  <View style={styles.skeletonBtnCircle} />
-                  <View style={styles.validGroup}>
-                    <View style={styles.skeletonBtnValid} />
-                    <View style={styles.skeletonBtnValid} />
+
+                {/* Skeleton Absen Pulang Section */}
+                <View style={styles.absenSection}>
+                  <View style={styles.skeletonAbsenSectionTitle} />
+                  <View style={styles.absenRow}>
+                    <View style={styles.statusContainer}>
+                      <View style={styles.skeletonDot} />
+                      <View style={styles.skeletonStatusText} />
+                    </View>
+                    <View style={styles.validGroup}>
+                      <View style={styles.skeletonBtnCircle} />
+                      <View style={styles.skeletonBtnValid} />
+                      <View style={styles.skeletonBtnValid} />
+                    </View>
+                  </View>
+                  <View style={styles.empLocationBox}>
+                    <View style={styles.skeletonLocationIcon} />
+                    <View style={styles.skeletonLocationText} />
                   </View>
                 </View>
               </View>
@@ -477,17 +703,86 @@ export default function AbsenDinasValidasiScreen() {
         />
       )}
 
-      <Modal visible={showPhotoModal} transparent animationType="slide" onRequestClose={() => setShowPhotoModal(false)}>
+      {/* Photo Modal - Bottom Sheet */}
+      <Modal
+        visible={showPhotoModal}
+        transparent={true}
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closePhotoModal}
+      >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalTopBar}>
-              <Text style={styles.modalTitle}>Bukti Kehadiran</Text>
-              <TouchableOpacity onPress={() => setShowPhotoModal(false)} style={styles.closeBtn}>
-                <Ionicons name="close" size={24} color="#1E293B" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closePhotoModal} />
+          <Animated.View style={[styles.photoBottomSheet, { transform: [{ translateY: photoTranslateY }] }]}>
+            <View {...photoPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
-            <Image source={{ uri: selectedPhoto }} style={styles.fullImage} resizeMode="contain" />
-          </View>
+            
+            <View style={styles.photoSheetContent}>
+              <Text style={styles.photoSheetTitle}>Bukti Kehadiran</Text>
+              
+              <ScrollView style={styles.photoScrollView} showsVerticalScrollIndicator={false}>
+                <View style={styles.photoImageContainer}>
+                  {photoLoading && (
+                    <View style={styles.photoLoadingContainer}>
+                      <ActivityIndicator size="large" color="#004643" />
+                      <Text style={styles.photoLoadingText}>Memuat foto...</Text>
+                    </View>
+                  )}
+                  
+                  {photoError && (
+                    <View style={styles.photoErrorContainer}>
+                      <Ionicons name="image-outline" size={48} color="#CBD5E1" />
+                      <Text style={styles.photoErrorText}>Gagal memuat foto</Text>
+                      <TouchableOpacity 
+                        style={styles.retryButton}
+                        onPress={() => {
+                          console.log('Retrying photo load for:', selectedPhoto);
+                          setPhotoError(false);
+                          setPhotoLoading(true);
+                          // Force re-render dengan timestamp
+                          const urlWithTimestamp = selectedPhoto.includes('?') 
+                            ? `${selectedPhoto}&t=${Date.now()}`
+                            : `${selectedPhoto}?t=${Date.now()}`;
+                          setSelectedPhoto(urlWithTimestamp);
+                        }}
+                      >
+                        <Text style={styles.retryButtonText}>Coba Lagi</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  
+                  {selectedPhoto && !photoError && (
+                    <Image 
+                      source={{ uri: selectedPhoto }} 
+                      style={[styles.photoImage, photoLoading && { opacity: 0 }]} 
+                      resizeMode="cover"
+                      onLoadStart={() => {
+                        console.log('Image load start');
+                        setPhotoLoading(true);
+                      }}
+                      onLoad={() => {
+                        console.log('Image loaded successfully');
+                        setPhotoLoading(false);
+                      }}
+                      onError={(error) => {
+                        console.log('Image load error:', error.nativeEvent.error);
+                        setPhotoLoading(false);
+                        setPhotoError(true);
+                      }}
+                    />
+                  )}
+                  
+                  {!selectedPhoto && (
+                    <View style={styles.photoErrorContainer}>
+                      <Ionicons name="image-outline" size={48} color="#CBD5E1" />
+                      <Text style={styles.photoErrorText}>Tidak ada foto</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -495,7 +790,7 @@ export default function AbsenDinasValidasiScreen() {
         visible={showValidationAlert}
         type="confirm"
         title={validationData?.type === 'approve' ? 'Setujui Absensi' : 'Tolak Absensi'}
-        message={`Konfirmasi validasi untuk ${validationData?.nama}?`}
+        message={`Konfirmasi ${validationData?.type === 'approve' ? 'setujui' : 'tolak'} absen ${validationData?.absenType} untuk ${validationData?.nama}?`}
         confirmText="Konfirmasi"
         cancelText="Batal"
         onConfirm={confirmValidation}
@@ -563,44 +858,152 @@ const styles = StyleSheet.create({
   empLocationBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC', padding: 8, borderRadius: 12, marginTop: 12 },
   locationTxt: { fontSize: 11, color: '#64748B', flex: 1, fontWeight: '500' },
   empActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  btnCircle: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
-  btnDisabled: { opacity: 0.3 },
-  validGroup: { flexDirection: 'row', gap: 10 },
-  btnValid: { width: 48, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  btnCircle: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' },
+  btnDisabled: { opacity: 1 },
+  validGroup: { flexDirection: 'row', gap: 8 },
+  btnValid: { width: 36, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   btnCheck: { borderColor: '#D1FAE5', backgroundColor: '#ECFDF5' },
   btnCross: { borderColor: '#FEE2E2', backgroundColor: '#FEF2F2' },
   activeApprove: { backgroundColor: '#10B981', borderColor: '#10B981' },
   activeReject: { backgroundColor: '#EF4444', borderColor: '#EF4444' },
 
+  absenSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  absenSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  absenRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
   emptyState: { padding: 40, alignItems: 'center', gap: 12 },
   emptyStateTxt: { color: '#94A3B8', fontWeight: '600', fontSize: 14 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.9)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, height: '80%', overflow: 'hidden' },
-  modalTopBar: { padding: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
-  closeBtn: { padding: 4 },
-  fullImage: { width: '100%', height: '100%', backgroundColor: '#000' },
+  // Modal Overlay Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  
+  // Photo Bottom Sheet Styles
+  photoBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.85,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+  },
+  photoSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  photoSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  photoScrollView: {
+    maxHeight: SCREEN_HEIGHT * 0.65,
+  },
+  photoImageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 400,
+    borderRadius: 16,
+    padding: 8,
+    overflow: 'hidden',
+  },
+  photoImage: {
+    width: '100%',
+    height: 400,
+    borderRadius: 12,
+  },
+  photoLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 400,
+    gap: 12,
+  },
+  photoLoadingText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  photoErrorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 400,
+    gap: 12,
+  },
+  photoErrorText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  retryButton: {
+    backgroundColor: '#004643',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
 
   /* ========================================
      SKELETON STYLES
   ======================================== */
   // Premium Card Skeleton
   skeletonTagBadge: {
-    width: 60,
-    height: 16,
+    width: 80,
+    height: 20,
     backgroundColor: '#E0F2F1',
     borderRadius: 8,
   },
   skeletonSptText: {
-    width: 80,
-    height: 11,
+    width: 100,
+    height: 14,
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
   skeletonTitle: {
-    width: '80%',
-    height: 20,
+    width: '85%',
+    height: 24,
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
     marginBottom: 16,
@@ -612,15 +1015,15 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   skeletonInfoLabel: {
-    width: 60,
-    height: 11,
+    width: 80,
+    height: 12,
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   skeletonInfoValue: {
-    width: 80,
-    height: 13,
+    width: 100,
+    height: 16,
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
   },
@@ -691,6 +1094,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
+  skeletonAbsenSectionTitle: {
+    width: '35%',
+    height: 12,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
   skeletonDot: {
     width: 8,
     height: 8,
@@ -698,8 +1108,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   skeletonStatusText: {
-    width: 50,
-    height: 9,
+    width: 60,
+    height: 11,
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
@@ -711,20 +1121,20 @@ const styles = StyleSheet.create({
   },
   skeletonLocationText: {
     flex: 1,
-    height: 9,
+    height: 11,
     backgroundColor: '#F0F0F0',
     borderRadius: 4,
   },
   skeletonBtnCircle: {
-    width: 42,
-    height: 42,
+    width: 32,
+    height: 32,
     backgroundColor: '#F1F5F9',
-    borderRadius: 14,
+    borderRadius: 10,
   },
   skeletonBtnValid: {
-    width: 48,
-    height: 42,
+    width: 36,
+    height: 32,
     backgroundColor: '#F0F0F0',
-    borderRadius: 14,
+    borderRadius: 10,
   },
 });
