@@ -232,6 +232,7 @@ export default function DetailDinasScreen() {
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
         bounces={false}
+        overScrollMode="never"
       >
         {/* ============================================================
             PREMIUM HEADER SECTION
@@ -401,8 +402,8 @@ export default function DetailDinasScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F7F7' }, // Background abu-abu sangat muda yang bersih
-  scrollContent: { paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: '#004643' }, // Same as header to prevent white gap
+  scrollContent: { paddingBottom: 40, backgroundColor: '#F4F7F7', flexGrow: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
   loadingText: { color: '#666', fontSize: 14, fontStyle: 'italic' },
   

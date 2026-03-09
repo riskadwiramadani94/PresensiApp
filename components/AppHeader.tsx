@@ -22,6 +22,8 @@ interface AppHeaderProps {
   onHistoryPress?: () => void;
   historyIcon?: string;
   rightComponent?: React.ReactNode;
+  rightIcon?: string;
+  onRightPress?: () => void;
   fallbackRoute?: string;
   primaryColor?: string;
   backgroundColor?: string;
@@ -41,6 +43,8 @@ export default function AppHeader({
   onHistoryPress,
   historyIcon = "time-outline",
   rightComponent,
+  rightIcon,
+  onRightPress,
   fallbackRoute,
   primaryColor = "#fff",
   backgroundColor = "#004643",
@@ -102,6 +106,12 @@ export default function AppHeader({
           {showHistoryButton && (
             <TouchableOpacity style={styles.addButton} onPress={onHistoryPress}>
               <Ionicons name={historyIcon as any} size={28} color={primaryColor} />
+            </TouchableOpacity>
+          )}
+
+          {rightIcon && onRightPress && (
+            <TouchableOpacity style={styles.addButton} onPress={onRightPress}>
+              <Ionicons name={rightIcon as any} size={28} color={primaryColor} />
             </TouchableOpacity>
           )}
 

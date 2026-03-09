@@ -316,6 +316,7 @@ export default function RiwayatScreen() {
         });
         
         console.log('✅ Data dari backend (sudah include libur & weekend):', riwayat.length);
+        console.log('🔍 Calling calculateStats with data:', riwayat);
         
         const sortedRiwayat = [...riwayat].sort((a, b) => {
           const dateA = new Date(a.tanggal).getTime();
@@ -324,10 +325,34 @@ export default function RiwayatScreen() {
         });
         setRiwayatData(sortedRiwayat);
         calculateStats(riwayat);
+      } else {
+        console.log('❌ No data or failed response:', data);
+        setRiwayatData([]);
+        setStats({
+          hadir: 0,
+          terlambat: '0x',
+          jamKerja: '0j 0m',
+          izin: 0,
+          sakit: 0,
+          cuti: 0,
+          pulangCepat: '0x',
+          libur: 0
+        });
       }
     } catch (error) {
-      console.error('Error fetching riwayat:', error);
+      console.error('❌ Error fetching riwayat:', error);
       showAlert({ type: 'error', title: 'Error', message: 'Gagal memuat riwayat presensi' });
+      setRiwayatData([]);
+      setStats({
+        hadir: 0,
+        terlambat: '0x',
+        jamKerja: '0j 0m',
+        izin: 0,
+        sakit: 0,
+        cuti: 0,
+        pulangCepat: '0x',
+        libur: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -350,22 +375,34 @@ export default function RiwayatScreen() {
       const status = (item.status || '').trim().toLowerCase();
       console.log(`Item ${idx}: status='${item.status}' (normalized='${status}'), jam_masuk=${item.jam_masuk}, jam_keluar=${item.jam_keluar}`);
       
-      // ✅ Hitung Hadir & Terlambat
-      if (status === 'hadir') {
-        hadirCount++;
-      } else if (status === 'terlambat') {
-        hadirCount++;
-        terlambatCount++;
-      } else if (status === 'izin') {
-        izinCount++;
-      } else if (status === 'sakit') {
-        sakitCount++;
-      } else if (status === 'cuti') {
-        cutiCount++;
-      } else if (status === 'pulang cepat') {
-        pulangCepatCount++;
-      } else if (status === 'libur') {
-        liburCount++;
+      // Handle status dinas dengan prefix "Dinas-"
+      if (status.startsWith('dinas-')) {
+        const baseStatus = status.replace('dinas-', '');
+        if (baseStatus === 'hadir') {
+          hadirCount++;
+        } else if (baseStatus === 'terlambat') {
+          hadirCount++;
+          terlambatCount++;
+        }
+        // Dinas-Tidak Hadir tidak dihitung sebagai hadir
+      } else {
+        // Handle status normal
+        if (status === 'hadir') {
+          hadirCount++;
+        } else if (status === 'terlambat') {
+          hadirCount++;
+          terlambatCount++;
+        } else if (status === 'izin') {
+          izinCount++;
+        } else if (status === 'sakit') {
+          sakitCount++;
+        } else if (status === 'cuti') {
+          cutiCount++;
+        } else if (status === 'pulang cepat') {
+          pulangCepatCount++;
+        } else if (status === 'libur') {
+          liburCount++;
+        }
       }
       
       // Hitung jam kerja
@@ -401,15 +438,33 @@ export default function RiwayatScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'hadir': return '#4CAF50';
-      case 'terlambat': return '#FF9800';
-      case 'dinas': return '#2196F3';
-      case 'izin': return '#9C27B0';
-      case 'sakit': return '#F44336';
-      case 'libur': return '#F44336';
-      case 'belum waktunya': return '#9E9E9E';
-      default: return '#999';
+    // Deteksi prefix "Dinas-" dan ambil warna yang sesuai
+    const isDinas = status.startsWith('Dinas-');
+    const baseStatus = isDinas ? status.replace('Dinas-', '') : status;
+    
+    if (isDinas) {
+      // Warna khusus untuk status dinas (biru/ungu)
+      switch (baseStatus.toLowerCase()) {
+        case 'hadir': return '#4A90E2';
+        case 'terlambat': return '#7B68EE';
+        case 'tidak hadir': return '#6A5ACD';
+        case 'belum absen': return '#9370DB';
+        default: return '#6A5ACD';
+      }
+    } else {
+      // Warna normal untuk status biasa
+      switch (status.toLowerCase()) {
+        case 'hadir': return '#4CAF50';
+        case 'terlambat': return '#FF9800';
+        case 'tidak hadir': return '#F44336';
+        case 'dinas': return '#2196F3';
+        case 'izin': return '#9C27B0';
+        case 'sakit': return '#F44336';
+        case 'libur': return '#F44336';
+        case 'belum waktunya': return '#9E9E9E';
+        case 'belum absen': return '#FF6F00';
+        default: return '#999';
+      }
     }
   };
 
@@ -580,7 +635,7 @@ export default function RiwayatScreen() {
                     <View style={styles.statusRow}>
                       <Text style={styles.dayFull}>{dayName}</Text>
                       <Text style={[styles.statusBadge, { color }]}>
-                        {isDinas ? `Dinas-${item.status}` : item.status}
+                        {item.status}
                       </Text>
                     </View>
                     

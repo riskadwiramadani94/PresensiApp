@@ -1,4 +1,6 @@
 const { getConnection } = require('../config/database');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
 
 // Function to get dynamic attendance status based on current time
 const getDynamicAttendanceStatus = async (userId, targetDate = null) => {
@@ -82,6 +84,7 @@ const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, mon
     let startDateStr, endDateStr;
     const now = new Date();
     const currentDate = now.toISOString().split('T')[0];
+    const currentTime = now.toTimeString().slice(0, 8);
     
     if (filter_date === 'harian' && start_date) {
       startDateStr = start_date;
@@ -100,9 +103,18 @@ const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, mon
       return; // No filter, skip
     }
     
-    // Only process dates up to today
-    if (endDateStr > currentDate) {
-      endDateStr = currentDate;
+    // PENTING: Hanya proses sampai kemarin, TIDAK termasuk hari ini
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    if (endDateStr > yesterdayStr) {
+      endDateStr = yesterdayStr;
+    }
+    
+    // Skip jika tidak ada tanggal yang perlu diproses
+    if (startDateStr > endDateStr) {
+      return;
     }
     
     // Get all active pegawai
@@ -139,66 +151,54 @@ const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, mon
       // ✅ HANYA insert "Tidak Hadir" jika:
       // 1. Hari kerja (is_kerja=1)
       // 2. BUKAN hari libur
-      // 3. Sudah lewat batas absen
-      if (isWorkDay && !isHoliday && jamKerjaRows.length > 0) {
-        const { batas_absen } = jamKerjaRows[0];
-        const currentTime = now.toTimeString().slice(0, 8);
-        
-        // Only insert if date is before today OR (today AND past batas_absen)
-        if (dateStr < currentDate || (dateStr === currentDate && currentTime > batas_absen)) {
-          // For each pegawai, check if they have attendance
-          for (const pegawai of pegawaiList) {
-            // Check if on cuti
-            const [cutiRows] = await db.execute(
-              'SELECT id_pengajuan FROM pengajuan WHERE id_user = ? AND tanggal_mulai <= ? AND (tanggal_selesai >= ? OR tanggal_selesai IS NULL) AND status = "disetujui" AND jenis_pengajuan IN ("cuti_sakit", "cuti_tahunan", "cuti_alasan_penting")',
-              [pegawai.id_user, dateStr, dateStr]
-            );
-            
-            // Skip jika sedang cuti
-            if (cutiRows.length > 0) {
-              continue;
-            }
-            
-            // Check if on dinas
-            const [dinasRows] = await db.execute(
-              'SELECT d.id_dinas FROM dinas_pegawai dp JOIN dinas d ON dp.id_dinas = d.id_dinas WHERE dp.id_user = ? AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai) AND dp.status_konfirmasi = "konfirmasi"',
+      // 3. Tanggal sudah lewat (bukan hari ini)
+      if (isWorkDay && !isHoliday) {
+        // For each pegawai, check if they have attendance
+        for (const pegawai of pegawaiList) {
+          // Check if on cuti
+          const [cutiRows] = await db.execute(
+            'SELECT id_pengajuan FROM pengajuan WHERE id_user = ? AND tanggal_mulai <= ? AND (tanggal_selesai >= ? OR tanggal_selesai IS NULL) AND status = "disetujui" AND jenis_pengajuan IN ("cuti_sakit", "cuti_tahunan", "cuti_alasan_penting")',
+            [pegawai.id_user, dateStr, dateStr]
+          );
+          
+          // Skip jika sedang cuti
+          if (cutiRows.length > 0) {
+            continue;
+          }
+          
+          // Check if on dinas
+          const [dinasRows] = await db.execute(
+            'SELECT d.id_dinas FROM dinas_pegawai dp JOIN dinas d ON dp.id_dinas = d.id_dinas WHERE dp.id_user = ? AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai) AND dp.status_konfirmasi = "konfirmasi"',
+            [pegawai.id_user, dateStr]
+          );
+          
+          if (dinasRows.length > 0) {
+            // Sedang dinas - cek presensi dinas
+            const [presensiDinasRows] = await db.execute(
+              'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "dinas" AND jam_masuk IS NOT NULL',
               [pegawai.id_user, dateStr]
             );
             
-            if (dinasRows.length > 0) {
-              // Sedang dinas - HAPUS presensi kantor jika ada
+            if (presensiDinasRows.length === 0) {
+              // Belum ada presensi dinas → Insert "Tidak Hadir" DINAS
               await db.execute(
-                'DELETE FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "kantor"',
+                'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id) VALUES (?, ?, "Tidak Hadir", "disetujui", "dinas", ?)',
+                [pegawai.id_user, dateStr, dinasRows[0].id_dinas]
+              );
+            }
+          } else {
+            // Tidak sedang dinas - cek presensi kantor
+            const [presensiKantorRows] = await db.execute(
+              'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jam_masuk IS NOT NULL',
+              [pegawai.id_user, dateStr]
+            );
+            
+            if (presensiKantorRows.length === 0) {
+              // Belum ada presensi kantor → Insert "Tidak Hadir" KANTOR
+              await db.execute(
+                'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi) VALUES (?, ?, "Tidak Hadir", "disetujui", "kantor")',
                 [pegawai.id_user, dateStr]
               );
-              
-              // Cek apakah sudah ada presensi dinas
-              const [presensiDinasRows] = await db.execute(
-                'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "dinas"',
-                [pegawai.id_user, dateStr]
-              );
-              
-              if (presensiDinasRows.length === 0) {
-                // Belum ada presensi dinas → Insert "Tidak Hadir" DINAS
-                await db.execute(
-                  'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id) VALUES (?, ?, "Tidak Hadir", "disetujui", "dinas", ?)',
-                  [pegawai.id_user, dateStr, dinasRows[0].id_dinas]
-                );
-              }
-            } else {
-              // Tidak sedang dinas - cek presensi kantor
-              const [presensiKantorRows] = await db.execute(
-                'SELECT id_presensi FROM presensi WHERE id_user = ? AND tanggal = ? AND jenis_presensi = "kantor"',
-                [pegawai.id_user, dateStr]
-              );
-              
-              if (presensiKantorRows.length === 0) {
-                // Belum ada presensi kantor → Insert "Tidak Hadir" KANTOR
-                await db.execute(
-                  'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi) VALUES (?, ?, "Tidak Hadir", "disetujui", "kantor")',
-                  [pegawai.id_user, dateStr]
-                );
-              }
             }
           }
         }
@@ -218,6 +218,49 @@ const getLaporan = async (req, res) => {
 
     // Jika tidak ada type, return statistik untuk dashboard
     if (!type) {
+      // REAL-TIME: Auto-generate "Tidak Hadir" untuk hari ini jika sudah lewat batas absen
+      const today = new Date().toISOString().split('T')[0];
+      const currentTime = new Date().toTimeString().slice(0, 8);
+      
+      // Get all pegawai
+      const [allPegawai] = await db.execute(`
+        SELECT p.id_user FROM pegawai p
+        JOIN users u ON p.id_user = u.id_user
+        WHERE u.role = 'pegawai'
+      `);
+      
+      // Check each pegawai for today
+      for (const pegawai of allPegawai) {
+        // Get hari kerja info
+        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const dayName = dayNames[new Date().getDay()];
+        
+        const [jamKerjaRows] = await db.execute(
+          'SELECT is_kerja, batas_absen FROM jam_kerja_hari WHERE hari = ?',
+          [dayName]
+        );
+        
+        const isWorkDay = jamKerjaRows.length > 0 && jamKerjaRows[0].is_kerja === 1;
+        const batasAbsen = jamKerjaRows[0]?.batas_absen || '08:30:00';
+        
+        // Skip jika bukan hari kerja atau belum lewat batas absen
+        if (!isWorkDay || currentTime <= batasAbsen) continue;
+        
+        // Check if already has presensi today
+        const [presensiRows] = await db.execute(
+          'SELECT id_presensi FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? AND jam_masuk IS NOT NULL',
+          [pegawai.id_user, today]
+        );
+        
+        // Auto-insert "Tidak Hadir" jika belum ada presensi dan sudah lewat batas absen
+        if (presensiRows.length === 0) {
+          await db.execute(`
+            INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi)
+            VALUES (?, ?, 'Tidak Hadir', 'disetujui', 'kantor')
+          `, [pegawai.id_user, today]);
+        }
+      }
+
       // Hitung total pegawai
       const [totalAbsenRows] = await db.execute(`
         SELECT COUNT(DISTINCT p.id_pegawai) as total 
@@ -227,7 +270,7 @@ const getLaporan = async (req, res) => {
       `);
       const totalAbsen = totalAbsenRows[0].total;
 
-      // Hitung total dinas (dari tabel dinas_pegawai)
+      // Hitung total dinas
       const [totalDinasRows] = await db.execute(`
         SELECT COUNT(DISTINCT dp.id) as total 
         FROM dinas_pegawai dp
@@ -620,7 +663,7 @@ const getDetailAbsenPegawai = async (req, res) => {
     
     const user_id = pegawai.id_user;
     
-    // Determine date range based on filter_date
+    // Determine date range
     let startDateStr, endDateStr;
     
     if (filter_date === 'harian' && start_date) {
@@ -633,49 +676,55 @@ const getDetailAbsenPegawai = async (req, res) => {
       startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
       const lastDay = new Date(year, parseInt(month), 0).getDate();
       endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      console.log('Bulanan filter:', { month, year, startDateStr, endDateStr });
     } else if (filter_date === 'tahunan' && year) {
       startDateStr = `${year}-01-01`;
       endDateStr = `${year}-12-31`;
     } else {
-      // Default to current month
       const now = new Date();
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
       startDateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
       const lastDay = new Date(currentYear, currentMonth, 0).getDate();
       endDateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-      console.log('Default filter (current month):', { currentMonth, currentYear, startDateStr, endDateStr });
     }
     
     const absenData = [];
     let currentDate = new Date(startDateStr + 'T00:00:00');
     const endDateObj = new Date(endDateStr + 'T00:00:00');
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const currentTime = today.toTimeString().slice(0, 8);
     
     while (currentDate <= endDateObj) {
       const dateStr = currentDate.toISOString().split('T')[0];
-      
-      // Get day name
       const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       const dayName = dayNames[currentDate.getDay()];
       
-      // Check if it's a holiday from hari_libur (PRIORITY 1)
+      // Check holiday
       const [hariLiburRows] = await db.execute(
         'SELECT nama_libur FROM hari_libur WHERE tanggal = ? AND is_active = 1',
         [dateStr]
       );
       const isHoliday = hariLiburRows.length > 0;
       
-      // Check if it's a work day from jam_kerja_hari (PRIORITY 2)
+      // Check work day
       const [jamKerjaRows] = await db.execute(
-        'SELECT is_kerja, jam_masuk, jam_pulang FROM jam_kerja_hari WHERE hari = ?',
+        'SELECT is_kerja, jam_masuk, jam_pulang, batas_absen FROM jam_kerja_hari WHERE hari = ?',
         [dayName]
       );
       const isWorkDay = jamKerjaRows.length > 0 && jamKerjaRows[0].is_kerja === 1;
       
-      // Cek apakah sedang dinas
+      // Check existing presensi
+      const [presensiRows] = await db.execute(`
+        SELECT tanggal, jam_masuk, jam_pulang, status, alasan_luar_lokasi as keterangan
+        FROM presensi 
+        WHERE id_user = ? AND tanggal = ? AND jam_masuk IS NOT NULL
+      `, [user_id, dateStr]);
+      const presensi = presensiRows[0];
+      
+      // Check if on dinas for this date
       const [dinasRows] = await db.execute(`
-        SELECT d.nama_kegiatan, d.tanggal_mulai, d.tanggal_selesai
+        SELECT d.id_dinas, d.nama_kegiatan, d.tanggal_mulai, d.tanggal_selesai
         FROM dinas_pegawai dp
         JOIN dinas d ON dp.id_dinas = d.id_dinas
         WHERE dp.id_user = ?
@@ -683,45 +732,9 @@ const getDetailAbsenPegawai = async (req, res) => {
         AND dp.status_konfirmasi = 'konfirmasi'
         LIMIT 1
       `, [user_id, dateStr]);
-      const dinas = dinasRows[0];
+      const isDinas = dinasRows.length > 0;
       
-      // Cek presensi normal
-      const [presensiRows] = await db.execute(`
-        SELECT tanggal, jam_masuk, jam_pulang, status, alasan_luar_lokasi as keterangan
-        FROM presensi 
-        WHERE id_user = ? AND tanggal = ?
-      `, [user_id, dateStr]);
-      let presensi = presensiRows[0];
-      
-      // Auto-insert "Tidak Hadir" jika sudah lewat batas absen dan belum ada presensi
-      if (!presensi && isWorkDay && !isHoliday && !dinas && !pengajuan) {
-        const now = new Date();
-        const currentDate = now.toISOString().split('T')[0];
-        const currentTime = now.toTimeString().slice(0, 8);
-        
-        // Hanya untuk hari ini atau hari sebelumnya
-        if (dateStr <= currentDate && jamKerjaRows.length > 0) {
-          const { batas_absen } = jamKerjaRows[0];
-          
-          // Jika sudah lewat batas absen, insert "Tidak Hadir"
-          if (dateStr < currentDate || (dateStr === currentDate && currentTime > batas_absen)) {
-            await db.execute(`
-              INSERT INTO presensi (id_user, tanggal, status, status_validasi)
-              VALUES (?, ?, 'Tidak Hadir', 'disetujui')
-            `, [user_id, dateStr]);
-            
-            // Fetch ulang presensi yang baru diinsert
-            const [newPresensiRows] = await db.execute(`
-              SELECT tanggal, jam_masuk, jam_pulang, status, alasan_luar_lokasi as keterangan
-              FROM presensi 
-              WHERE id_user = ? AND tanggal = ?
-            `, [user_id, dateStr]);
-            presensi = newPresensiRows[0];
-          }
-        }
-      }
-      
-      // Cek pengajuan izin/cuti yang disetujui
+      // Check cuti
       const [pengajuanRows] = await db.execute(`
         SELECT jenis_pengajuan, jam_mulai, jam_selesai, alasan_text
         FROM pengajuan
@@ -729,18 +742,11 @@ const getDetailAbsenPegawai = async (req, res) => {
           AND tanggal_mulai <= ?
           AND (tanggal_selesai >= ? OR tanggal_selesai IS NULL)
           AND status = 'disetujui'
-          AND jenis_pengajuan IN (
-            'izin_datang_terlambat', 
-            'izin_pulang_cepat', 
-            'cuti_sakit', 
-            'cuti_tahunan', 
-            'cuti_alasan_penting'
-          )
+          AND jenis_pengajuan IN ('cuti_sakit', 'cuti_tahunan', 'cuti_alasan_penting')
         LIMIT 1
       `, [user_id, dateStr, dateStr]);
       const pengajuan = pengajuanRows[0];
       
-      // PRIORITY 1: Hari libur nasional
       if (isHoliday) {
         absenData.push({
           tanggal: dateStr,
@@ -749,9 +755,7 @@ const getDetailAbsenPegawai = async (req, res) => {
           jam_keluar: null,
           keterangan: hariLiburRows[0].nama_libur
         });
-      }
-      // PRIORITY 2: is_kerja = 0 (hari libur setting)
-      else if (!isWorkDay) {
+      } else if (!isWorkDay) {
         absenData.push({
           tanggal: dateStr,
           status: 'Libur',
@@ -759,9 +763,7 @@ const getDetailAbsenPegawai = async (req, res) => {
           jam_keluar: null,
           keterangan: `Hari ${dayName}`
         });
-      }
-      // PRIORITY 3: Cuti yang disetujui
-      else if (pengajuan && pengajuan.jenis_pengajuan.includes('cuti')) {
+      } else if (pengajuan && pengajuan.jenis_pengajuan.includes('cuti')) {
         const jenisLabel = pengajuan.jenis_pengajuan === 'cuti_sakit' ? 'Cuti Sakit' :
                           pengajuan.jenis_pengajuan === 'cuti_tahunan' ? 'Cuti Tahunan' :
                           'Cuti Alasan Penting';
@@ -772,76 +774,98 @@ const getDetailAbsenPegawai = async (req, res) => {
           jam_keluar: null,
           keterangan: `${jenisLabel}: ${pengajuan.alasan_text}`
         });
-      }
-      // PRIORITY 4: Ada presensi
-      else if (presensi) {
-        let keterangan = presensi.keterangan || 'Absen normal';
+      } else if (presensi) {
+        // Ada presensi - tambah prefix "Dinas-" jika sedang dinas
+        let finalStatus = presensi.status;
+        let finalKeterangan = presensi.keterangan || 'Absen normal';
         
-        // Tambahkan info izin jika ada
-        if (pengajuan) {
-          const jenisLabel = pengajuan.jenis_pengajuan === 'izin_datang_terlambat' ? 'Izin Datang Terlambat' : 'Izin Pulang Cepat';
-          keterangan = `${jenisLabel}: ${pengajuan.alasan_text}`;
+        if (isDinas) {
+          finalStatus = `Dinas-${presensi.status}`;
+          finalKeterangan = `${dinasRows[0].nama_kegiatan} - ${finalKeterangan}`;
         }
         
         absenData.push({
           tanggal: presensi.tanggal,
-          status: presensi.status,
+          status: finalStatus,
           jam_masuk: presensi.jam_masuk,
           jam_keluar: presensi.jam_pulang,
-          keterangan: keterangan
+          keterangan: finalKeterangan
         });
-      } else if (dinas) {
-        // Sedang dinas - cek apakah ada absen dinas
-        const [absenDinasRows] = await db.execute(`
-          SELECT jam_masuk, jam_pulang, status
-          FROM presensi 
-          WHERE id_user = ? AND tanggal = ? AND jenis_presensi = 'dinas'
-        `, [user_id, dateStr]);
-        
-        const absenDinas = absenDinasRows[0];
-        
-        if (absenDinas) {
-          // Ada absen dinas - return status absen sebenarnya dengan keterangan dinas
-          let finalStatus = 'Hadir';
-          let dinasKeterangan = 'Dinas-Hadir';
+      } else {
+        // REAL-TIME LOGIC untuk hari kerja tanpa presensi
+        if (dateStr === todayStr) {
+          // Hari ini - cek real-time
+          const batasAbsen = jamKerjaRows[0]?.batas_absen || '08:30:00';
           
-          if (absenDinas.status === 'terlambat') {
-            finalStatus = 'Terlambat';
-            dinasKeterangan = 'Dinas-Terlambat';
-          } else if (absenDinas.status === 'tidak_hadir') {
-            finalStatus = 'Tidak Hadir';
-            dinasKeterangan = 'Dinas-Tidak Hadir';
-          } else if (absenDinas.status === 'hadir') {
-            finalStatus = 'Hadir';
-            dinasKeterangan = 'Dinas-Hadir';
+          if (currentTime <= batasAbsen) {
+            let status = 'Belum Absen';
+            let keterangan = `Belum absen (batas: ${batasAbsen})`;
+            
+            if (isDinas) {
+              status = 'Dinas-Belum Absen';
+              keterangan = `${dinasRows[0].nama_kegiatan} - ${keterangan}`;
+            }
+            
+            absenData.push({
+              tanggal: dateStr,
+              status: status,
+              jam_masuk: null,
+              jam_keluar: null,
+              keterangan: keterangan
+            });
+          } else {
+            // OTOMATIS INSERT ke database
+            const jenis_presensi = isDinas ? 'dinas' : 'kantor';
+            const dinas_id = isDinas ? dinasRows[0].id_dinas : null;
+            
+            await db.execute(`
+              INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id)
+              VALUES (?, ?, 'Tidak Hadir', 'disetujui', ?, ?)
+            `, [user_id, dateStr, jenis_presensi, dinas_id]);
+            
+            let status = 'Tidak Hadir';
+            let keterangan = 'Tidak hadir (lewat batas absen)';
+            
+            if (isDinas) {
+              status = 'Dinas-Tidak Hadir';
+              keterangan = `${dinasRows[0].nama_kegiatan} - ${keterangan}`;
+            }
+            
+            absenData.push({
+              tanggal: dateStr,
+              status: status,
+              jam_masuk: null,
+              jam_keluar: null,
+              keterangan: keterangan
+            });
+          }
+        } else if (dateStr < todayStr) {
+          // Hari yang sudah lewat - pasti Tidak Hadir
+          const jenis_presensi = isDinas ? 'dinas' : 'kantor';
+          const dinas_id = isDinas ? dinasRows[0].id_dinas : null;
+          
+          await db.execute(`
+            INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id)
+            VALUES (?, ?, 'Tidak Hadir', 'disetujui', ?, ?)
+          `, [user_id, dateStr, jenis_presensi, dinas_id]);
+          
+          let status = 'Tidak Hadir';
+          let keterangan = 'Tidak hadir';
+          
+          if (isDinas) {
+            status = 'Dinas-Tidak Hadir';
+            keterangan = `${dinasRows[0].nama_kegiatan} - ${keterangan}`;
           }
           
           absenData.push({
             tanggal: dateStr,
-            status: finalStatus,
-            jam_masuk: absenDinas.jam_masuk,
-            jam_keluar: absenDinas.jam_pulang,
-            keterangan: dinasKeterangan
-          });
-        } else {
-          // Tidak ada absen dinas - Tidak Hadir
-          absenData.push({
-            tanggal: dateStr,
-            status: 'Tidak Hadir',
+            status: status,
             jam_masuk: null,
             jam_keluar: null,
-            keterangan: 'Dinas-Tidak Hadir'
+            keterangan: keterangan
           });
         }
-      } else {
-        // Tidak ada data absen dan tidak dinas
-        absenData.push({
-          tanggal: dateStr,
-          status: 'Tidak Hadir',
-          jam_masuk: null,
-          jam_keluar: null,
-          keterangan: 'Tidak ada data absen'
-        });
+        // Skip tanggal masa depan
       }
       
       currentDate.setDate(currentDate.getDate() + 1);
@@ -1037,7 +1061,7 @@ const getDetailAbsen = async (req, res) => {
     
     const db = await getConnection();
     
-    // Query untuk mengambil detail absen
+    // Query untuk mengambil detail absen - PRIORITASKAN DINAS
     const [rows] = await db.execute(`
       SELECT 
         p.id_presensi as id,
@@ -1053,6 +1077,7 @@ const getDetailAbsen = async (req, res) => {
         p.lintang_pulang as lat_pulang,
         p.bujur_pulang as long_pulang,
         p.status,
+        p.jenis_presensi,
         lk.nama_lokasi as lokasi_masuk,
         CASE 
           WHEN p.jam_pulang IS NOT NULL THEN lk.nama_lokasi
@@ -1062,6 +1087,10 @@ const getDetailAbsen = async (req, res) => {
       INNER JOIN pegawai pg ON p.id_user = pg.id_user
       LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
       WHERE DATE_FORMAT(p.tanggal, '%Y-%m-%d') = ? AND p.id_user = ?
+      ORDER BY 
+        CASE WHEN p.jenis_presensi = 'dinas' THEN 1 ELSE 2 END,
+        p.jam_masuk IS NOT NULL DESC,
+        p.id_presensi DESC
       LIMIT 1
     `, [date, user_id]);
     
@@ -1082,7 +1111,12 @@ const getDetailAbsen = async (req, res) => {
         long_masuk: parseFloat(detail.long_masuk || 0),
         lat_pulang: detail.lat_pulang ? parseFloat(detail.lat_pulang) : null,
         long_pulang: detail.long_pulang ? parseFloat(detail.long_pulang) : null,
+        lintang_masuk: parseFloat(detail.lat_masuk || 0),
+        bujur_masuk: parseFloat(detail.long_masuk || 0),
+        lintang_pulang: detail.lat_pulang ? parseFloat(detail.lat_pulang) : null,
+        bujur_pulang: detail.long_pulang ? parseFloat(detail.long_pulang) : null,
         status: detail.status,
+        jenis_presensi: detail.jenis_presensi,
         lokasi_masuk: detail.lokasi_masuk || '-',
         lokasi_pulang: detail.lokasi_pulang || '-'
       };
@@ -1129,58 +1163,8 @@ const exportPDF = async (req, res) => {
         data = absenRows;
         break;
         
-      case 'dinas':
-        filename = `Laporan_Dinas_${new Date().toISOString().split('T')[0]}.pdf`;
-        const [dinasRows] = await db.execute(`
-          SELECT 
-            p.nama_lengkap, 
-            p.nip, 
-            d.nama_kegiatan,
-            d.tanggal_mulai, 
-            d.tanggal_selesai, 
-            GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas,
-            d.status,
-            dp.status_konfirmasi,
-            COUNT(DISTINCT pr.id_presensi) as total_absen
-          FROM dinas d
-          INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
-          INNER JOIN pegawai p ON dp.id_user = p.id_user
-          LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
-          LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
-          LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
-          WHERE d.tanggal_mulai BETWEEN ? AND ?
-          GROUP BY d.id_dinas, dp.id_user, p.nama_lengkap, p.nip, dp.status_konfirmasi
-          ORDER BY d.tanggal_mulai DESC
-        `, [startDate, endDate]);
-        data = dinasRows;
-        break;
-        
-      case 'izin':
-        filename = `Laporan_Izin_Cuti_${new Date().toISOString().split('T')[0]}.pdf`;
-        const [izinRows] = await db.execute(`
-          SELECT p.nama_lengkap, p.nip, pg.jenis_pengajuan, pg.tanggal_mulai, 
-                 pg.tanggal_selesai, pg.alasan_text, pg.status
-          FROM pengajuan pg
-          JOIN pegawai p ON pg.id_pegawai = p.id_pegawai
-          WHERE pg.tanggal_mulai BETWEEN ? AND ?
-          AND (pg.jenis_pengajuan LIKE 'cuti_%' OR pg.jenis_pengajuan = 'izin_pribadi')
-          ORDER BY pg.tanggal_mulai DESC
-        `, [startDate, endDate]);
-        data = izinRows;
-        break;
-        
-      case 'lembur':
-        filename = `Laporan_Lembur_${new Date().toISOString().split('T')[0]}.pdf`;
-        const [lemburRows] = await db.execute(`
-          SELECT p.nama_lengkap, p.nip, pg.jenis_pengajuan, pg.tanggal_mulai, 
-                 pg.tanggal_selesai, pg.jam_mulai, pg.jam_selesai, pg.alasan_text, pg.status
-          FROM pengajuan pg
-          JOIN pegawai p ON pg.id_pegawai = p.id_pegawai
-          WHERE pg.tanggal_mulai BETWEEN ? AND ?
-          AND pg.jenis_pengajuan LIKE 'lembur_%'
-          ORDER BY pg.tanggal_mulai DESC
-        `, [startDate, endDate]);
-        data = lemburRows;
+      default:
+        data = [];
         break;
     }
     
@@ -1199,11 +1183,300 @@ const exportPDF = async (req, res) => {
   }
 };
 
+// Export Laporan Semua Pegawai
+const exportLaporan = async (req, res) => {
+  try {
+    const { type, filter_date, format, start_date, end_date, month, year } = req.query;
+    
+    console.log('Export params:', req.query);
+    
+    const db = await getConnection();
+    
+    // Build query berdasarkan filter
+    let dateCondition = '';
+    let params = [];
+    
+    if (filter_date === 'harian' && start_date) {
+      dateCondition = 'AND DATE(p.tanggal) = ?';
+      params.push(start_date);
+    } else if (filter_date === 'mingguan' && start_date && end_date) {
+      dateCondition = 'AND DATE(p.tanggal) BETWEEN ? AND ?';
+      params.push(start_date, end_date);
+    } else if (filter_date === 'bulanan' && month && year) {
+      dateCondition = 'AND MONTH(p.tanggal) = ? AND YEAR(p.tanggal) = ?';
+      params.push(month, year);
+    } else if (filter_date === 'tahunan' && year) {
+      dateCondition = 'AND YEAR(p.tanggal) = ?';
+      params.push(year);
+    }
+    
+    // Query untuk mendapatkan data absen semua pegawai
+    const query = `
+      SELECT 
+        pg.nama_lengkap,
+        pg.nip,
+        p.tanggal,
+        p.status,
+        p.jam_masuk,
+        p.jam_pulang as jam_keluar,
+        p.alasan_luar_lokasi as keterangan,
+        p.jenis_presensi
+      FROM presensi p
+      JOIN pegawai pg ON p.id_user = pg.id_user
+      WHERE 1=1 ${dateCondition}
+      ORDER BY pg.nama_lengkap, p.tanggal
+    `;
+    
+    const [rows] = await db.execute(query, params);
+    
+    if (format === 'excel') {
+      await generateExcelAll(res, rows, filter_date, { start_date, end_date, month, year });
+    } else if (format === 'pdf') {
+      await generatePDFAll(res, rows, filter_date, { start_date, end_date, month, year });
+    } else {
+      res.status(400).json({ success: false, message: 'Format tidak didukung' });
+    }
+    
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ success: false, message: 'Gagal export laporan: ' + error.message });
+  }
+};
+
+// Export Laporan Per Pegawai
+const exportPegawai = async (req, res) => {
+  try {
+    const { pegawai_id, filter_date, format, start_date, end_date, month, year } = req.query;
+    
+    console.log('Export pegawai params:', req.query);
+    
+    const db = await getConnection();
+    
+    // Get pegawai info
+    const [pegawaiRows] = await db.execute(
+      'SELECT nama_lengkap, nip FROM pegawai WHERE id_pegawai = ?',
+      [pegawai_id]
+    );
+    
+    if (pegawaiRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Pegawai tidak ditemukan' });
+    }
+    
+    const pegawai = pegawaiRows[0];
+    
+    // Build query berdasarkan filter
+    let dateCondition = '';
+    let params = [pegawai_id];
+    
+    if (filter_date === 'harian' && start_date) {
+      dateCondition = 'AND DATE(p.tanggal) = ?';
+      params.push(start_date);
+    } else if (filter_date === 'mingguan' && start_date && end_date) {
+      dateCondition = 'AND DATE(p.tanggal) BETWEEN ? AND ?';
+      params.push(start_date, end_date);
+    } else if (filter_date === 'bulanan' && month && year) {
+      dateCondition = 'AND MONTH(p.tanggal) = ? AND YEAR(p.tanggal) = ?';
+      params.push(month, year);
+    } else if (filter_date === 'tahunan' && year) {
+      dateCondition = 'AND YEAR(p.tanggal) = ?';
+      params.push(year);
+    }
+    
+    // Query untuk mendapatkan data absen pegawai
+    const query = `
+      SELECT 
+        p.tanggal,
+        p.status,
+        p.jam_masuk,
+        p.jam_pulang as jam_keluar,
+        p.alasan_luar_lokasi as keterangan,
+        p.jenis_presensi
+      FROM presensi p
+      JOIN pegawai pg ON p.id_user = pg.id_user
+      WHERE pg.id_pegawai = ? ${dateCondition}
+      ORDER BY p.tanggal
+    `;
+    
+    const [rows] = await db.execute(query, params);
+    
+    if (format === 'excel') {
+      await generateExcelPegawai(res, rows, pegawai, filter_date, { start_date, end_date, month, year });
+    } else if (format === 'pdf') {
+      await generatePDFPegawai(res, rows, pegawai, filter_date, { start_date, end_date, month, year });
+    } else {
+      res.status(400).json({ success: false, message: 'Format tidak didukung' });
+    }
+    
+  } catch (error) {
+    console.error('Export pegawai error:', error);
+    res.status(500).json({ success: false, message: 'Gagal export laporan pegawai: ' + error.message });
+  }
+};
+
 module.exports = { 
   getLaporan, 
   getDetailAbsenPegawai, 
   getDetailLaporan, 
   getDetailAbsen, 
   exportPDF,
+  exportLaporan,
+  exportPegawai,
   getDynamicAttendanceStatus
 };
+
+// Generate Excel untuk semua pegawai
+async function generateExcelAll(res, data, filterType, params) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Laporan Absen Semua Pegawai');
+  
+  // Header
+  worksheet.columns = [
+    { header: 'No', key: 'no', width: 5 },
+    { header: 'Nama Pegawai', key: 'nama', width: 25 },
+    { header: 'NIP', key: 'nip', width: 15 },
+    { header: 'Tanggal', key: 'tanggal', width: 12 },
+    { header: 'Status', key: 'status', width: 15 },
+    { header: 'Jam Masuk', key: 'jam_masuk', width: 12 },
+    { header: 'Jam Keluar', key: 'jam_keluar', width: 12 },
+    { header: 'Keterangan', key: 'keterangan', width: 20 }
+  ];
+  
+  // Data
+  data.forEach((row, index) => {
+    let status = row.status;
+    if (row.jenis_presensi === 'dinas' && !status.startsWith('Dinas-')) {
+      status = `Dinas-${status}`;
+    }
+    
+    worksheet.addRow({
+      no: index + 1,
+      nama: row.nama_lengkap,
+      nip: row.nip,
+      tanggal: new Date(row.tanggal).toLocaleDateString('id-ID'),
+      status: status,
+      jam_masuk: row.jam_masuk || '-',
+      jam_keluar: row.jam_keluar || '-',
+      keterangan: row.keterangan || '-'
+    });
+  });
+  
+  // Style header
+  worksheet.getRow(1).font = { bold: true };
+  worksheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF004643' }
+  };
+  worksheet.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+  
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=Laporan_Absen_Semua_Pegawai_${filterType}.xlsx`);
+  
+  await workbook.xlsx.write(res);
+  res.end();
+}
+
+// Generate Excel untuk pegawai individual
+async function generateExcelPegawai(res, data, pegawai, filterType, params) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet(`Laporan ${pegawai.nama_lengkap}`);
+  
+  // Header
+  worksheet.columns = [
+    { header: 'No', key: 'no', width: 5 },
+    { header: 'Tanggal', key: 'tanggal', width: 12 },
+    { header: 'Status', key: 'status', width: 15 },
+    { header: 'Jam Masuk', key: 'jam_masuk', width: 12 },
+    { header: 'Jam Keluar', key: 'jam_keluar', width: 12 },
+    { header: 'Keterangan', key: 'keterangan', width: 25 }
+  ];
+  
+  // Data
+  data.forEach((row, index) => {
+    let status = row.status;
+    if (row.jenis_presensi === 'dinas' && !status.startsWith('Dinas-')) {
+      status = `Dinas-${status}`;
+    }
+    
+    worksheet.addRow({
+      no: index + 1,
+      tanggal: new Date(row.tanggal).toLocaleDateString('id-ID'),
+      status: status,
+      jam_masuk: row.jam_masuk || '-',
+      jam_keluar: row.jam_keluar || '-',
+      keterangan: row.keterangan || '-'
+    });
+  });
+  
+  // Style header
+  worksheet.getRow(1).font = { bold: true };
+  worksheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF004643' }
+  };
+  worksheet.getRow(1).font = { color: { argb: 'FFFFFFFF' }, bold: true };
+  
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=Laporan_Absen_${pegawai.nama_lengkap}_${filterType}.xlsx`);
+  
+  await workbook.xlsx.write(res);
+  res.end();
+}
+
+// Generate PDF untuk semua pegawai
+async function generatePDFAll(res, data, filterType, params) {
+  const doc = new PDFDocument();
+  
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename=Laporan_Absen_Semua_Pegawai_${filterType}.pdf`);
+  
+  doc.pipe(res);
+  
+  // Title
+  doc.fontSize(16).text('Laporan Absen Semua Pegawai', { align: 'center' });
+  doc.moveDown();
+  
+  // Data
+  data.forEach((row, index) => {
+    let status = row.status;
+    if (row.jenis_presensi === 'dinas' && !status.startsWith('Dinas-')) {
+      status = `Dinas-${status}`;
+    }
+    
+    doc.fontSize(10).text(
+      `${index + 1}. ${row.nama_lengkap} (${row.nip}) - ${new Date(row.tanggal).toLocaleDateString('id-ID')} - ${status}`
+    );
+  });
+  
+  doc.end();
+}
+
+// Generate PDF untuk pegawai individual
+async function generatePDFPegawai(res, data, pegawai, filterType, params) {
+  const doc = new PDFDocument();
+  
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename=Laporan_Absen_${pegawai.nama_lengkap}_${filterType}.pdf`);
+  
+  doc.pipe(res);
+  
+  // Title
+  doc.fontSize(16).text(`Laporan Absen ${pegawai.nama_lengkap}`, { align: 'center' });
+  doc.fontSize(12).text(`NIP: ${pegawai.nip}`, { align: 'center' });
+  doc.moveDown();
+  
+  // Data
+  data.forEach((row, index) => {
+    let status = row.status;
+    if (row.jenis_presensi === 'dinas' && !status.startsWith('Dinas-')) {
+      status = `Dinas-${status}`;
+    }
+    
+    doc.fontSize(10).text(
+      `${index + 1}. ${new Date(row.tanggal).toLocaleDateString('id-ID')} - ${status} - ${row.jam_masuk || '-'} s/d ${row.jam_keluar || '-'}`
+    );
+  });
+  
+  doc.end();
+}

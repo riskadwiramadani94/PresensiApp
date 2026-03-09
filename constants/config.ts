@@ -36,6 +36,8 @@ export const API_CONFIG = {
     DETAIL_LAPORAN: '/admin/laporan/api/detail-laporan',
     DETAIL_ABSEN_PEGAWAI: '/admin/laporan/api/detail-absen-pegawai',
     DETAIL_ABSEN: '/admin/laporan/api/detail-absen',
+    EXPORT_LAPORAN: '/admin/laporan/api/export-laporan',
+    EXPORT_PEGAWAI: '/admin/laporan/api/export-pegawai',
     
     /* ================= PENGATURAN (Admin) ================= */
     LOKASI_KANTOR: '/admin/pengaturan/api/lokasi-kantor',

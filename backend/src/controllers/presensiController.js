@@ -405,7 +405,34 @@ const getPresensi = async (req, res) => {
           // PRIORITY 3: Ada data presensi - LANGSUNG AMBIL DARI MAP
           const presensiData = presensiMap.get(dateStr);
           console.log(`✅ Found presensi for ${dateStr}:`, presensiData);
-          formattedData.push(presensiData);
+          
+          // Check if on dinas for this date
+          const [dinasRows] = await db.execute(`
+            SELECT d.id_dinas, d.nama_kegiatan
+            FROM dinas_pegawai dp
+            JOIN dinas d ON dp.id_dinas = d.id_dinas
+            WHERE dp.id_user = ?
+            AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+            AND dp.status_konfirmasi = 'konfirmasi'
+            LIMIT 1
+          `, [user_id, dateStr]);
+          
+          const isDinas = dinasRows.length > 0;
+          
+          // Add Dinas- prefix if on dinas
+          let finalStatus = presensiData.status;
+          let finalKeterangan = presensiData.keterangan;
+          
+          if (isDinas) {
+            finalStatus = `Dinas-${presensiData.status}`;
+            finalKeterangan = `${dinasRows[0].nama_kegiatan} - ${finalKeterangan}`;
+          }
+          
+          formattedData.push({
+            ...presensiData,
+            status: finalStatus,
+            keterangan: finalKeterangan
+          });
         } else {
           // PRIORITY 4: Hari kerja tapi tidak ada presensi
           const today = new Date();
@@ -414,31 +441,97 @@ const getPresensi = async (req, res) => {
           checkDate.setHours(0, 0, 0, 0);
           
           if (checkDate > today) {
-            // Hari yang akan datang
-            formattedData.push({
-              tanggal: dateStr,
-              jam_masuk: null,
-              jam_keluar: null,
-              status: 'Belum Waktunya',
-              keterangan: 'Belum waktunya absen'
-            });
+            // Hari yang akan datang - tidak perlu ditampilkan
+            // Skip tanggal masa depan
           } else if (checkDate.getTime() === today.getTime()) {
-            // Hari ini - belum absen
-            formattedData.push({
-              tanggal: dateStr,
-              jam_masuk: null,
-              jam_keluar: null,
-              status: 'Belum Absen',
-              keterangan: 'Belum melakukan absensi'
-            });
+            // Hari ini - cek apakah sudah lewat batas absen
+            const now = new Date();
+            const currentTime = now.toTimeString().slice(0, 8);
+            
+            // Get batas absen untuk hari ini
+            const [jamKerjaHariRows] = await db.execute(
+              'SELECT batas_absen FROM jam_kerja_hari WHERE hari = ?',
+              [dayName]
+            );
+            const batasAbsen = jamKerjaHariRows.length > 0 ? jamKerjaHariRows[0].batas_absen : '08:30:00';
+            
+            // Check if on dinas for today
+            const [dinasRows] = await db.execute(`
+              SELECT d.id_dinas, d.nama_kegiatan
+              FROM dinas_pegawai dp
+              JOIN dinas d ON dp.id_dinas = d.id_dinas
+              WHERE dp.id_user = ?
+              AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+              AND dp.status_konfirmasi = 'konfirmasi'
+              LIMIT 1
+            `, [user_id, dateStr]);
+            
+            const isDinas = dinasRows.length > 0;
+            
+            if (currentTime <= batasAbsen) {
+              // Belum lewat batas absen
+              let status = 'Belum Absen';
+              let keterangan = `Belum absen (batas: ${batasAbsen})`;
+              
+              if (isDinas) {
+                status = `Dinas-${status}`;
+                keterangan = `${dinasRows[0].nama_kegiatan} - ${keterangan}`;
+              }
+              
+              formattedData.push({
+                tanggal: dateStr,
+                jam_masuk: null,
+                jam_keluar: null,
+                status: status,
+                keterangan: keterangan
+              });
+            } else {
+              // Sudah lewat batas absen - Tidak Hadir
+              let status = 'Tidak Hadir';
+              let keterangan = 'Tidak hadir (lewat batas absen)';
+              
+              if (isDinas) {
+                status = `Dinas-${status}`;
+                keterangan = `${dinasRows[0].nama_kegiatan} - ${keterangan}`;
+              }
+              
+              formattedData.push({
+                tanggal: dateStr,
+                jam_masuk: null,
+                jam_keluar: null,
+                status: status,
+                keterangan: keterangan
+              });
+            }
           } else {
-            // Hari yang sudah lewat - tidak hadir
+            // Hari yang sudah lewat - Tidak Hadir
+            // Check if on dinas for past dates
+            const [dinasRows] = await db.execute(`
+              SELECT d.id_dinas, d.nama_kegiatan
+              FROM dinas_pegawai dp
+              JOIN dinas d ON dp.id_dinas = d.id_dinas
+              WHERE dp.id_user = ?
+              AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+              AND dp.status_konfirmasi = 'konfirmasi'
+              LIMIT 1
+            `, [user_id, dateStr]);
+            
+            const isDinas = dinasRows.length > 0;
+            
+            let status = 'Tidak Hadir';
+            let keterangan = 'Tidak hadir';
+            
+            if (isDinas) {
+              status = `Dinas-${status}`;
+              keterangan = `${dinasRows[0].nama_kegiatan} - ${keterangan}`;
+            }
+            
             formattedData.push({
               tanggal: dateStr,
               jam_masuk: null,
               jam_keluar: null,
-              status: 'Tidak Hadir',
-              keterangan: 'Tidak hadir'
+              status: status,
+              keterangan: keterangan
             });
           }
         }

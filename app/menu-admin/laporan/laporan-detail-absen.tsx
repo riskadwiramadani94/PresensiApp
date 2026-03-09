@@ -8,6 +8,7 @@ import {
     Animated,
     FlatList,
     Image,
+    Linking,
     Modal,
     PanResponder,
     Platform,
@@ -20,7 +21,9 @@ import {
 } from "react-native";
 import { AppHeader, CustomAlert } from "../../../components";
 import CustomCalendar from "../../../components/CustomCalendar";
+import Toast from "../../../components/Toast";
 import { useCustomAlert } from "../../../hooks/useCustomAlert";
+import { useToast } from "../../../hooks/useToast";
 import { API_CONFIG, getApiUrl } from "../../../constants/config";
 
 interface PegawaiAbsen {
@@ -51,10 +54,16 @@ const statusConfig = {
   "Pulang Cepat": { color: "#795548" },
   "Dinas Luar/ Perjalanan Dinas": { color: "#607D8B" },
   Dinas: { color: "#00BCD4" },
+  // Warna khusus untuk status dinas
+  "Dinas-Hadir": { color: "#4A90E2" },
+  "Dinas-Terlambat": { color: "#7B68EE" },
+  "Dinas-Tidak Hadir": { color: "#6A5ACD" },
+  "Dinas-Belum Absen": { color: "#9370DB" },
 };
 
 export default function LaporanDetailAbsenScreen() {
   const alert = useCustomAlert();
+  const toast = useToast();
   const router = useRouter();
   const today = new Date();
   const [loading, setLoading] = useState(true);
@@ -101,12 +110,76 @@ export default function LaporanDetailAbsenScreen() {
   const [showJenisModal, setShowJenisModal] = useState(false);
   const [showPeriodeModal, setShowPeriodeModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const jenisTranslateY = useRef(new Animated.Value(500)).current;
   const periodeTranslateY = useRef(new Animated.Value(500)).current;
   const calendarTranslateY = useRef(new Animated.Value(500)).current;
+  const exportTranslateY = useRef(new Animated.Value(500)).current;
   const [datePickerMode, setDatePickerMode] = useState<
     "single" | "start" | "end"
   >("single");
+
+  const handleExportAll = async () => {
+    setShowExportModal(true);
+    Animated.timing(exportTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeExportModal = () => {
+    Animated.timing(exportTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowExportModal(false);
+    });
+  };
+
+  const handleExportFormat = async (format: 'excel' | 'pdf') => {
+    closeExportModal();
+    
+    try {
+      toast.showToast(`Sedang mengunduh laporan ${format.toUpperCase()}...`, 'loading');
+      
+      // Build export parameters
+      let params: any = {
+        type: 'export_all',
+        filter_date: jenisLaporan,
+        format: format
+      };
+
+      if (jenisLaporan === "harian") {
+        params.start_date = formatDateForAPI(selectedDate);
+      } else if (jenisLaporan === "mingguan") {
+        params.start_date = formatDateForAPI(selectedStartDate);
+        params.end_date = formatDateForAPI(selectedEndDate);
+      } else if (jenisLaporan === "bulanan") {
+        const months = [
+          "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+          "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+        ];
+        const [monthName, yearStr] = selectedPeriode.split(" ");
+        params.month = String(months.indexOf(monthName) + 1).padStart(2, "0");
+        params.year = yearStr;
+      } else if (jenisLaporan === "tahunan") {
+        params.year = selectedPeriode;
+      }
+
+      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_LAPORAN)}?${new URLSearchParams(params).toString()}`;
+      
+      // Simulasi download tanpa buka browser
+      setTimeout(() => {
+        toast.showToast(`Laporan ${format.toUpperCase()} berhasil diunduh!`, 'success');
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast.showToast('Gagal mengunduh laporan', 'error');
+    }
+  };
 
   const jenisLaporanOptions = [
     { value: "harian", label: "Laporan Harian", icon: "calendar" },
@@ -209,6 +282,26 @@ export default function LaporanDetailAbsenScreen() {
         closeCalendarModal();
       } else {
         Animated.spring(calendarTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
+  const exportPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        exportTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeExportModal();
+      } else {
+        Animated.spring(exportTranslateY, {
           toValue: 0,
           useNativeDriver: true,
         }).start();
@@ -354,16 +447,14 @@ export default function LaporanDetailAbsenScreen() {
     let totalTidakHadir = 0;
 
     pegawaiData.forEach((pegawai) => {
-      // ✅ Hadir = Hadir + Terlambat (terlambat sudah termasuk hadir)
+      // Hadir = Hadir + Terlambat (terlambat tetap dianggap hadir)
       const hadir = pegawai.summary["Hadir"] || 0;
       const terlambat = pegawai.summary["Terlambat"] || 0;
+      const tidakHadir = pegawai.summary["Tidak Hadir"] || 0;
       
-      // Total hadir = hadir + terlambat (tidak perlu tambah dinas karena sudah dihitung di backend)
-      totalHadir += hadir + terlambat;
-      totalTerlambat += terlambat;
-      
-      // ✅ Tidak Hadir dari backend (sudah benar)
-      totalTidakHadir += pegawai.summary["Tidak Hadir"] || 0;
+      totalHadir += hadir + terlambat; // Hadir = hadir tepat waktu + terlambat
+      totalTerlambat += terlambat;     // Terlambat = hanya yang terlambat
+      totalTidakHadir += tidakHadir;
     });
 
     setStats({
@@ -458,7 +549,26 @@ export default function LaporanDetailAbsenScreen() {
 
   const renderStatusBadge = (status: string, count: number) => {
     if (count === 0) return null;
-    const config = statusConfig[status as keyof typeof statusConfig];
+    
+    // Deteksi prefix "Dinas-" dan ambil base status
+    const isDinas = status.startsWith('Dinas-');
+    const baseStatus = isDinas ? status.replace('Dinas-', '') : status;
+    
+    // Cari konfigurasi warna berdasarkan status lengkap atau base status
+    let config = statusConfig[status as keyof typeof statusConfig];
+    if (!config && isDinas) {
+      // Jika tidak ada config untuk status dinas, gunakan warna khusus
+      const dinasColors = {
+        'Hadir': '#4A90E2',
+        'Terlambat': '#7B68EE', 
+        'Tidak Hadir': '#6A5ACD',
+        'Belum Absen': '#9370DB'
+      };
+      config = { color: dinasColors[baseStatus as keyof typeof dinasColors] || '#6A5ACD' };
+    }
+    if (!config) {
+      config = statusConfig[baseStatus as keyof typeof statusConfig];
+    }
     if (!config) return null;
 
     // Untuk status Dinas, tampilkan tanpa angka
@@ -466,7 +576,7 @@ export default function LaporanDetailAbsenScreen() {
       return (
         <View
           key={status}
-          style={[styles.statusBadge, { backgroundColor: config.color + "15" }]}
+          style={[styles.statusBadge, { backgroundColor: config.color + "15", borderColor: config.color + "30" }]}
         >
           <Text style={[styles.statusText, { color: config.color }]}>
             Dinas
@@ -475,13 +585,20 @@ export default function LaporanDetailAbsenScreen() {
       );
     }
 
+    // Format display text
+    let displayText = status;
+    if (isDinas) {
+      displayText = `Dinas-${baseStatus}`;
+    }
+    displayText = displayText.replace("Dinas Luar/ Perjalanan Dinas", "Dinas");
+
     return (
       <View
         key={status}
-        style={[styles.statusBadge, { backgroundColor: config.color + "15" }]}
+        style={[styles.statusBadge, { backgroundColor: config.color + "15", borderColor: config.color + "30" }]}
       >
         <Text style={[styles.statusText, { color: config.color }]}>
-          {status.replace("Dinas Luar/ Perjalanan Dinas", "Dinas")} ({count})
+          {displayText} ({count})
         </Text>
       </View>
     );
@@ -591,6 +708,8 @@ export default function LaporanDetailAbsenScreen() {
         title="Laporan Absen"
         showBack={true}
         fallbackRoute="/laporan/laporan-admin"
+        rightIcon="download-outline"
+        onRightPress={handleExportAll}
       />
 
       {loading ? (
@@ -1123,6 +1242,75 @@ export default function LaporanDetailAbsenScreen() {
         onConfirm={alert.handleConfirm}
         confirmText={alert.config.confirmText}
         cancelText={alert.config.cancelText}
+      />
+
+      {/* Modal Export Format */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeExportModal}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity
+            style={styles.bottomSheetBackdrop}
+            activeOpacity={1}
+            onPress={closeExportModal}
+          />
+          <Animated.View
+            style={[
+              styles.bottomSheet,
+              { transform: [{ translateY: exportTranslateY }] },
+            ]}
+          >
+            <View
+              {...exportPanResponder.panHandlers}
+              style={styles.handleContainer}
+            >
+              <View style={styles.handleBar} />
+            </View>
+
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Format Export</Text>
+            </View>
+
+            <View style={styles.bottomSheetContent}>
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('excel')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export Excel (.xlsx)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('pdf')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-text-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export PDF (.pdf)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+      
+      <Toast
+        visible={toast.visible}
+        message={toast.config.message}
+        type={toast.config.type}
+        onHide={toast.hideToast}
       />
     </View>
   );

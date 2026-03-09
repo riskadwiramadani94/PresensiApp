@@ -170,20 +170,25 @@ const getAdminData = async (req, res) => {
     `);
     const totalPegawai = totalRows[0].total_pegawai;
 
-    // Get attendance stats - menghindari duplikasi user
+    // Get attendance stats - mempertimbangkan dinas
     const [statsRows] = await db.execute(`
       SELECT 
-        COUNT(CASE WHEN pr.jam_masuk IS NOT NULL THEN 1 END) as hadir,
-        COUNT(CASE WHEN pr.jam_masuk IS NULL THEN 1 END) as tidak_hadir
+        COUNT(CASE WHEN pr.jam_masuk IS NOT NULL THEN 1 END) as hadir_kantor,
+        COUNT(CASE WHEN dp.id_user IS NOT NULL AND d.status = 'sedang_berlangsung' AND DATE(CURDATE()) BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai) THEN 1 END) as dinas
       FROM users u
       LEFT JOIN pegawai p ON u.id_user = p.id_user
       LEFT JOIN presensi pr ON u.id_user = pr.id_user AND DATE(pr.tanggal) = CURDATE()
+      LEFT JOIN dinas_pegawai dp ON u.id_user = dp.id_user AND dp.status_konfirmasi = 'konfirmasi'
+      LEFT JOIN dinas d ON dp.id_dinas = d.id_dinas AND d.status = 'sedang_berlangsung' AND DATE(CURDATE()) BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
       WHERE u.role = 'pegawai'
     `);
-    const hadir = parseInt(statsRows[0].hadir || 0);
-    const tidak_hadir = parseInt(statsRows[0].tidak_hadir || 0);
+    
+    const hadir_kantor = parseInt(statsRows[0].hadir_kantor || 0);
+    const dinas = parseInt(statsRows[0].dinas || 0);
+    const hadir = hadir_kantor + dinas; // Total yang hadir (kantor + dinas)
+    const tidak_hadir = totalPegawai - hadir; // Yang benar-benar tidak hadir
 
-    console.log('Dashboard Stats:', { totalPegawai, hadir, tidak_hadir });
+    console.log('Dashboard Stats:', { totalPegawai, hadir_kantor, dinas, hadir, tidak_hadir });
 
     // Get recent activities - GABUNGAN presensi kantor + dinas
     const [recentRows] = await db.execute(`
