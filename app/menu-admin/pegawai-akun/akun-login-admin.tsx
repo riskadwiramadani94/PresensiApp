@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, FlatList, TouchableOpacity, SafeAreaView, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TextInput, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getApiUrl, API_CONFIG } from '../../../constants/config';
+import { CustomAlert } from '../../../components/CustomAlert';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 interface LoginAccount {
   id_user: number;
@@ -20,6 +22,7 @@ export default function AkunLoginAdminScreen() {
   const [filteredAccounts, setFilteredAccounts] = useState<LoginAccount[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
 
   useEffect(() => {
     fetchAccounts();
@@ -60,77 +63,48 @@ export default function AkunLoginAdminScreen() {
         setFilteredAccounts(result.data || []);
       } else {
         console.log('API Error:', result.message);
-        Alert.alert('Error', result.message || 'Gagal memuat data akun login');
+        showAlert({ type: 'error', title: 'Error', message: result.message || 'Gagal memuat data akun login' });
       }
     } catch (error) {
       console.log('Fetch Error:', error);
-      Alert.alert('Koneksi Error', 'Pastikan XAMPP Apache dan MySQL sudah berjalan.');
+      showAlert({ type: 'error', title: 'Koneksi Error', message: 'Pastikan XAMPP Apache dan MySQL sudah berjalan.' });
     } finally {
       setLoading(false);
     }
   };
 
   const showActionMenu = (id: number) => {
-    Alert.alert(
-      'Pilih Aksi',
-      'Pilih tindakan yang ingin dilakukan:',
-      [
-        {
-          text: 'Lihat Detail',
-          onPress: () => {
-            Alert.alert('Info', 'Fitur lihat detail akan segera tersedia');
-          }
-        },
-        {
-          text: 'Edit',
-          onPress: () => {
-            Alert.alert('Info', 'Fitur edit akan segera tersedia');
-          }
-        },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: () => deleteAccount(id)
-        },
-        {
-          text: 'Batal',
-          style: 'cancel'
-        }
-      ]
-    );
+    // Action menu functionality can be implemented with custom modal if needed
+    deleteAccount(id);
   };
 
   const deleteAccount = async (id: number) => {
-    Alert.alert(
-      "Konfirmasi",
-      "Yakin ingin menghapus akun login ini?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Hapus",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.DELETE_PEGAWAI), {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_user: id })
-              });
-              
-              const result = await response.json();
-              if (result.success) {
-                fetchAccounts();
-                Alert.alert('Sukses', 'Akun login berhasil dihapus');
-              } else {
-                Alert.alert('Error', result.message);
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Gagal menghapus akun login');
-            }
+    showAlert({
+      type: 'confirm',
+      title: 'Konfirmasi',
+      message: 'Yakin ingin menghapus akun login ini?',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.DELETE_PEGAWAI), {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_user: id })
+          });
+          
+          const result = await response.json();
+          if (result.success) {
+            fetchAccounts();
+            showAlert({ type: 'success', title: 'Sukses', message: 'Akun login berhasil dihapus' });
+          } else {
+            showAlert({ type: 'error', title: 'Error', message: result.message });
           }
+        } catch (error) {
+          showAlert({ type: 'error', title: 'Error', message: 'Gagal menghapus akun login' });
         }
-      ]
-    );
+      }
+    });
   };
 
   const renderHeader = () => (
@@ -204,13 +178,13 @@ export default function AkunLoginAdminScreen() {
                 <View style={styles.actionButtons}>
                   <TouchableOpacity 
                     style={styles.detailBtn}
-                    onPress={() => Alert.alert('Info', 'Fitur lihat detail akan segera tersedia')}
+                    onPress={() => showAlert({ type: 'info', title: 'Info', message: 'Fitur lihat detail akan segera tersedia' })}
                   >
                     <Ionicons name="eye-outline" size={15} color="#2196F3" />
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.editBtn}
-                    onPress={() => Alert.alert('Info', 'Fitur edit akan segera tersedia')}
+                    onPress={() => showAlert({ type: 'info', title: 'Info', message: 'Fitur edit akan segera tersedia' })}
                   >
                     <Ionicons name="create-outline" size={15} color="#FF9800" />
                   </TouchableOpacity>
@@ -236,6 +210,17 @@ export default function AkunLoginAdminScreen() {
       >
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </SafeAreaView>
   );
 }

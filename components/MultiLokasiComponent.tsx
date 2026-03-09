@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import UniversalMap, { MapView, Marker } from './UniversalMap';
+import { CustomAlert } from './CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 
 interface LokasiHari {
   hari: number;
@@ -38,6 +40,7 @@ export default function MultiLokasiComponent({
     longitudeDelta: 0.01
   });
   const [markerPosition, setMarkerPosition] = useState<{latitude: number, longitude: number} | null>(null);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
 
   const generateHariList = () => {
     if (!tanggalMulai || !tanggalSelesai) return [];
@@ -121,7 +124,7 @@ export default function MultiLokasiComponent({
 
   const confirmLokasi = async () => {
     if (!markerPosition || !tempLokasi.nama_lokasi) {
-      Alert.alert('Error', 'Nama lokasi dan posisi di peta harus diisi');
+      showAlert({ type: 'error', title: 'Error', message: 'Nama lokasi dan posisi di peta harus diisi' });
       return;
     }
 
@@ -144,7 +147,7 @@ export default function MultiLokasiComponent({
       setMarkerPosition(null);
       setTempLokasi({});
     } catch (error) {
-      Alert.alert('Error', 'Gagal mendapatkan alamat');
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal mendapatkan alamat' });
     }
   };
 
@@ -274,6 +277,17 @@ export default function MultiLokasiComponent({
           </View>
         </View>
       </Modal>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </View>
   );
 }

@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { AppHeader } from '../../../components';
+import { AppHeader, CustomAlert } from '../../../hooks/useCustomAlert';
 import { PegawaiAPI, API_CONFIG } from '../../../constants/config';
 
 export default function DetailKegiatanScreen() {
+  const alert = useCustomAlert();
   const router = useRouter();
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,7 @@ export default function DetailKegiatanScreen() {
       }
     } catch (error) {
       console.error('Error fetching detail:', error);
-      Alert.alert('Error', 'Gagal memuat detail kegiatan');
+      alert.showAlert({ type: 'error', message: 'Gagal memuat detail kegiatan' });
     } finally {
       setLoading(false);
     }
@@ -85,7 +86,7 @@ export default function DetailKegiatanScreen() {
 
   const viewDokumen = async () => {
     if (!kegiatan?.dokumen_spt) {
-      Alert.alert('Info', 'Tidak ada dokumen untuk dilihat');
+      alert.showAlert({ type: 'info', message: 'Tidak ada dokumen untuk dilihat' });
       return;
     }
 
@@ -96,11 +97,11 @@ export default function DetailKegiatanScreen() {
       if (supported) {
         await Linking.openURL(fileUri);
       } else {
-        Alert.alert('Error', 'Tidak dapat membuka dokumen');
+        alert.showAlert({ type: 'error', message: 'Tidak dapat membuka dokumen' });
       }
     } catch (error) {
       console.error('View document error:', error);
-      Alert.alert('Error', 'Gagal membuka dokumen');
+      alert.showAlert({ type: 'error', message: 'Gagal membuka dokumen' });
     }
   };
 
@@ -713,3 +714,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+

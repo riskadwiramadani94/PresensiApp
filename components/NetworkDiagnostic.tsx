@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { API_CONFIG } from '../constants/config';
+import { CustomAlert } from './CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 
 export const NetworkDiagnostic = () => {
   const [testing, setTesting] = useState(false);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
 
   const runNetworkTest = async () => {
     setTesting(true);
@@ -58,26 +61,47 @@ export const NetworkDiagnostic = () => {
         '5. Periksa firewall tidak memblokir port 80'
       ].join('\\n');
 
-      Alert.alert('Network Test Results', `${resultText}\\n\\n${suggestions}`);
+      showAlert({ 
+        type: 'info', 
+        title: 'Network Test Results', 
+        message: `${resultText}\n\n${suggestions}` 
+      });
 
     } catch (error) {
-      Alert.alert('Test Error', `Failed to run network test: ${(error as Error).message}`);
+      showAlert({ 
+        type: 'error', 
+        title: 'Test Error', 
+        message: `Failed to run network test: ${(error as Error).message}` 
+      });
     } finally {
       setTesting(false);
     }
   };
 
   return (
-    <TouchableOpacity 
-      style={styles.diagnosticBtn} 
-      onPress={runNetworkTest}
-      disabled={testing}
-    >
-      <Ionicons name="wifi-outline" size={20} color="#004643" />
-      <Text style={styles.diagnosticText}>
-        {testing ? 'Testing Network...' : 'Test Network Connection'}
-      </Text>
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity 
+        style={styles.diagnosticBtn} 
+        onPress={runNetworkTest}
+        disabled={testing}
+      >
+        <Ionicons name="wifi-outline" size={20} color="#004643" />
+        <Text style={styles.diagnosticText}>
+          {testing ? 'Testing Network...' : 'Test Network Connection'}
+        </Text>
+      </TouchableOpacity>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
+    </>
   );
 };
 

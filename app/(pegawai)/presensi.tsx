@@ -251,7 +251,7 @@ export default function PresensiScreen() {
       }
     } catch (error) {
       console.error('❌ Error fetching locations:', error);
-      Alert.alert('Error', 'Gagal memuat data lokasi');
+      alert.showAlert({ type: 'error', message: 'Gagal memuat data lokasi' });
       setAvailableLocations([]);
     } finally {
       setLoading(false);
@@ -265,7 +265,7 @@ export default function PresensiScreen() {
       
       if (status !== 'granted') {
         console.log('❌ Location permission denied');
-        Alert.alert('Izin Lokasi', 'Aplikasi memerlukan izin lokasi untuk absensi');
+        alert.showAlert({ type: 'warning', message: 'Aplikasi memerlukan izin lokasi untuk absensi' });
         return;
       }
       
@@ -305,25 +305,26 @@ export default function PresensiScreen() {
             calculateDistances(lastLocation.coords);
           }
           
-          Alert.alert(
-            'Lokasi Terakhir',
-            'Menggunakan lokasi terakhir yang diketahui. Pastikan GPS aktif untuk lokasi terkini.',
-            [{ text: 'OK' }]
-          );
+          alert.showAlert({
+            type: 'info',
+            message: 'Menggunakan lokasi terakhir yang diketahui. Pastikan GPS aktif untuk lokasi terkini.'
+          });
         } else {
-          Alert.alert(
-            'Error Lokasi',
-            'Tidak dapat mendapatkan lokasi GPS. Pastikan:\n\n1. GPS/Location Services aktif\n2. Izin lokasi diberikan\n3. Anda berada di area terbuka',
-            [{ text: 'Coba Lagi', onPress: getCurrentLocation }]
-          );
+          alert.showAlert({
+            type: 'error',
+            message: 'Tidak dapat mendapatkan lokasi GPS. Pastikan:\n\n1. GPS/Location Services aktif\n2. Izin lokasi diberikan\n3. Anda berada di area terbuka',
+            confirmText: 'Coba Lagi',
+            onConfirm: getCurrentLocation
+          });
         }
       } catch (fallbackError) {
         console.error('❌ Error getting last known location:', fallbackError);
-        Alert.alert(
-          'Error Lokasi',
-          'Tidak dapat mendapatkan lokasi GPS. Pastikan:\n\n1. GPS/Location Services aktif\n2. Izin lokasi diberikan\n3. Anda berada di area terbuka',
-          [{ text: 'Coba Lagi', onPress: getCurrentLocation }]
-        );
+        alert.showAlert({
+          type: 'error',
+          message: 'Tidak dapat mendapatkan lokasi GPS. Pastikan:\n\n1. GPS/Location Services aktif\n2. Izin lokasi diberikan\n3. Anda berada di area terbuka',
+          confirmText: 'Coba Lagi',
+          onConfirm: getCurrentLocation
+        });
       }
     }
   };
@@ -385,7 +386,7 @@ export default function PresensiScreen() {
         }
       } else {
         console.log('❌ Failed to detect nearest office:', result.message);
-        Alert.alert('Error', result.message || 'Gagal mendeteksi lokasi kantor terdekat');
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal mendeteksi lokasi kantor terdekat' });
       }
     } catch (error) {
       console.error('❌ Error detecting nearest office:', error);
@@ -537,7 +538,7 @@ export default function PresensiScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Error', 'Izin kamera diperlukan');
+        alert.showAlert({ type: 'error', message: 'Izin kamera diperlukan' });
         return;
       }
 
@@ -552,7 +553,7 @@ export default function PresensiScreen() {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Gagal mengambil foto');
+      alert.showAlert({ type: 'error', message: 'Gagal mengambil foto' });
     }
   };
 
@@ -562,7 +563,7 @@ export default function PresensiScreen() {
     try {
       const userData = await AsyncStorage.getItem('userData');
       if (!userData) {
-        Alert.alert('Error', 'Data user tidak ditemukan');
+        alert.showAlert({ type: 'error', message: 'Data user tidak ditemukan' });
         return;
       }
       

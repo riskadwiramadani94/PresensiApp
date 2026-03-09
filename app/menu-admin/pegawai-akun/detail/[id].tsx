@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -14,12 +13,15 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { AppHeader } from "../../../../components";
 import { API_CONFIG, getApiUrl } from "../../../../constants/config";
+import { CustomAlert } from '../../../../components/CustomAlert';
+import { useCustomAlert } from '../../../../hooks/useCustomAlert';
 
 export default function DetailPegawai() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [pegawai, setPegawai] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
 
   const formatDateFromISO = (isoDate: string) => {
     if (!isoDate) return "-";
@@ -66,10 +68,10 @@ export default function DetailPegawai() {
         console.log('Tanggal lahir:', result.data.tanggal_lahir);
         setPegawai(result.data);
       } else {
-        Alert.alert("Error", result.message || "Gagal memuat data");
+        showAlert({ type: 'error', title: 'Error', message: result.message || 'Gagal memuat data' });
       }
     } catch (error) {
-      Alert.alert("Koneksi Error", "Gagal terhubung ke server.");
+      showAlert({ type: 'error', title: 'Koneksi Error', message: 'Gagal terhubung ke server.' });
     } finally {
       setLoading(false);
     }
@@ -380,6 +382,17 @@ export default function DetailPegawai() {
           <Text style={styles.fabText}>Lengkapi Data</Text>
         </TouchableOpacity>
       )}
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </View>
   );
 }

@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
@@ -21,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
 import { getApiUrl, API_CONFIG } from '../../../../../constants/config';
 import { AppHeader, CustomCalendar } from '../../../../../components';
+import { CustomAlert } from '../../../../../components/CustomAlert';
+import { useCustomAlert } from '../../../../../hooks/useCustomAlert';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ export default function EditPegawai() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const calendarTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const successModalScale = useRef(new Animated.Value(0)).current;
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
   const [formData, setFormData] = useState({
     nama_lengkap: '',
     email: '',
@@ -88,10 +90,10 @@ export default function EditPegawai() {
           alamat: result.data.alamat || '',
         });
       } else {
-        Alert.alert('Error', result.message || 'Gagal memuat data pegawai');
+        showAlert({ type: 'error', title: 'Error', message: result.message || 'Gagal memuat data pegawai' });
       }
     } catch (error) {
-      Alert.alert('Koneksi Error', 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.');
+      showAlert({ type: 'error', title: 'Koneksi Error', message: 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.' });
     } finally {
       setLoading(false);
     }
@@ -212,10 +214,10 @@ export default function EditPegawai() {
           friction: 11
         }).start();
       } else {
-        Alert.alert('Error', result.message || 'Gagal memperbarui data pegawai');
+        showAlert({ type: 'error', title: 'Error', message: result.message || 'Gagal memperbarui data pegawai' });
       }
     } catch (error) {
-      Alert.alert('Koneksi Error', 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.');
+      showAlert({ type: 'error', title: 'Koneksi Error', message: 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.' });
     } finally {
       setSaving(false);
     }
@@ -599,6 +601,17 @@ export default function EditPegawai() {
           </Animated.View>
         </View>
       </Modal>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </View>
   );
 }

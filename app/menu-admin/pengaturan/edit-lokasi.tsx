@@ -4,7 +4,6 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Platform,
     ScrollView,
     StyleSheet,
@@ -16,12 +15,15 @@ import {
 import { AppHeader } from "../../../components";
 import MapPicker from "../../../components/MapPicker";
 import { PengaturanAPI } from "../../../constants/config";
+import { CustomAlert } from '../../../components/CustomAlert';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 export default function EditLokasiScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
   const [locationFromMap, setLocationFromMap] = useState<{
     latitude: number;
     longitude: number;
@@ -66,7 +68,7 @@ export default function EditLokasiScreen() {
         }
       }
     } catch (error) {
-      Alert.alert("Error", "Gagal memuat data lokasi");
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal memuat data lokasi' });
     } finally {
       setLoading(false);
     }
@@ -74,22 +76,19 @@ export default function EditLokasiScreen() {
 
   const handleSave = async () => {
     if (!formData.namaLokasi.trim() || !formData.alamat.trim()) {
-      Alert.alert("Info", "Nama lokasi dan alamat wajib diisi");
+      showAlert({ type: 'info', title: 'Info', message: 'Nama lokasi dan alamat wajib diisi' });
       return;
     }
 
     if (!formData.latitude || !formData.longitude) {
-      Alert.alert(
-        "Koordinat Belum Dipilih",
-        "Silakan pilih lokasi di peta untuk mendapatkan koordinat yang akurat.",
-        [
-          { text: "Batal", style: "cancel" },
-          {
-            text: "Pilih di Peta",
-            onPress: () => setShowMapPicker(true),
-          },
-        ],
-      );
+      showAlert({
+        type: 'confirm',
+        title: 'Koordinat Belum Dipilih',
+        message: 'Silakan pilih lokasi di peta untuk mendapatkan koordinat yang akurat.',
+        confirmText: 'Pilih di Peta',
+        cancelText: 'Batal',
+        onConfirm: () => setShowMapPicker(true)
+      });
       return;
     }
 
@@ -98,7 +97,7 @@ export default function EditLokasiScreen() {
       parseInt(formData.radius) < 10 ||
       parseInt(formData.radius) > 1000
     ) {
-      Alert.alert("Info", "Radius harus antara 10-1000 meter");
+      showAlert({ type: 'info', title: 'Info', message: 'Radius harus antara 10-1000 meter' });
       return;
     }
 
@@ -117,14 +116,17 @@ export default function EditLokasiScreen() {
       });
 
       if (response.success) {
-        Alert.alert("Sukses", "Lokasi berhasil diupdate", [
-          { text: "OK", onPress: () => router.back() },
-        ]);
+        showAlert({
+          type: 'success',
+          title: 'Sukses',
+          message: 'Lokasi berhasil diupdate',
+          onConfirm: () => router.back()
+        });
       } else {
-        Alert.alert("Info", response.message || "Gagal mengupdate lokasi");
+        showAlert({ type: 'info', title: 'Info', message: response.message || 'Gagal mengupdate lokasi' });
       }
     } catch (error) {
-      Alert.alert("Info", "Terjadi kesalahan saat mengupdate");
+      showAlert({ type: 'info', title: 'Info', message: 'Terjadi kesalahan saat mengupdate' });
     } finally {
       setLoading(false);
     }
@@ -332,6 +334,17 @@ export default function EditLokasiScreen() {
               }
             : undefined
         }
+      />
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
       />
     </View>
   );

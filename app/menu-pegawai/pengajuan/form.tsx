@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform, Image, Modal, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Image, Modal, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,8 @@ import { PegawaiAPI } from '../../../constants/config';
 import * as ImagePicker from 'expo-image-picker';
 import CustomCalendar from '../../../components/CustomCalendar';
 import AnalogTimePicker from '../../../components/AnalogTimePicker';
+import { CustomAlert } from '../../../components/CustomAlert';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 export default function PengajuanScreen() {
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function PengajuanScreen() {
   const [dokumenFoto, setDokumenFoto] = useState<any>(null);
   const [showJenisPicker, setShowJenisPicker] = useState(false);
   const translateY = useRef(new Animated.Value(500)).current;
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
 
   const jenisPengajuanOptions = [
     { value: 'izin_datang_terlambat', label: 'Izin Datang Terlambat', icon: 'time-outline', needDate: true, needSingleTime: true },
@@ -62,11 +65,11 @@ export default function PengajuanScreen() {
 
   const handleSubmit = async () => {
     if (!jenisPengajuan) {
-      Alert.alert('Error', 'Pilih jenis pengajuan terlebih dahulu');
+      showAlert({ type: 'error', title: 'Error', message: 'Pilih jenis pengajuan terlebih dahulu' });
       return;
     }
     if (!alasan.trim()) {
-      Alert.alert('Error', 'Alasan harus diisi');
+      showAlert({ type: 'error', title: 'Error', message: 'Alasan harus diisi' });
       return;
     }
 
@@ -86,14 +89,17 @@ export default function PengajuanScreen() {
       const response = await PegawaiAPI.submitPengajuan(data);
       
       if (response.success) {
-        Alert.alert('Sukses', 'Pengajuan berhasil dikirim', [
-          { text: 'OK', onPress: () => router.replace('/menu-pegawai/pengajuan') }
-        ]);
+        showAlert({
+          type: 'success',
+          title: 'Sukses',
+          message: 'Pengajuan berhasil dikirim',
+          onConfirm: () => router.replace('/menu-pegawai/pengajuan')
+        });
       } else {
-        Alert.alert('Error', response.message || 'Gagal mengirim pengajuan');
+        showAlert({ type: 'error', title: 'Error', message: response.message || 'Gagal mengirim pengajuan' });
       }
     } catch (error) {
-      Alert.alert('Error', 'Terjadi kesalahan saat mengirim pengajuan');
+      showAlert({ type: 'error', title: 'Error', message: 'Terjadi kesalahan saat mengirim pengajuan' });
     } finally {
       setLoading(false);
     }
@@ -120,7 +126,7 @@ export default function PengajuanScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Error', 'Izin akses galeri diperlukan');
+      showAlert({ type: 'error', title: 'Error', message: 'Izin akses galeri diperlukan' });
       return;
     }
 
@@ -224,7 +230,7 @@ export default function PengajuanScreen() {
         setDatePickerMode('selesai');
       } else {
         if (date < tanggalMulai) {
-          Alert.alert('Error', 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai');
+          showAlert({ type: 'error', title: 'Error', message: 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai' });
           return;
         }
         setTanggalSelesai(date);
@@ -534,6 +540,17 @@ export default function PengajuanScreen() {
           </Animated.View>
         </View>
       </Modal>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </View>
   );
 }

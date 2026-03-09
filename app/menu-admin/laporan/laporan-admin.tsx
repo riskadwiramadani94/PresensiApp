@@ -3,18 +3,19 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from "react-native";
-import { AppHeader } from "../../../components";
+import { AppHeader, CustomAlert } from "../../../components";
+import { useCustomAlert } from "../../../hooks/useCustomAlert";
 import { API_CONFIG, getApiUrl } from "../../../constants/config";
 
 export default function LaporanAdminScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [stats, setStats] = useState({
     totalAbsen: 0,
     totalDinas: 0,
@@ -48,7 +49,7 @@ export default function LaporanAdminScreen() {
 
   const handleExportPDF = async (type?: string) => {
     try {
-      Alert.alert("Export PDF", "Sedang memproses export...");
+      alert.showAlert({ type: 'info', message: 'Sedang memproses export...' });
 
       const params = type ? `?type=${type}` : "";
       const response = await fetch(
@@ -56,12 +57,12 @@ export default function LaporanAdminScreen() {
       );
 
       if (response.ok) {
-        Alert.alert("Sukses", "Laporan berhasil di-export ke PDF");
+        alert.showAlert({ type: 'success', message: 'Laporan berhasil di-export ke PDF' });
       } else {
-        Alert.alert("Error", "Gagal export laporan");
+        alert.showAlert({ type: 'error', message: 'Gagal export laporan' });
       }
     } catch (error) {
-      Alert.alert("Error", "Gagal export laporan");
+      alert.showAlert({ type: 'error', message: 'Gagal export laporan' });
     }
   };
 
@@ -183,6 +184,17 @@ export default function LaporanAdminScreen() {
           </ScrollView>
         </View>
       )}
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </View>
   );
 }

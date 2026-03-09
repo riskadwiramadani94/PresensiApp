@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, FlatList, 
-  Alert, ActivityIndicator, Modal, Image, ScrollView, TextInput, Platform, RefreshControl, Animated, PanResponder 
+  ActivityIndicator, Modal, Image, ScrollView, TextInput, Platform, RefreshControl, Animated, PanResponder 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,8 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as NavigationBar from 'expo-navigation-bar';
 import { AppHeader } from "../../../components";
 import { PusatValidasiAPI, KelolaDinasAPI } from '../../../constants/config';
+import { CustomAlert } from '../../../components/CustomAlert';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 
 
@@ -73,6 +75,7 @@ export default function PengajuanScreen() {
   const [activeTab, setActiveTab] = useState('absen_dinas');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
   
   // State untuk last update time
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(new Date());
@@ -241,13 +244,13 @@ export default function PengajuanScreen() {
       const result = await PusatValidasiAPI.setujui(type, id);
       
       if (result.success) {
-        Alert.alert('Berhasil', 'Item berhasil disetujui');
+        showAlert({ type: 'success', title: 'Berhasil', message: 'Item berhasil disetujui' });
         await fetchAllData();
       } else {
-        Alert.alert('Error', result.message);
+        showAlert({ type: 'error', title: 'Error', message: result.message });
       }
     } catch (error) {
-      Alert.alert('Error', 'Gagal menyetujui item');
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal menyetujui item' });
     } finally {
       setActionLoading(false);
       setShowActionModal(false);
@@ -256,7 +259,7 @@ export default function PengajuanScreen() {
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      Alert.alert('Error', 'Catatan penolakan wajib diisi');
+      showAlert({ type: 'error', title: 'Error', message: 'Catatan penolakan wajib diisi' });
       return;
     }
 
@@ -267,14 +270,14 @@ export default function PengajuanScreen() {
       const result = await PusatValidasiAPI.tolak(selectedType, id, rejectReason);
       
       if (result.success) {
-        Alert.alert('Berhasil', 'Item berhasil ditolak');
+        showAlert({ type: 'success', title: 'Berhasil', message: 'Item berhasil ditolak' });
         await fetchAllData();
         setRejectReason('');
       } else {
-        Alert.alert('Error', result.message);
+        showAlert({ type: 'error', title: 'Error', message: result.message });
       }
     } catch (error) {
-      Alert.alert('Error', 'Gagal menolak item');
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal menolak item' });
     } finally {
       setActionLoading(false);
       setShowRejectModal(false);
@@ -852,7 +855,7 @@ export default function PengajuanScreen() {
         title="Pengajuan"
         showBack={true}
         showHistoryButton={true}
-        onHistoryPress={() => Alert.alert('History', 'Fitur history akan segera hadir')}
+        onHistoryPress={() => showAlert({ type: 'info', title: 'History', message: 'Fitur history akan segera hadir' })}
       />
 
       <View style={styles.contentWrapper}>
@@ -1133,6 +1136,16 @@ export default function PengajuanScreen() {
         </View>
       </Modal>
 
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
 
     </View>
   );

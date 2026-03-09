@@ -2,18 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, View, Text, TextInput, TouchableOpacity, 
-  Alert, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, Modal, Animated, PanResponder, Dimensions, Keyboard 
+  ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, Modal, Animated, PanResponder, Dimensions, Keyboard 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getApiUrl, API_CONFIG } from '../../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppHeader, CustomCalendar } from '../../../components';
+import { AppHeader, CustomCalendar, CustomAlert } from '../../../components';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function AddDataPegawaiForm() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [formData, setFormData] = useState({
     nama_lengkap: '',
     email: '',
@@ -222,19 +224,16 @@ export default function AddDataPegawaiForm() {
         const draftAge = new Date().getTime() - new Date(draft.timestamp).getTime();
         
         if (draftAge < 24 * 60 * 60 * 1000) {
-          Alert.alert(
-            'Draft Ditemukan',
-            'Ditemukan data draft yang belum disimpan. Muat data draft?',
-            [
-              { text: 'Tidak', onPress: () => clearDraftData() },
-              { 
-                text: 'Ya', 
-                onPress: () => {
-                  setFormData(draft.formData || formData);
-                }
-              }
-            ]
-          );
+          alert.showAlert({
+            type: 'confirm',
+            message: 'Ditemukan data draft yang belum disimpan. Muat data draft?',
+            confirmText: 'Ya',
+            cancelText: 'Tidak',
+            onConfirm: () => {
+              setFormData(draft.formData || formData);
+            },
+            onCancel: () => clearDraftData()
+          });
         } else {
           clearDraftData();
         }
@@ -370,7 +369,7 @@ export default function AddDataPegawaiForm() {
     
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      Alert.alert('Data Belum Lengkap', 'Mohon lengkapi field yang wajib diisi (bertanda *)');
+      alert.showAlert({ type: 'error', message: 'Mohon lengkapi field yang wajib diisi (bertanda *)' });
       return;
     }
     
@@ -433,7 +432,7 @@ export default function AddDataPegawaiForm() {
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       setShowConfirmModal(false);
-      Alert.alert('Error', 'Mohon lengkapi field yang wajib diisi');
+      alert.showAlert({ type: 'error', message: 'Mohon lengkapi field yang wajib diisi' });
       return;
     }
 
@@ -461,10 +460,10 @@ export default function AddDataPegawaiForm() {
           friction: 11
         }).start();
       } else {
-        Alert.alert('Error', result.message || 'Gagal menambahkan data pegawai');
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal menambahkan data pegawai' });
       }
     } catch (error) {
-      Alert.alert('Koneksi Error', 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.');
+      alert.showAlert({ type: 'error', message: 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.' });
     } finally {
       setLoading(false);
     }
@@ -906,6 +905,17 @@ export default function AddDataPegawaiForm() {
             </Animated.View>
           </View>
         </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
 
     </View>
   );

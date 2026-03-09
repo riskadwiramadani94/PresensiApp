@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal, ScrollView, Animated, PanResponder, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Animated, PanResponder, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomAlert } from './CustomAlert';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -37,6 +39,7 @@ export default function CustomCalendar({
   const [tempMonth, setTempMonth] = useState(new Date().getMonth());
   const [tempYear, setTempYear] = useState(new Date().getFullYear());
   const pickerTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
 
   useEffect(() => {
     if (initialDate) {
@@ -81,11 +84,11 @@ export default function CustomCalendar({
       onDatePress(date, dateEvents);
     } else if (dateEvents.length > 0) {
       const eventList = dateEvents.map(e => `• ${e.title}`).join('\n');
-      Alert.alert(
-        `${date.getDate()} ${date.toLocaleDateString('id-ID', { month: 'long' })}`,
-        eventList,
-        [{ text: 'Tutup', style: 'cancel' }]
-      );
+      showAlert({
+        type: 'info',
+        title: `${date.getDate()} ${date.toLocaleDateString('id-ID', { month: 'long' })}`,
+        message: eventList
+      });
     }
   };
 
@@ -358,6 +361,17 @@ export default function CustomCalendar({
           </Animated.View>
         </View>
       </Modal>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </>
   );
 }

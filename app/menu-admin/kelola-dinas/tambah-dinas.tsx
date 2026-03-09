@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Dimensions, Animated, PanResponder, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Modal, FlatList, ActivityIndicator, Dimensions, Animated, PanResponder, Keyboard } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,12 +11,14 @@ import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppHeader, CustomCalendar, AnalogTimePicker } from '../../../components';
+import { AppHeader, CustomCalendar, AnalogTimePicker, CustomAlert } from '../../../components';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function TambahDinasScreen() {
   const router = useRouter();
+  const alert = useCustomAlert();
   const [loading, setLoading] = useState(false);
   const [showPegawaiModal, setShowPegawaiModal] = useState(false);
   const [pegawaiList, setPegawaiList] = useState<any[]>([]);
@@ -75,13 +77,13 @@ export default function TambahDinasScreen() {
       if (!result.canceled && result.assets[0]) {
         const file = result.assets[0];
         if (file.size && file.size > 5 * 1024 * 1024) {
-          Alert.alert('Error', 'Ukuran file maksimal 5MB');
+          alert.showAlert({ type: 'error', message: 'Ukuran file maksimal 5MB' });
           return;
         }
         setSelectedFile(file);
       }
     } catch (error) {
-      Alert.alert('Error', 'Gagal memilih file');
+      alert.showAlert({ type: 'error', message: 'Gagal memilih file' });
     }
   };
 
@@ -107,7 +109,7 @@ export default function TambahDinasScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Error', 'Permission to access location was denied');
+        alert.showAlert({ type: 'error', message: 'Permission to access location was denied' });
         return;
       }
 
@@ -121,7 +123,7 @@ export default function TambahDinasScreen() {
         longitudeDelta: 0.01
       });
     } catch (error) {
-      Alert.alert('Error', 'Could not fetch location');
+      alert.showAlert({ type: 'error', message: 'Could not fetch location' });
     }
   };
 
@@ -237,7 +239,7 @@ export default function TambahDinasScreen() {
 
   const confirmLocation = async () => {
     if (!markerPosition) {
-      Alert.alert('Error', 'Pilih lokasi terlebih dahulu');
+      alert.showAlert({ type: 'error', message: 'Pilih lokasi terlebih dahulu' });
       return;
     }
 
@@ -246,7 +248,7 @@ export default function TambahDinasScreen() {
       setShowMapModal(false);
       setMarkerPosition(null);
     } catch (error) {
-      Alert.alert('Error', 'Gagal mendapatkan alamat');
+      alert.showAlert({ type: 'error', message: 'Gagal mendapatkan alamat' });
     }
   };
 
@@ -363,22 +365,19 @@ export default function TambahDinasScreen() {
         
         // Only load draft if it's less than 24 hours old
         if (draftAge < 24 * 60 * 60 * 1000) {
-          Alert.alert(
-            'Draft Ditemukan',
-            'Ditemukan data draft yang belum disimpan. Muat data draft?',
-            [
-              { text: 'Tidak', onPress: () => clearDraftData() },
-              { 
-                text: 'Ya', 
-                onPress: () => {
-                  setFormData(draft.formData || formData);
-                  setSelectedPegawai(draft.selectedPegawai || []);
-                  setSelectedLokasi(draft.selectedLokasi || []);
-                  setSelectedFile(draft.selectedFile || null);
-                }
-              }
-            ]
-          );
+          alert.showAlert({
+            type: 'confirm',
+            message: 'Ditemukan data draft yang belum disimpan. Muat data draft?',
+            confirmText: 'Ya',
+            cancelText: 'Tidak',
+            onConfirm: () => {
+              setFormData(draft.formData || formData);
+              setSelectedPegawai(draft.selectedPegawai || []);
+              setSelectedLokasi(draft.selectedLokasi || []);
+              setSelectedFile(draft.selectedFile || null);
+            },
+            onCancel: () => clearDraftData()
+          });
         } else {
           clearDraftData();
         }
@@ -661,7 +660,7 @@ export default function TambahDinasScreen() {
     
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      Alert.alert('Data Belum Lengkap', 'Mohon lengkapi field yang wajib diisi (bertanda *)');
+      alert.showAlert({ type: 'error', message: 'Mohon lengkapi field yang wajib diisi (bertanda *)' });
       return;
     }
     
@@ -795,7 +794,7 @@ export default function TambahDinasScreen() {
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       setShowConfirmModal(false);
-      Alert.alert('Error', 'Mohon lengkapi field yang wajib diisi');
+      alert.showAlert({ type: 'error', message: 'Mohon lengkapi field yang wajib diisi' });
       return;
     }
 
@@ -842,10 +841,10 @@ export default function TambahDinasScreen() {
           friction: 11
         }).start();
       } else {
-        Alert.alert('Error', response.message || 'Gagal menambahkan data dinas');
+        alert.showAlert({ type: 'error', message: response.message || 'Gagal menambahkan data dinas' });
       }
     } catch (error) {
-      Alert.alert('Koneksi Error', 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.');
+      alert.showAlert({ type: 'error', message: 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.' });
     } finally {
       setLoading(false);
     }
@@ -1843,6 +1842,17 @@ export default function TambahDinasScreen() {
           </View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </View>
   );
 }

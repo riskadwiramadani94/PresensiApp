@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Dimensions, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { AppHeader } from '../../../../components'; // Pastikan SkeletonLoader diimport jika digunakan
+import { AppHeader, CustomAlert } from '../../../../components';
+import { useCustomAlert } from '../../../../hooks/useCustomAlert';
 import { KelolaDinasAPI, PegawaiAkunAPI } from '../../../../constants/config';
 
 const { width } = Dimensions.get('window');
@@ -41,6 +42,7 @@ interface DetailDinas {
 export default function DetailDinasScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const alert = useCustomAlert();
   const [detailDinas, setDetailDinas] = useState<DetailDinas | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -80,12 +82,12 @@ export default function DetailDinasScreen() {
             setDetailDinas(dinasData);
           }
         } else {
-          Alert.alert('Error', 'Data dinas tidak ditemukan');
+          alert.showAlert({ type: 'error', message: 'Data dinas tidak ditemukan' });
           router.back();
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Gagal memuat detail dinas');
+      alert.showAlert({ type: 'error', message: 'Gagal memuat detail dinas' });
     } finally {
       setLoading(false);
     }
@@ -383,6 +385,17 @@ export default function DetailDinasScreen() {
           </View>
         ))}
       </ScrollView>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </View>
   );
 }

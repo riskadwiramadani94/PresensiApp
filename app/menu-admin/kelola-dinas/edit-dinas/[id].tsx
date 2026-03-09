@@ -7,7 +7,6 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState, useRef } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Modal,
     ScrollView,
     StyleSheet,
@@ -20,7 +19,8 @@ import {
     Dimensions
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { AppHeader, CustomCalendar, AnalogTimePicker } from "../../../../components";
+import { AppHeader, CustomCalendar, AnalogTimePicker, CustomAlert } from "../../../../components";
+import { useCustomAlert } from "../../../../hooks/useCustomAlert";
 import {
     KelolaDinasAPI as DinasAPI,
     PegawaiAkunAPI,
@@ -32,6 +32,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function EditDinasScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const alert = useCustomAlert();
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [showPegawaiModal, setShowPegawaiModal] = useState(false);
@@ -173,13 +174,13 @@ export default function EditDinasScreen() {
       if (!result.canceled && result.assets[0]) {
         const file = result.assets[0];
         if (file.size && file.size > 5 * 1024 * 1024) {
-          Alert.alert("Error", "Ukuran file maksimal 5MB");
+          alert.showAlert({ type: 'error', message: 'Ukuran file maksimal 5MB' });
           return;
         }
         setSelectedFile(file);
       }
     } catch (error) {
-      Alert.alert("Error", "Gagal memilih file");
+      alert.showAlert({ type: 'error', message: 'Gagal memilih file' });
     }
   };
 
@@ -202,7 +203,7 @@ export default function EditDinasScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Error", "Permission to access location was denied");
+        alert.showAlert({ type: 'error', message: 'Permission to access location was denied' });
         return;
       }
 
@@ -216,7 +217,7 @@ export default function EditDinasScreen() {
         longitudeDelta: 0.01,
       });
     } catch (error) {
-      Alert.alert("Error", "Could not fetch location");
+      alert.showAlert({ type: 'error', message: 'Could not fetch location' });
     }
   };
 
@@ -349,7 +350,7 @@ export default function EditDinasScreen() {
 
   const confirmLocation = async () => {
     if (!markerPosition) {
-      Alert.alert("Error", "Pilih lokasi terlebih dahulu");
+      alert.showAlert({ type: 'error', message: 'Pilih lokasi terlebih dahulu' });
       return;
     }
 
@@ -361,7 +362,7 @@ export default function EditDinasScreen() {
       setShowMapModal(false);
       setMarkerPosition(null);
     } catch (error) {
-      Alert.alert("Error", "Gagal mendapatkan alamat");
+      alert.showAlert({ type: 'error', message: 'Gagal mendapatkan alamat' });
     }
   };
 
@@ -426,14 +427,14 @@ export default function EditDinasScreen() {
             }
           }
         } else {
-          Alert.alert("Error", "Data dinas tidak ditemukan");
+          alert.showAlert({ type: 'error', message: 'Data dinas tidak ditemukan' });
         }
       } else {
-        Alert.alert("Error", response.message || "Gagal memuat data dinas");
+        alert.showAlert({ type: 'error', message: response.message || 'Gagal memuat data dinas' });
       }
     } catch (error) {
       console.error("Error fetching dinas:", error);
-      Alert.alert("Error", "Gagal memuat data dinas");
+      alert.showAlert({ type: 'error', message: 'Gagal memuat data dinas' });
     } finally {
       setLoadingData(false);
     }
@@ -547,22 +548,19 @@ export default function EditDinasScreen() {
 
         // Only load draft if it's less than 24 hours old
         if (draftAge < 24 * 60 * 60 * 1000) {
-          Alert.alert(
-            "Draft Ditemukan",
-            "Ditemukan data draft yang belum disimpan. Muat data draft?",
-            [
-              { text: "Tidak", onPress: () => clearDraftData() },
-              {
-                text: "Ya",
-                onPress: () => {
-                  setFormData(draft.formData || formData);
-                  setSelectedPegawai(draft.selectedPegawai || []);
-                  setSelectedLokasi(draft.selectedLokasi || []);
-                  setSelectedFile(draft.selectedFile || null);
-                },
-              },
-            ],
-          );
+          alert.showAlert({
+            type: 'confirm',
+            message: 'Ditemukan data draft yang belum disimpan. Muat data draft?',
+            confirmText: 'Ya',
+            cancelText: 'Tidak',
+            onConfirm: () => {
+              setFormData(draft.formData || formData);
+              setSelectedPegawai(draft.selectedPegawai || []);
+              setSelectedLokasi(draft.selectedLokasi || []);
+              setSelectedFile(draft.selectedFile || null);
+            },
+            onCancel: () => clearDraftData()
+          });
         } else {
           clearDraftData();
         }
@@ -776,10 +774,7 @@ export default function EditDinasScreen() {
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      Alert.alert(
-        "Data Belum Lengkap",
-        "Mohon lengkapi field yang wajib diisi (bertanda *)",
-      );
+      alert.showAlert({ type: 'error', message: 'Mohon lengkapi field yang wajib diisi (bertanda *)' });
       return;
     }
 
@@ -806,7 +801,7 @@ export default function EditDinasScreen() {
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       setShowConfirmModal(false);
-      Alert.alert("Error", "Mohon lengkapi field yang wajib diisi");
+      alert.showAlert({ type: 'error', message: 'Mohon lengkapi field yang wajib diisi' });
       return;
     }
 
@@ -863,37 +858,33 @@ export default function EditDinasScreen() {
 
       if (response.success) {
         await clearDraftData();
-        Alert.alert("Sukses", "Data dinas berhasil diupdate!", [
-          {
-            text: "OK",
-            onPress: () => {
-              setFormData({
-                namaKegiatan: "",
-                nomorSpt: "",
-                jenisDinas: "lokal",
-                tanggalMulai: "",
-                tanggalSelesai: "",
-                jamMulai: "",
-                jamSelesai: "",
-                deskripsi: "",
-                pegawaiIds: [],
-              });
-              setUseDefaultJam(true);
-              setSelectedPegawai([]);
-              setSelectedLokasi([]);
-              setSelectedFile(null);
-              router.back();
-            },
-          },
-        ]);
+        alert.showAlert({
+          type: 'success',
+          message: 'Data dinas berhasil diupdate!',
+          onConfirm: () => {
+            setFormData({
+              namaKegiatan: "",
+              nomorSpt: "",
+              jenisDinas: "lokal",
+              tanggalMulai: "",
+              tanggalSelesai: "",
+              jamMulai: "",
+              jamSelesai: "",
+              deskripsi: "",
+              pegawaiIds: [],
+            });
+            setUseDefaultJam(true);
+            setSelectedPegawai([]);
+            setSelectedLokasi([]);
+            setSelectedFile(null);
+            router.back();
+          }
+        });
       } else {
-        Alert.alert("Error", response.message || "Gagal mengupdate data dinas");
+        alert.showAlert({ type: 'error', message: response.message || 'Gagal mengupdate data dinas' });
       }
     } catch (error) {
-      Alert.alert(
-        "Koneksi Error",
-        "Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.",
-      );
+      alert.showAlert({ type: 'error', message: 'Pastikan XAMPP nyala dan HP satu Wi-Fi dengan laptop.' });
     } finally {
       setLoading(false);
     }
@@ -1648,6 +1639,17 @@ export default function EditDinasScreen() {
           </View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </View>
   );
 }

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert, Modal, Animated, PanResponder, Platform } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, Animated, PanResponder, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG, getApiUrl } from '../../../constants/config';
 import AppHeader from '../../../components/AppHeader';
 import CustomCalendar from '../../../components/CustomCalendar';
+import { CustomAlert } from '../../../components/CustomAlert';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 interface RiwayatItem {
   tanggal: string;
@@ -32,6 +34,7 @@ export default function RiwayatScreen() {
   const [loading, setLoading] = useState(true);
   const [riwayatData, setRiwayatData] = useState<RiwayatItem[]>([]);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('asc');
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
   const [stats, setStats] = useState<Stats>({
     hadir: 0,
     terlambat: '0x',
@@ -324,7 +327,7 @@ export default function RiwayatScreen() {
       }
     } catch (error) {
       console.error('Error fetching riwayat:', error);
-      Alert.alert('Error', 'Gagal memuat riwayat presensi');
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal memuat riwayat presensi' });
     } finally {
       setLoading(false);
     }
@@ -770,11 +773,11 @@ export default function RiwayatScreen() {
                   } else if (datePickerMode === 'end') {
                     const daysDiff = Math.ceil((localDate.getTime() - selectedStartDate.getTime()) / (1000 * 60 * 60 * 24));
                     if (daysDiff > 6) {
-                      Alert.alert('Peringatan', 'Periode mingguan maksimal 7 hari');
+                      showAlert({ type: 'warning', title: 'Peringatan', message: 'Periode mingguan maksimal 7 hari' });
                       return;
                     }
                     if (localDate < selectedStartDate) {
-                      Alert.alert('Peringatan', 'Tanggal selesai harus setelah tanggal mulai');
+                      showAlert({ type: 'warning', title: 'Peringatan', message: 'Tanggal selesai harus setelah tanggal mulai' });
                       return;
                     }
                     setSelectedEndDate(localDate);
@@ -791,6 +794,17 @@ export default function RiwayatScreen() {
           </Animated.View>
         </View>
       </Modal>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </View>
   );
 }

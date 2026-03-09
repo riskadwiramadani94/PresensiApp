@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
+    
     Animated,
     FlatList,
     Image,
@@ -18,8 +18,9 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { AppHeader } from "../../../components";
+import { AppHeader, CustomAlert } from "../../../components";
 import CustomCalendar from "../../../components/CustomCalendar";
+import { useCustomAlert } from "../../../hooks/useCustomAlert";
 import { API_CONFIG, getApiUrl } from "../../../constants/config";
 
 interface PegawaiAbsen {
@@ -53,6 +54,7 @@ const statusConfig = {
 };
 
 export default function LaporanDetailAbsenScreen() {
+  const alert = useCustomAlert();
   const router = useRouter();
   const today = new Date();
   const [loading, setLoading] = useState(true);
@@ -447,7 +449,7 @@ export default function LaporanDetailAbsenScreen() {
         setData([]);
       }
     } catch (error) {
-      Alert.alert("Error", "Gagal memuat data absen");
+      alert.showAlert({ type: 'error', message: 'Gagal memuat data absen' });
       setData([]);
     } finally {
       setLoading(false);
@@ -1091,17 +1093,11 @@ export default function LaporanDetailAbsenScreen() {
                         (1000 * 60 * 60 * 24),
                     );
                     if (daysDiff > 6) {
-                      Alert.alert(
-                        "Peringatan",
-                        "Periode mingguan maksimal 7 hari",
-                      );
+                      alert.showAlert({ type: 'warning', message: 'Periode mingguan maksimal 7 hari' });
                       return;
                     }
                     if (date < selectedStartDate) {
-                      Alert.alert(
-                        "Peringatan",
-                        "Tanggal selesai harus setelah tanggal mulai",
-                      );
+                      alert.showAlert({ type: 'warning', message: 'Tanggal selesai harus setelah tanggal mulai' });
                       return;
                     }
                     setSelectedEndDate(date);
@@ -1117,6 +1113,17 @@ export default function LaporanDetailAbsenScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
+      />
     </View>
   );
 }
@@ -1536,3 +1543,4 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
 });
+

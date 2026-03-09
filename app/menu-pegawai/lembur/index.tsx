@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Modal, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +7,8 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { AppHeader } from '../../../components';
 import { getApiUrl } from '../../../constants/config';
+import { CustomAlert } from '../../../components/CustomAlert';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
 type TabType = 'absen' | 'riwayat';
 
@@ -36,6 +38,7 @@ export default function LemburScreen() {
   const [photoUri, setPhotoUri] = useState('');
   const [selectedAbsen, setSelectedAbsen] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
   
   const [absenList, setAbsenList] = useState<AbsenLembur[]>([]);
   const [riwayatList, setRiwayatList] = useState<AbsenLembur[]>([]);
@@ -207,7 +210,7 @@ export default function LemburScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Error', 'Izin kamera diperlukan');
+        showAlert({ type: 'error', title: 'Error', message: 'Izin kamera diperlukan' });
         return;
       }
       
@@ -223,7 +226,7 @@ export default function LemburScreen() {
       }
     } catch (error) {
       console.error('Error opening camera:', error);
-      Alert.alert('Error', 'Gagal membuka kamera');
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal membuka kamera' });
     }
   };
 
@@ -281,14 +284,14 @@ export default function LemburScreen() {
       const result = await response.json();
       
       if (result.success) {
-        Alert.alert('Sukses', result.message);
+        showAlert({ type: 'success', title: 'Sukses', message: result.message });
         await fetchData();
       } else {
-        Alert.alert('Error', result.message);
+        showAlert({ type: 'error', title: 'Error', message: result.message });
       }
     } catch (error) {
       console.error('Error submitting:', error);
-      Alert.alert('Error', 'Terjadi kesalahan saat mengirim data');
+      showAlert({ type: 'error', title: 'Error', message: 'Terjadi kesalahan saat mengirim data' });
     } finally {
       setIsProcessing(false);
       setPhotoUri('');
@@ -298,12 +301,12 @@ export default function LemburScreen() {
 
   const handleAbsenMasukPertama = async (pengajuan: any, locationStatus: any) => {
     if (!checkSchedule(pengajuan.jam_mulai, pengajuan.jam_selesai)) {
-      Alert.alert('Belum Waktunya', 'Absen hanya bisa dilakukan sesuai jadwal lembur');
+      showAlert({ type: 'warning', title: 'Belum Waktunya', message: 'Absen hanya bisa dilakukan sesuai jadwal lembur' });
       return;
     }
 
     if (!locationStatus.valid) {
-      Alert.alert('Di Luar Radius', `Anda berada ${locationStatus.distance}m dari lokasi (radius: ${locationStatus.lokasi?.radius}m)`);
+      showAlert({ type: 'warning', title: 'Di Luar Radius', message: `Anda berada ${locationStatus.distance}m dari lokasi (radius: ${locationStatus.lokasi?.radius}m)` });
       return;
     }
     
@@ -319,12 +322,12 @@ export default function LemburScreen() {
 
   const handleAbsenPulang = (absen: AbsenLembur, radiusStatus: any) => {
     if (!checkSchedule(absen.jam_rencana_mulai, absen.jam_rencana_selesai)) {
-      Alert.alert('Belum Waktunya', 'Absen pulang hanya bisa dilakukan sesuai jadwal lembur');
+      showAlert({ type: 'warning', title: 'Belum Waktunya', message: 'Absen pulang hanya bisa dilakukan sesuai jadwal lembur' });
       return;
     }
 
     if (!radiusStatus.valid) {
-      Alert.alert('Di Luar Radius', 'Anda berada di luar radius lokasi');
+      showAlert({ type: 'warning', title: 'Di Luar Radius', message: 'Anda berada di luar radius lokasi' });
       return;
     }
     
@@ -660,6 +663,17 @@ export default function LemburScreen() {
           </View>
         </View>
       </Modal>
+      
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
+      />
     </View>
   );
 }

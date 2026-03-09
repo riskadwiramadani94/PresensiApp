@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, FlatList, 
-  Alert, ActivityIndicator, ScrollView, Platform, RefreshControl, Modal, Image, Dimensions
+  ActivityIndicator, ScrollView, Platform, RefreshControl, Modal, Image, Dimensions
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { AppHeader } from '../../../../components';
 import { KelolaDinasAPI } from '../../../../constants/config';
 import { CustomAlert } from '../../../../components/CustomAlert';
+import { useCustomAlert } from '../../../../hooks/useCustomAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -65,6 +66,7 @@ export default function AbsenDinasValidasiScreen() {
     type: 'approve' | 'reject';
     nama: string;
   } | null>(null);
+  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
   
   const calendarRef = useRef<ScrollView>(null);
 
@@ -103,7 +105,7 @@ export default function AbsenDinasValidasiScreen() {
         }
       }
     } catch (error) {
-      Alert.alert('Error', 'Gagal memuat data dinas');
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal memuat data dinas' });
     } finally {
       setLoading(false);
     }
@@ -199,11 +201,11 @@ export default function AbsenDinasValidasiScreen() {
     try {
       const result = await KelolaDinasAPI.validateAbsen(validationData.absenId, validationData.type);
       if (result.success) {
-        Alert.alert('Sukses', 'Status berhasil diperbarui');
+        showAlert({ type: 'success', title: 'Sukses', message: 'Status berhasil diperbarui' });
         fetchDinasData(selectedDate);
       }
     } catch (error) {
-      Alert.alert('Error', 'Gagal memproses data');
+      showAlert({ type: 'error', title: 'Error', message: 'Gagal memproses data' });
     }
     setValidationData(null);
   };
@@ -501,6 +503,16 @@ export default function AbsenDinasValidasiScreen() {
           setShowValidationAlert(false);
           setValidationData(null);
         }}
+      />
+      <CustomAlert
+        visible={visible}
+        type={config.type}
+        title={config.title}
+        message={config.message}
+        onClose={hideAlert}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
+        confirmText={config.confirmText}
+        cancelText={config.cancelText}
       />
     </View>
   );
