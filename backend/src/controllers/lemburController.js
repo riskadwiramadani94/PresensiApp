@@ -170,6 +170,9 @@ exports.getAbsenLemburAktif = async (req, res) => {
 
     const formattedResults = results.map(item => ({
       ...item,
+      tanggal: item.tanggal ? new Date(item.tanggal).toISOString().split('T')[0] : null,
+      tanggal_mulai: item.tanggal_mulai ? new Date(item.tanggal_mulai).toISOString().split('T')[0] : null,
+      tanggal_selesai: item.tanggal_selesai ? new Date(item.tanggal_selesai).toISOString().split('T')[0] : null,
       lokasi_detail: item.nama_lokasi,
       latitude: parseFloat(item.latitude),
       longitude: parseFloat(item.longitude)
@@ -211,6 +214,7 @@ exports.getRiwayatLembur = async (req, res) => {
 
     const formattedResults = results.map(item => ({
       ...item,
+      tanggal: item.tanggal ? new Date(item.tanggal).toISOString().split('T')[0] : null,
       lokasi_detail: item.nama_lokasi,
       latitude: parseFloat(item.latitude),
       longitude: parseFloat(item.longitude)

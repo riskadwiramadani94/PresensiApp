@@ -23,6 +23,10 @@ const getPengajuan = async (req, res) => {
     // Format data untuk tampilan yang lebih baik
     const formattedData = pengajuan.map(item => ({
       ...item,
+      tanggal_mulai: item.tanggal_mulai ? new Date(item.tanggal_mulai).toISOString().split('T')[0] : null,
+      tanggal_selesai: item.tanggal_selesai ? new Date(item.tanggal_selesai).toISOString().split('T')[0] : null,
+      tanggal_pengajuan: item.tanggal_pengajuan ? new Date(item.tanggal_pengajuan).toISOString().split('T')[0] : null,
+      waktu_persetujuan: item.waktu_persetujuan ? new Date(item.waktu_persetujuan).toISOString().split('T')[0] : null,
       jenis_pengajuan_label: getJenisPengajuanLabel(item.jenis_pengajuan),
       status_label: getStatusLabel(item.status),
       tanggal_mulai_formatted: formatDate(item.tanggal_mulai),

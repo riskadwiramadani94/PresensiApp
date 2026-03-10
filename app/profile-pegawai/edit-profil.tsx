@@ -555,19 +555,33 @@ export default function EditProfilPegawaiScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nomor Telepon</Text>
-              <TextInput
-                style={[styles.input, errors.no_telepon && styles.inputError]}
-                value={profile.no_telepon}
-                onChangeText={(text) => {
-                  setProfile({ ...profile, no_telepon: text });
-                  if (errors.no_telepon) {
-                    setErrors({ ...errors, no_telepon: '' });
-                  }
-                }}
-                placeholder="Masukkan nomor telepon"
-                placeholderTextColor="#999"
-                keyboardType="phone-pad"
-              />
+              <View style={styles.phoneInputContainer}>
+                <View style={styles.phonePrefix}>
+                  <Text style={styles.phonePrefixText}>+62</Text>
+                </View>
+                <TextInput
+                  style={[styles.phoneInput, errors.no_telepon && styles.inputError]}
+                  value={profile.no_telepon}
+                  onChangeText={(text) => {
+                    // Remove any non-numeric characters
+                    let cleaned = text.replace(/[^\d]/g, '');
+                    // Remove leading 0 if present
+                    if (cleaned.startsWith('0')) {
+                      cleaned = cleaned.substring(1);
+                    }
+                    // Limit to 12 digits
+                    if (cleaned.length <= 12) {
+                      setProfile({ ...profile, no_telepon: cleaned });
+                      if (errors.no_telepon) {
+                        setErrors({ ...errors, no_telepon: '' });
+                      }
+                    }
+                  }}
+                  placeholder="8xxxxxxxxx"
+                  placeholderTextColor="#999"
+                  keyboardType="phone-pad"
+                />
+              </View>
               {errors.no_telepon && (
                 <Text style={styles.errorText}>{errors.no_telepon}</Text>
               )}
@@ -877,5 +891,36 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 16,
     textAlign: 'center'
+  },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden'
+  },
+  phonePrefix: {
+    backgroundColor: '#004643',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  phonePrefixText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff'
+  },
+  phoneInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: 'transparent'
   },
 });

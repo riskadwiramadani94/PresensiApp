@@ -37,11 +37,19 @@ const getKegiatanPegawai = async (req, res) => {
 
     const [kegiatan] = await db.execute(query, [user_id]);
 
-    console.log('Kegiatan found:', kegiatan.length);
+    // Format dates
+    const formattedKegiatan = kegiatan.map(item => ({
+      ...item,
+      tanggal_mulai: item.tanggal_mulai ? new Date(item.tanggal_mulai).toISOString().split('T')[0] : null,
+      tanggal_selesai: item.tanggal_selesai ? new Date(item.tanggal_selesai).toISOString().split('T')[0] : null,
+      created_at: item.created_at ? new Date(item.created_at).toISOString().split('T')[0] : null
+    }));
+
+    console.log('Kegiatan found:', formattedKegiatan.length);
 
     res.json({
       success: true,
-      data: kegiatan
+      data: formattedKegiatan
     });
 
   } catch (error) {
@@ -131,6 +139,9 @@ const getDetailKegiatan = async (req, res) => {
     // Combine data
     const result = {
       ...kegiatanData,
+      tanggal_mulai: kegiatanData.tanggal_mulai ? new Date(kegiatanData.tanggal_mulai).toISOString().split('T')[0] : null,
+      tanggal_selesai: kegiatanData.tanggal_selesai ? new Date(kegiatanData.tanggal_selesai).toISOString().split('T')[0] : null,
+      created_at: kegiatanData.created_at ? new Date(kegiatanData.created_at).toISOString().split('T')[0] : null,
       lokasi: lokasi,
       pegawai: pegawai
     };

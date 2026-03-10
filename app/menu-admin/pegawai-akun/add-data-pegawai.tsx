@@ -199,7 +199,8 @@ export default function AddDataPegawaiForm() {
   };
 
   const isValidPhone = (phone: string) => {
-    const regex = /^[0-9+\-\s()]{10,15}$/;
+    // Validate Indonesian phone number (8-12 digits after +62)
+    const regex = /^[8-9][0-9]{7,11}$/;
     return regex.test(phone);
   };
 
@@ -546,16 +547,30 @@ export default function AddDataPegawaiForm() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>No. Telepon</Text>
-                <TextInput
-                  style={[styles.textInput, validationErrors.no_telepon && styles.inputError]}
-                  placeholder="Masukkan nomor telepon"
-                  value={formData.no_telepon}
-                  onChangeText={(text) => {
-                    setFormData({...formData, no_telepon: text});
-                    validateField('no_telepon', text);
-                  }}
-                  keyboardType="phone-pad"
-                />
+                <View style={styles.phoneInputContainer}>
+                  <View style={styles.phonePrefix}>
+                    <Text style={styles.phonePrefixText}>+62</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.phoneInput, validationErrors.no_telepon && styles.inputError]}
+                    placeholder="8xxxxxxxxx"
+                    value={formData.no_telepon}
+                    onChangeText={(text) => {
+                      // Remove any non-numeric characters
+                      let cleaned = text.replace(/[^\d]/g, '');
+                      // Remove leading 0 if present
+                      if (cleaned.startsWith('0')) {
+                        cleaned = cleaned.substring(1);
+                      }
+                      // Limit to 12 digits
+                      if (cleaned.length <= 12) {
+                        setFormData({...formData, no_telepon: cleaned});
+                        validateField('no_telepon', cleaned);
+                      }
+                    }}
+                    keyboardType="phone-pad"
+                  />
+                </View>
                 {validationErrors.no_telepon && (
                   <Text style={styles.errorText}>{validationErrors.no_telepon}</Text>
                 )}
@@ -792,7 +807,7 @@ export default function AddDataPegawaiForm() {
                       {formData.no_telepon && (
                         <View style={styles.confirmItemHalf}>
                           <Text style={styles.confirmLabel}>No. Telepon</Text>
-                          <Text style={styles.confirmValue}>{formData.no_telepon}</Text>
+                          <Text style={styles.confirmValue}>+62{formData.no_telepon}</Text>
                         </View>
                       )}
                     </View>
@@ -1467,5 +1482,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#004643',
+  },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden'
+  },
+  phonePrefix: {
+    backgroundColor: '#004643',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  phonePrefixText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff'
+  },
+  phoneInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: 'transparent'
   },
 });

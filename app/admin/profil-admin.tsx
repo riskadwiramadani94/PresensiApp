@@ -456,7 +456,7 @@ export default function ProfilAdminScreen() {
               </View>
               <View style={styles.infoContentModern}>
                 <Text style={styles.labelModern}>NOMOR TELEPON</Text>
-                <Text style={styles.valueModern}>{profile?.no_telepon || '-'}</Text>
+                <Text style={styles.valueModern}>{profile?.no_telepon ? `+62${profile.no_telepon}` : '-'}</Text>
               </View>
             </View>
           </View>

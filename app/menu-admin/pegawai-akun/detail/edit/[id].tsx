@@ -370,13 +370,29 @@ export default function EditPegawai() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>No. Telepon</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.no_telepon}
-                onChangeText={(text) => setFormData({...formData, no_telepon: text})}
-                placeholder="Masukkan nomor telepon"
-                keyboardType="phone-pad"
-              />
+              <View style={styles.phoneInputContainer}>
+                <View style={styles.phonePrefix}>
+                  <Text style={styles.phonePrefixText}>+62</Text>
+                </View>
+                <TextInput
+                  style={styles.phoneInput}
+                  value={formData.no_telepon}
+                  onChangeText={(text) => {
+                    // Remove any non-numeric characters
+                    let cleaned = text.replace(/[^\d]/g, '');
+                    // Remove leading 0 if present
+                    if (cleaned.startsWith('0')) {
+                      cleaned = cleaned.substring(1);
+                    }
+                    // Limit to 12 digits
+                    if (cleaned.length <= 12) {
+                      setFormData({...formData, no_telepon: cleaned});
+                    }
+                  }}
+                  placeholder="8xxxxxxxxx"
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
@@ -884,5 +900,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#004643',
+  },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    overflow: 'hidden'
+  },
+  phonePrefix: {
+    backgroundColor: '#004643',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  phonePrefixText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff'
+  },
+  phoneInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: 'transparent'
   },
 });

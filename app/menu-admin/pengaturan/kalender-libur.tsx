@@ -448,8 +448,8 @@ export default function KalenderLiburScreen() {
             <View style={styles.listCard}>
               <Text style={styles.listTitle}>Daftar Hari Libur</Text>
               {hariLibur.length > 0 ? (
-                hariLibur.map((item) => (
-                  <View key={`holiday-${item.id}`} style={styles.listItem}>
+                hariLibur.map((item, index) => (
+                  <View key={`holiday-${item.id || index}`} style={styles.listItem}>
                     <View style={styles.listItemLeft}>
                       <Ionicons name="calendar" size={16} color="#004643" />
                       <View style={styles.listItemInfo}>

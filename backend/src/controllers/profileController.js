@@ -73,6 +73,11 @@ const getProfile = async (req, res) => {
         user.jabatan = 'Pegawai';
       }
 
+      // Format tanggal_lahir
+      if (user.tanggal_lahir) {
+        user.tanggal_lahir = new Date(user.tanggal_lahir).toISOString().split('T')[0];
+      }
+
       res.json({
         success: true,
         data: user,

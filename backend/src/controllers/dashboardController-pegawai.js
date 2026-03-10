@@ -35,7 +35,7 @@ const getDashboard = async (req, res) => {
     
     // Get today's attendance - CEK TABEL PRESENSI (kantor + dinas)
     const [presensiRows] = await db.execute(`
-      SELECT * FROM presensi 
+      SELECT *, DATE_FORMAT(tanggal, "%Y-%m-%d") as tanggal_formatted FROM presensi 
       WHERE id_user = ? 
       AND DATE(tanggal) = CURDATE()
       ORDER BY tanggal DESC
@@ -43,6 +43,9 @@ const getDashboard = async (req, res) => {
     `, [user_id]);
     
     let presensi_hari_ini = presensiRows[0] || null;
+    if (presensi_hari_ini) {
+      presensi_hari_ini.tanggal = presensi_hari_ini.tanggal_formatted;
+    }
     
     // Get this month's summary - DARI TABEL PRESENSI (kantor + dinas)
     const [summaryRows] = await db.execute(`
@@ -63,7 +66,7 @@ const getDashboard = async (req, res) => {
           nama_lengkap: user.nama_lengkap,
           nip: user.nip,
           jenis_kelamin: user.jenis_kelamin,
-          tanggal_lahir: user.tanggal_lahir,
+          tanggal_lahir: user.tanggal_lahir ? new Date(user.tanggal_lahir).toISOString().split('T')[0] : null,
           alamat: user.alamat,
           no_telepon: user.no_telepon,
           jabatan: user.jabatan || 'Staff',

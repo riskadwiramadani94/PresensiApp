@@ -9,6 +9,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Linking,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { AppHeader } from "../../../../components";
@@ -39,6 +41,39 @@ export default function DetailPegawai() {
       return "-";
     } catch (error) {
       return "-";
+    }
+  };
+
+  const openWhatsApp = async (phoneNumber: string) => {
+    if (!phoneNumber) {
+      Alert.alert('Error', 'Nomor telepon tidak tersedia');
+      return;
+    }
+
+    // Format nomor untuk WhatsApp (hapus karakter non-digit)
+    let cleanNumber = phoneNumber.replace(/[^\d]/g, '');
+    
+    // Tambahkan +62 jika belum ada
+    if (!cleanNumber.startsWith('62')) {
+      if (cleanNumber.startsWith('0')) {
+        cleanNumber = '62' + cleanNumber.substring(1);
+      } else {
+        cleanNumber = '62' + cleanNumber;
+      }
+    }
+
+    const whatsappUrl = `whatsapp://send?phone=${cleanNumber}`;
+    const webUrl = `https://wa.me/${cleanNumber}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Linking.openURL(webUrl);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Tidak dapat membuka WhatsApp');
     }
   };
 
@@ -250,7 +285,16 @@ export default function DetailPegawai() {
               </View>
               <View style={styles.infoContentModern}>
                 <Text style={styles.labelModern}>NOMOR TELEPON</Text>
-                <Text style={styles.valueModern}>{pegawai.no_telepon || '-'}</Text>
+                {pegawai.no_telepon ? (
+                  <TouchableOpacity onPress={() => openWhatsApp(pegawai.no_telepon)}>
+                    <View style={styles.phoneContainer}>
+                      <Text style={styles.phoneNumber}>+62{pegawai.no_telepon}</Text>
+                      <Ionicons name="logo-whatsapp" size={16} color="#25D366" style={styles.whatsappIcon} />
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={styles.valueModern}>-</Text>
+                )}
               </View>
             </View>
 
@@ -539,4 +583,19 @@ const styles = StyleSheet.create({
   skeletonLabel: { width: '80%', height: 10, backgroundColor: '#F1F5F9', borderRadius: 4, marginBottom: 5 },
   skeletonValue: { width: '60%', height: 15, backgroundColor: '#E2E8F0', borderRadius: 4 },
   skeletonDescription: { width: '90%', height: 14, backgroundColor: '#E2E8F0', borderRadius: 4 },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  phoneNumber: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2C3E50',
+    lineHeight: 20,
+    marginRight: 8,
+  },
+  whatsappIcon: {
+    marginLeft: 4,
+  },
 });

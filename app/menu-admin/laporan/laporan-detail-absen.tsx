@@ -403,7 +403,7 @@ export default function LaporanDetailAbsenScreen() {
     return selectedPeriode;
   };
 
-  // Generate list bulan dinamis (2020-2030)
+  // Generate list bulan dinamis (2026-2035)
   const generateMonthList = () => {
     const months = [
       "Januari",
@@ -420,7 +420,7 @@ export default function LaporanDetailAbsenScreen() {
       "Desember",
     ];
     const list = [];
-    for (let year = 2020; year <= 2030; year++) {
+    for (let year = 2026; year <= 2035; year++) {
       for (let month = 0; month < 12; month++) {
         list.push(`${months[month]} ${year}`);
       }
@@ -428,10 +428,10 @@ export default function LaporanDetailAbsenScreen() {
     return list;
   };
 
-  // Generate list tahun dinamis (2020-2030)
+  // Generate list tahun dinamis (2026-2035)
   const generateYearList = () => {
     const list = [];
-    for (let year = 2020; year <= 2030; year++) {
+    for (let year = 2026; year <= 2035; year++) {
       list.push(year.toString());
     }
     return list;

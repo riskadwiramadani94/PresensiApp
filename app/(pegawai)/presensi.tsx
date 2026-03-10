@@ -965,7 +965,13 @@ export default function PresensiScreen() {
                       color={distance <= (nearestLocation?.radius || 0) ? "#4CAF50" : "#F44336"} 
                     />
                     <Text style={styles.statusSummaryText}>
-                      {nearestLocation ? nearestLocation.nama_lokasi : 'Lokasi tidak terdeteksi'}
+                      {nearestLocation ? 
+                        (distance <= nearestLocation.radius ? 
+                          `${nearestLocation.nama_lokasi} (${Math.round(distance)}m)` : 
+                          `Terlalu jauh dari ${nearestLocation.nama_lokasi} (${Math.round(distance)}m)`
+                        ) : 
+                        'Lokasi tidak terdeteksi'
+                      }
                     </Text>
                   </View>
                 )}

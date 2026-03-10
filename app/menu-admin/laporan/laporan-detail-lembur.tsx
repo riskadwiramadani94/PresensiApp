@@ -267,7 +267,7 @@ export default function LaporanDetailLemburScreen() {
       "Desember",
     ];
     const list = [];
-    for (let year = 2020; year <= 2030; year++) {
+    for (let year = 2026; year <= 2035; year++) {
       for (let month = 0; month < 12; month++) {
         list.push(`${months[month]} ${year}`);
       }
@@ -277,7 +277,7 @@ export default function LaporanDetailLemburScreen() {
 
   const generateYearList = () => {
     const list = [];
-    for (let year = 2020; year <= 2030; year++) {
+    for (let year = 2026; year <= 2035; year++) {
       list.push(year.toString());
     }
     return list;

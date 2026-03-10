@@ -555,21 +555,32 @@ const getPresensi = async (req, res) => {
 
     // Get today's attendance
     const [todayRows] = await db.execute(
-      'SELECT * FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? ORDER BY tanggal DESC',
+      'SELECT *, DATE_FORMAT(tanggal, "%Y-%m-%d") as tanggal_formatted FROM presensi WHERE id_user = ? AND DATE(tanggal) = ? ORDER BY tanggal DESC',
       [user_id, targetDate]
     );
 
     // Get recent attendance history
     const [historyRows] = await db.execute(
-      'SELECT * FROM presensi WHERE id_user = ? ORDER BY tanggal DESC LIMIT 10',
+      'SELECT *, DATE_FORMAT(tanggal, "%Y-%m-%d") as tanggal_formatted FROM presensi WHERE id_user = ? ORDER BY tanggal DESC LIMIT 10',
       [user_id]
     );
+
+    // Format the dates
+    const formatPresensi = (row) => {
+      if (row) {
+        return {
+          ...row,
+          tanggal: row.tanggal_formatted || row.tanggal
+        };
+      }
+      return row;
+    };
 
     res.json({
       success: true,
       data: {
-        presensi_hari_ini: todayRows[0] || null,
-        riwayat_presensi: historyRows
+        presensi_hari_ini: formatPresensi(todayRows[0]) || null,
+        riwayat_presensi: historyRows.map(formatPresensi)
       }
     });
 
@@ -754,7 +765,7 @@ const submitPresensi = async (req, res) => {
         const [updateDinas] = await db.execute(`
           UPDATE presensi 
           SET jam_masuk = ?, lintang_masuk = ?, bujur_masuk = ?, 
-              foto_masuk = ?, status = ?, lokasi_id = ?, status_validasi = ?
+              foto_masuk = ?, status = ?, id_lokasi_kantor = ?, status_validasi = ?
           WHERE id_user = ? AND DATE(tanggal) = ? AND jenis_presensi = 'dinas'
         `, [jam_sekarang, latitude, longitude, fotoFile || null, status, lokasi_id_valid, 'menunggu', user_id, tanggal_only]);
         
@@ -762,7 +773,7 @@ const submitPresensi = async (req, res) => {
           await db.execute(`
             INSERT INTO presensi (
               id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, 
-              foto_masuk, status, alasan_luar_lokasi, status_validasi, lokasi_id, jenis_presensi, id_dinas
+              foto_masuk, status, alasan_luar_lokasi, status_validasi, id_lokasi_kantor, jenis_presensi, id_dinas
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'dinas', ?)
           `, [
             user_id, tanggal_only, jam_sekarang, latitude, longitude, 
@@ -793,7 +804,7 @@ const submitPresensi = async (req, res) => {
         const [updatePresensi] = await db.execute(`
           UPDATE presensi 
           SET jam_masuk = ?, lintang_masuk = ?, bujur_masuk = ?, 
-              foto_masuk = ?, status = ?, lokasi_id = ?, status_validasi = ?,
+              foto_masuk = ?, status = ?, id_lokasi_kantor = ?, status_validasi = ?,
               alasan_luar_lokasi = ?
           WHERE id_user = ? AND DATE(tanggal) = ?
         `, [jam_sekarang, latitude, longitude, fotoFile || null, status, lokasi_id_valid, 'disetujui', keterangan || null, user_id, tanggal_only]);
@@ -805,7 +816,7 @@ const submitPresensi = async (req, res) => {
           await db.execute(`
             INSERT INTO presensi (
               id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, foto_masuk, 
-              alasan_luar_lokasi, status, status_validasi, lokasi_id
+              alasan_luar_lokasi, status, status_validasi, id_lokasi_kantor
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             user_id, tanggal_only, jam_sekarang, latitude, longitude, fotoFile || null, 
@@ -979,7 +990,7 @@ const getRiwayatGabungan = async (req, res) => {
           ELSE NULL
         END as keterangan_izin
       FROM presensi p
-      LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
+      LEFT JOIN lokasi_kantor lk ON p.id_lokasi_kantor = lk.id_lokasi_kantor
       LEFT JOIN pengajuan peng ON peng.id_user = p.id_user
         AND DATE(peng.tanggal_mulai) = DATE(p.tanggal)
         AND peng.status = 'disetujui'
@@ -1002,7 +1013,7 @@ const getRiwayatGabungan = async (req, res) => {
         d.nama_kegiatan as kegiatan_dinas
       FROM presensi p
       JOIN dinas d ON p.id_dinas = d.id_dinas
-      LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
+      LEFT JOIN lokasi_kantor lk ON p.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE p.id_user = ?
         AND p.jenis_presensi = 'dinas'
         AND p.tanggal BETWEEN ? AND ?
