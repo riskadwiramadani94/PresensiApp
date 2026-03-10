@@ -32,7 +32,9 @@ export default function PengajuanScreen() {
   const [loading, setLoading] = useState(false);
   const [dokumenFoto, setDokumenFoto] = useState<any>(null);
   const [showJenisPicker, setShowJenisPicker] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const translateY = useRef(new Animated.Value(500)).current;
+  const confirmTranslateY = useRef(new Animated.Value(500)).current;
   const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
 
   const jenisPengajuanOptions = [
@@ -63,7 +65,7 @@ export default function PengajuanScreen() {
 
   const selectedJenis = jenisPengajuanOptions.find(j => j.value === jenisPengajuan);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!jenisPengajuan) {
       showAlert({ type: 'error', title: 'Error', message: 'Pilih jenis pengajuan terlebih dahulu' });
       return;
@@ -73,7 +75,14 @@ export default function PengajuanScreen() {
       return;
     }
 
+    // Show confirmation modal
+    setShowConfirmModal(true);
+    openConfirmBottomSheet();
+  };
+
+  const confirmSubmit = async () => {
     setLoading(true);
+    closeConfirmBottomSheet();
     try {
       const data = {
         user_id: userId,
@@ -160,6 +169,24 @@ export default function PengajuanScreen() {
     });
   };
 
+  const openConfirmBottomSheet = () => {
+    Animated.timing(confirmTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeConfirmBottomSheet = () => {
+    Animated.timing(confirmTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowConfirmModal(false);
+    });
+  };
+
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
@@ -173,6 +200,26 @@ export default function PengajuanScreen() {
         closeBottomSheet();
       } else {
         Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
+  const confirmPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        confirmTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeConfirmBottomSheet();
+      } else {
+        Animated.spring(confirmTranslateY, {
           toValue: 0,
           useNativeDriver: true,
         }).start();
@@ -540,6 +587,104 @@ export default function PengajuanScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeConfirmBottomSheet}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity 
+            style={styles.bottomSheetBackdrop} 
+            activeOpacity={1}
+            onPress={closeConfirmBottomSheet}
+          />
+          <Animated.View style={[styles.confirmBottomSheet, { transform: [{ translateY: confirmTranslateY }] }]}>
+            <View {...confirmPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.confirmSheetContent}>
+              <Text style={styles.confirmSheetTitle}>Konfirmasi Pengajuan</Text>
+              
+              <ScrollView style={styles.confirmScrollView} showsVerticalScrollIndicator={false}>
+                <View style={styles.confirmItem}>
+                  <Text style={styles.confirmLabel}>Jenis Pengajuan</Text>
+                  <Text style={styles.confirmValue}>{selectedJenis?.label}</Text>
+                </View>
+
+                {selectedJenis?.needDate && !selectedJenis?.needDateRange && (
+                  <View style={styles.confirmItem}>
+                    <Text style={styles.confirmLabel}>Tanggal</Text>
+                    <Text style={styles.confirmValue}>{formatDate(tanggalMulai)}</Text>
+                  </View>
+                )}
+
+                {selectedJenis?.needDateRange && (
+                  <View style={styles.confirmItem}>
+                    <Text style={styles.confirmLabel}>
+                      {jenisPengajuan === 'lembur' ? 'Periode Lembur' : 'Periode Cuti'}
+                    </Text>
+                    <Text style={styles.confirmValue}>
+                      {formatDate(tanggalMulai)} s/d {formatDate(tanggalSelesai)}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedJenis?.needSingleTime && (
+                  <View style={styles.confirmItem}>
+                    <Text style={styles.confirmLabel}>
+                      {jenisPengajuan === 'izin_datang_terlambat' ? 'Jam Rencana Datang' : 'Jam Rencana Pulang'}
+                    </Text>
+                    <Text style={styles.confirmValue}>{jamMulai}</Text>
+                  </View>
+                )}
+
+                {selectedJenis?.needTimeRange && (
+                  <View style={styles.confirmItem}>
+                    <Text style={styles.confirmLabel}>Waktu Lembur</Text>
+                    <Text style={styles.confirmValue}>{jamMulai} s/d {jamSelesai}</Text>
+                  </View>
+                )}
+
+                <View style={styles.confirmItem}>
+                  <Text style={styles.confirmLabel}>Alasan</Text>
+                  <Text style={styles.confirmValue}>{alasan}</Text>
+                </View>
+
+                {dokumenFoto && (
+                  <View style={styles.confirmItem}>
+                    <Text style={styles.confirmLabel}>Dokumen</Text>
+                    <Text style={styles.confirmValue}>Surat dokter dilampirkan</Text>
+                  </View>
+                )}
+              </ScrollView>
+              
+              <View style={styles.confirmButtonGroup}>
+                <TouchableOpacity 
+                  style={styles.confirmCancelBtn}
+                  onPress={closeConfirmBottomSheet}
+                >
+                  <Text style={styles.confirmCancelText}>Batal</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.confirmSubmitBtn, loading && styles.confirmSubmitBtnDisabled]}
+                  onPress={confirmSubmit}
+                  disabled={loading}
+                >
+                  <Text style={styles.confirmSubmitText}>
+                    {loading ? 'Mengirim...' : 'Kirim Pengajuan'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
       
       <CustomAlert
         visible={visible}
@@ -805,5 +950,79 @@ const styles = StyleSheet.create({
   calendarSheetContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+  confirmBottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '80%',
+  },
+  confirmSheetContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  confirmSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+  },
+  confirmScrollView: {
+    maxHeight: 300,
+    marginBottom: 16,
+  },
+  confirmItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  confirmLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  confirmValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  confirmButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  confirmCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666',
+  },
+  confirmSubmitBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: '#004643',
+    alignItems: 'center',
+  },
+  confirmSubmitBtnDisabled: {
+    backgroundColor: '#999',
+  },
+  confirmSubmitText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

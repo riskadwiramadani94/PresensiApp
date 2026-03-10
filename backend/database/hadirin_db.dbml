@@ -1,0 +1,262 @@
+// DBML for Hadirin App Database
+// Docs: https://dbml.dbdiagram.io/docs
+
+Table users {
+  id_user integer [primary key]
+  email varchar(100) [unique, not null]
+  password varchar(255) [not null]
+  role enum('admin','pegawai') [not null]
+  nama_lengkap varchar(100)
+  foto_profil varchar(255)
+  no_telepon varchar(15)
+  device_id varchar(255)
+  created_at timestamp [default: `current_timestamp`]
+  face_embedding text [note: 'Vector wajah 128 dimensi untuk face recognition']
+  face_setup_at timestamp [note: 'Waktu setup wajah pertama kali']
+}
+
+Table pegawai {
+  id_pegawai integer [primary key]
+  id_user integer
+  nama_lengkap varchar(100)
+  nip varchar(20) [unique]
+  jenis_kelamin enum('Laki-laki','Perempuan')
+  tanggal_lahir date
+  alamat text
+  no_telepon varchar(15)
+  jabatan varchar(100)
+  divisi varchar(100)
+  tanggal_masuk date
+  foto_profil varchar(255)
+  status_pegawai enum('Aktif','Tidak Aktif') [default: 'Aktif']
+  created_at timestamp [default: `current_timestamp`]
+  updated_at timestamp [default: `current_timestamp`]
+}
+
+Table lokasi_kantor {
+  id integer [primary key]
+  nama_lokasi varchar(255) [not null]
+  alamat text [not null]
+  lintang decimal(10,8) [not null]
+  bujur decimal(11,8) [not null]
+  radius integer
+  status enum('aktif','nonaktif') [default: 'aktif']
+  jenis_lokasi enum('tetap','dinas') [default: 'tetap']
+  is_active tinyint(1) [default: 1]
+  tanggal_mulai_dinas date
+  tanggal_selesai_dinas date
+  keterangan text
+}
+
+Table dinas {
+  id_dinas integer [primary key]
+  nama_kegiatan varchar(255) [not null]
+  nomor_spt varchar(100) [unique, not null]
+  jenis_dinas enum('lokal','luar_kota','luar_negeri') [not null]
+  tanggal_mulai date [not null]
+  tanggal_selesai date [not null]
+  tipe_jam_kerja enum('default','custom') [default: 'default', note: 'Tipe jam kerja: default=pakai jam_kerja_history, custom=pakai jam_mulai & jam_selesai']
+  alamat_lengkap text [not null]
+  lintang decimal(10,8) [not null]
+  bujur decimal(11,8) [not null]
+  radius_absen integer [default: 100]
+  jam_mulai time
+  jam_selesai time
+  deskripsi text
+  dokumen_spt varchar(255)
+  status enum('aktif','selesai','dibatalkan') [default: 'aktif']
+  created_by integer [not null]
+  created_at timestamp [default: `current_timestamp`]
+}
+
+Table dinas_pegawai {
+  id integer [primary key]
+  id_dinas integer [not null]
+  id_user integer [not null]
+  status_konfirmasi enum('pending','konfirmasi','tolak') [default: 'pending']
+  tanggal_konfirmasi timestamp
+  catatan text
+}
+
+Table pengajuan {
+  id_pengajuan integer [primary key]
+  id_user integer [not null]
+  id_pegawai integer
+  jenis_pengajuan enum('izin_datang_terlambat','izin_pulang_cepat','cuti_sakit','cuti_alasan_penting','cuti_tahunan','lembur') [not null]
+  tanggal_mulai date [not null]
+  tanggal_selesai date
+  jam_mulai time
+  jam_selesai time
+  alasan_text text [not null]
+  dokumen_foto varchar(255)
+  status enum('menunggu','disetujui','ditolak') [default: 'menunggu']
+  is_retrospektif tinyint(1) [default: 0]
+  disetujui_oleh integer
+  tanggal_pengajuan timestamp [default: `current_timestamp`]
+  waktu_persetujuan timestamp
+  catatan_persetujuan text
+}
+
+Table presensi {
+  id_presensi integer [primary key]
+  id_user integer
+  tanggal date
+  jam_masuk time
+  lintang_masuk double
+  bujur_masuk double
+  foto_masuk varchar(255)
+  status enum('Hadir','Tidak Hadir','Terlambat','Izin','Sakit','Cuti','Pulang Cepat','Dinas Luar/ Perjalanan Dinas')
+  alasan_luar_lokasi text
+  jam_pulang time
+  lintang_pulang double
+  bujur_pulang double
+  foto_pulang varchar(255)
+  status_validasi enum('menunggu','disetujui','ditolak') [default: 'disetujui']
+  divalidasi_oleh integer
+  catatan_validasi text
+  waktu_validasi timestamp
+  lokasi_id integer [note: 'ID lokasi tempat absen']
+  jenis_presensi enum('kantor','dinas') [default: 'kantor', note: 'Jenis presensi']
+  dinas_id integer [note: 'ID dinas jika absen dinas']
+  face_confidence decimal(5,2) [note: 'Tingkat kemiripan wajah (0-100)']
+  status_validasi_masuk enum('menunggu','disetujui','ditolak') [default: 'menunggu']
+  status_validasi_pulang enum('menunggu','disetujui','ditolak')
+  divalidasi_masuk_oleh integer
+  divalidasi_pulang_oleh integer
+  waktu_validasi_masuk timestamp
+  waktu_validasi_pulang timestamp
+  catatan_validasi_masuk text
+  catatan_validasi_pulang text
+}
+
+Table absen_lembur {
+  id_absen_lembur integer [primary key]
+  id_pengajuan integer [not null, note: 'Link ke pengajuan lembur']
+  id_user integer [not null]
+  tanggal date [not null]
+  jam_masuk time
+  jam_pulang time
+  lintang_masuk double
+  bujur_masuk double
+  lintang_pulang double
+  bujur_pulang double
+  foto_masuk varchar(255)
+  foto_pulang varchar(255)
+  total_jam decimal(5,2) [note: 'Otomatis dihitung']
+  lokasi_lembur enum('kantor','dinas') [default: 'kantor']
+  lokasi_id integer [note: 'ID lokasi kantor/dinas']
+  dinas_id integer [note: 'ID dinas jika lembur dinas']
+  status enum('masuk','selesai') [default: 'masuk']
+  created_at timestamp [default: `current_timestamp`]
+  face_confidence decimal(5,2) [note: 'Tingkat kemiripan wajah (0-100)']
+}
+
+Table jam_kerja_hari {
+  id integer [primary key]
+  hari enum('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu') [unique, not null]
+  jam_masuk time [default: '08:00:00']
+  batas_absen time [default: '08:30:00']
+  jam_pulang time [default: '17:00:00']
+  is_kerja tinyint(1) [default: 1]
+}
+
+Table jam_kerja_history {
+  id integer [primary key]
+  hari enum('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu') [not null]
+  jam_masuk time [not null]
+  batas_absen time [not null]
+  jam_pulang time [not null]
+  is_kerja tinyint(1) [default: 1]
+  tanggal_mulai_berlaku date [not null]
+  tanggal_selesai_berlaku date
+  created_at timestamp [default: `current_timestamp`]
+}
+
+Table hari_libur {
+  id integer [primary key]
+  tanggal date [not null]
+  nama_libur varchar(255) [not null]
+  jenis enum('nasional','keagamaan','perusahaan') [default: 'nasional']
+  is_active tinyint(1) [default: 1]
+}
+
+Table pengaturan_sistem {
+  id integer [primary key]
+  key_setting varchar(100) [unique, not null]
+  value text [not null]
+  description varchar(255)
+}
+
+Table lokasi_realtime {
+  id integer [primary key]
+  id_user integer [unique, not null]
+  lintang double [not null]
+  bujur double [not null]
+  last_update timestamp [default: `current_timestamp`]
+}
+
+Table lupa_password {
+  id integer [primary key]
+  email varchar(100) [not null]
+  kode_otp varchar(6) [not null]
+  waktu_expired timestamp [default: `current_timestamp`]
+  sudah_digunakan tinyint(1) [default: 0]
+  created_at timestamp [default: `current_timestamp`]
+}
+
+Table faq {
+  id_faq integer [primary key]
+  kategori enum('presensi','pengajuan','dinas','lembur','profil','umum','pegawai_akun','validasi','kelola_dinas','laporan','pengaturan','tracking') [not null]
+  role enum('pegawai','admin','both') [default: 'pegawai']
+  pertanyaan varchar(255) [not null]
+  jawaban text [not null]
+  urutan integer [default: 0]
+  is_active tinyint(1) [default: 1]
+  created_at timestamp [default: `current_timestamp`]
+}
+
+// Relationships
+Ref: pegawai.id_user > users.id_user
+Ref: dinas.created_by > users.id_user
+Ref: dinas_pegawai.id_dinas > dinas.id_dinas
+Ref: dinas_pegawai.id_user > users.id_user
+Ref: pengajuan.id_user > users.id_user
+Ref: pengajuan.id_pegawai > pegawai.id_pegawai
+Ref: pengajuan.disetujui_oleh > users.id_user
+Ref: presensi.id_user > users.id_user
+Ref: presensi.lokasi_id > lokasi_kantor.id
+Ref: presensi.dinas_id > dinas.id_dinas
+Ref: absen_lembur.id_pengajuan > pengajuan.id_pengajuan
+Ref: absen_lembur.id_user > users.id_user
+Ref: absen_lembur.lokasi_id > lokasi_kantor.id
+Ref: absen_lembur.dinas_id > dinas.id_dinas
+Ref: lokasi_realtime.id_user > users.id_user
+
+// Sample Records
+Records users(id_user, email, role, nama_lengkap) {
+  1, 'admin@hadirin.com', 'admin', 'Administrator'
+  2, 'ahmad.fauzi@hadirin.com', 'pegawai', 'Ahmad Fauzi'
+  3, 'budi.santoso@hadirin.com', 'pegawai', 'Budi Santoso'
+  4, 'dewi.lestari@hadirin.com', 'pegawai', 'Dewi Lestari'
+}
+
+Records pegawai(id_pegawai, id_user, nip, jabatan, divisi, status_pegawai) {
+  1, 2, 'NIP002', 'Staff IT', 'IT', 'Aktif'
+  2, 3, 'NIP001', 'Staff HR', 'HR', 'Aktif'
+  3, 4, 'NIP004', 'Staff Finance', 'Finance', 'Aktif'
+}
+
+Records lokasi_kantor(id, nama_lokasi, alamat, lintang, bujur, radius, status) {
+  1, 'Kantor Pusat', 'Jl. Sudirman No. 123, Jakarta', -6.2088, 106.8456, 100, 'aktif'
+  2, 'Kantor Cabang Surabaya', 'Jl. Tunjungan No. 45, Surabaya', -7.2575, 112.7521, 150, 'aktif'
+}
+
+Records jam_kerja_hari(id, hari, jam_masuk, batas_absen, jam_pulang, is_kerja) {
+  1, 'Senin', '08:00:00', '08:30:00', '17:00:00', 1
+  2, 'Selasa', '08:00:00', '08:30:00', '17:00:00', 1
+  3, 'Rabu', '08:00:00', '08:30:00', '17:00:00', 1
+  4, 'Kamis', '08:00:00', '08:30:00', '17:00:00', 1
+  5, 'Jumat', '08:00:00', '08:30:00', '17:00:00', 1
+  6, 'Sabtu', '08:00:00', '08:30:00', '12:00:00', 0
+  7, 'Minggu', '08:00:00', '08:30:00', '17:00:00', 0
+}

@@ -58,11 +58,11 @@ const getDinasAktifAdmin = async (req, res) => {
 
     const [rows] = await db.execute(`
       SELECT d.*, 
-             COUNT(dp.id) as total_pegawai,
+             COUNT(dp.id_dinas_pegawai) as total_pegawai,
              SUM(CASE WHEN p.status = 'Hadir' OR p.status = 'Terlambat' THEN 1 ELSE 0 END) as hadir_count
       FROM dinas d 
       LEFT JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas 
-      LEFT JOIN presensi p ON d.id_dinas = p.dinas_id AND dp.id_user = p.id_user AND p.jenis_presensi = 'dinas'
+      LEFT JOIN presensi p ON d.id_dinas = p.id_dinas AND dp.id_user = p.id_user AND p.jenis_presensi = 'dinas'
       ${whereClause}
       GROUP BY d.id_dinas 
       ORDER BY d.tanggal_mulai DESC
@@ -76,9 +76,9 @@ const getDinasAktifAdmin = async (req, res) => {
       let lokasiRows = [];
       try {
         const [rows] = await db.execute(`
-          SELECT lk.id, lk.nama_lokasi, lk.alamat, lk.lintang, lk.bujur, lk.radius, dl.is_lokasi_utama
+          SELECT lk.id_lokasi_kantor as id, lk.nama_lokasi, lk.alamat, lk.lintang, lk.bujur, lk.radius, dl.is_lokasi_utama
           FROM dinas_lokasi dl
-          JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+          JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
           WHERE dl.id_dinas = ? AND lk.is_active = 1
           ORDER BY dl.urutan
         `, [row.id_dinas]);
@@ -100,11 +100,11 @@ const getDinasAktifAdmin = async (req, res) => {
         FROM dinas_pegawai dp 
         JOIN users u ON dp.id_user = u.id_user
         JOIN pegawai pg ON u.id_user = pg.id_user
-        LEFT JOIN presensi pr ON dp.id_dinas = pr.dinas_id 
+        LEFT JOIN presensi pr ON dp.id_dinas = pr.id_dinas 
           AND dp.id_user = pr.id_user 
           AND DATE(pr.tanggal) = ?
           AND pr.jenis_presensi = 'dinas'
-        LEFT JOIN lokasi_kantor lk ON pr.lokasi_id = lk.id
+        LEFT JOIN lokasi_kantor lk ON pr.id_lokasi_kantor = lk.id_lokasi_kantor
         WHERE dp.id_dinas = ?
       `, [filterDate, row.id_dinas]);
 
@@ -287,7 +287,7 @@ const createDinasAdmin = async (req, res) => {
 
     // Validate lokasi_ids
     const lokasiPlaceholders = lokasi_ids.map(() => '?').join(',');
-    const [validLokasi] = await connection.execute(`SELECT id FROM lokasi_kantor WHERE id IN (${lokasiPlaceholders}) AND is_active = 1`, lokasi_ids);
+    const [validLokasi] = await connection.execute(`SELECT id_lokasi_kantor FROM lokasi_kantor WHERE id_lokasi_kantor IN (${lokasiPlaceholders}) AND is_active = 1`, lokasi_ids);
 
     if (validLokasi.length === 0) {
       return res.status(400).json({
@@ -324,9 +324,9 @@ const createDinasAdmin = async (req, res) => {
       // Insert lokasi dinas relationships
       for (let i = 0; i < validLokasi.length; i++) {
         await connection.execute(`
-          INSERT INTO dinas_lokasi (id_dinas, id_lokasi_kantor, id_lokasi, urutan, is_lokasi_utama)
-          VALUES (?, ?, ?, ?, ?)
-        `, [dinas_id, validLokasi[i].id, validLokasi[i].id, i + 1, i === 0 ? 1 : 0]);
+          INSERT INTO dinas_lokasi (id_dinas, id_lokasi_kantor, urutan, is_lokasi_utama)
+          VALUES (?, ?, ?, ?)
+        `, [dinas_id, validLokasi[i].id_lokasi_kantor, i + 1, i === 0 ? 1 : 0]);
       }
 
       // Insert pegawai dinas relationships
@@ -373,11 +373,11 @@ const getRiwayatDinasAdmin = async (req, res) => {
 
     const [rows] = await db.execute(`
       SELECT d.*, 
-             COUNT(dp.id) as total_pegawai,
+             COUNT(dp.id_dinas_pegawai) as total_pegawai,
              SUM(CASE WHEN pr.status = 'Hadir' THEN 1 ELSE 0 END) as hadir_count
       FROM dinas d 
       LEFT JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas 
-      LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND dp.id_user = pr.id_user AND pr.jenis_presensi = 'dinas'
+      LEFT JOIN presensi pr ON d.id_dinas = pr.id_dinas AND dp.id_user = pr.id_user AND pr.jenis_presensi = 'dinas'
       WHERE d.status IN ('selesai', 'dibatalkan')
       GROUP BY d.id_dinas 
       ORDER BY d.tanggal_mulai DESC
@@ -403,7 +403,7 @@ const getValidasiAbsenAdmin = async (req, res) => {
       FROM presensi pr
       JOIN users u ON pr.id_user = u.id_user
       JOIN pegawai pg ON u.id_user = pg.id_user
-      JOIN dinas d ON pr.dinas_id = d.id_dinas
+      JOIN dinas d ON pr.id_dinas = d.id_dinas
       WHERE pr.jenis_presensi = 'dinas'
       ORDER BY pr.tanggal DESC
     `);
@@ -458,7 +458,7 @@ const getDinasStats = async (req, res) => {
       SELECT COUNT(DISTINCT dp.id_user) as count 
       FROM dinas d
       JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
-      LEFT JOIN presensi pr ON dp.id_dinas = pr.dinas_id AND dp.id_user = pr.id_user AND DATE(pr.tanggal) = ? AND pr.jenis_presensi = 'dinas'
+      LEFT JOIN presensi pr ON dp.id_dinas = pr.id_dinas AND dp.id_user = pr.id_user AND DATE(pr.tanggal) = ? AND pr.jenis_presensi = 'dinas'
       WHERE DATE(d.tanggal_mulai) <= ? 
       AND (DATE(d.tanggal_selesai) >= ? OR d.tanggal_selesai IS NULL)
       AND d.status = 'aktif'
@@ -500,7 +500,7 @@ const getDinasLokasi = async (req, res) => {
     const [rows] = await db.execute(`
       SELECT lk.*, dl.urutan, dl.is_lokasi_utama
       FROM dinas_lokasi dl
-      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE dl.id_dinas = ? AND lk.is_active = 1
       ORDER BY dl.urutan
     `, [id_dinas]);
@@ -532,7 +532,7 @@ const checkAbsenLocation = async (req, res) => {
     const [lokasi] = await db.execute(`
       SELECT lk.*, dl.is_lokasi_utama
       FROM dinas_lokasi dl
-      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE dl.id_dinas = ? AND lk.is_active = 1
     `, [id_dinas]);
 
@@ -630,7 +630,7 @@ const deleteDinas = async (req, res) => {
     try {
       await connection.execute('DELETE FROM dinas_pegawai WHERE id_dinas = ?', [id]);
       await connection.execute('DELETE FROM dinas_lokasi WHERE id_dinas = ?', [id]);
-      await connection.execute('DELETE FROM presensi WHERE dinas_id = ? AND jenis_presensi = "dinas"', [id]);
+      await connection.execute('DELETE FROM presensi WHERE id_dinas = ? AND jenis_presensi = "dinas"', [id]);
       await connection.execute('DELETE FROM dinas WHERE id_dinas = ?', [id]);
 
       await connection.commit();
@@ -730,13 +730,13 @@ const updateDinas = async (req, res) => {
       await connection.execute('DELETE FROM dinas_lokasi WHERE id_dinas = ?', [id]);
 
       const lokasiPlaceholders = lokasi_ids.map(() => '?').join(',');
-      const [validLokasi] = await connection.execute(`SELECT id FROM lokasi_kantor WHERE id IN (${lokasiPlaceholders})`, lokasi_ids);
+      const [validLokasi] = await connection.execute(`SELECT id_lokasi_kantor FROM lokasi_kantor WHERE id_lokasi_kantor IN (${lokasiPlaceholders})`, lokasi_ids);
 
       for (let i = 0; i < validLokasi.length; i++) {
         await connection.execute(`
-          INSERT INTO dinas_lokasi (id_dinas, id_lokasi_kantor, id_lokasi, urutan, is_lokasi_utama)
-          VALUES (?, ?, ?, ?, ?)
-        `, [id, validLokasi[i].id, validLokasi[i].id, i + 1, i === 0 ? 1 : 0]);
+          INSERT INTO dinas_lokasi (id_dinas, id_lokasi_kantor, urutan, is_lokasi_utama)
+          VALUES (?, ?, ?, ?)
+        `, [id, validLokasi[i].id_lokasi_kantor, i + 1, i === 0 ? 1 : 0]);
       }
 
       const placeholders = pegawai_ids.map(() => '?').join(',');

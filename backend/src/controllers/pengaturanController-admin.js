@@ -6,7 +6,7 @@ const getLokasiKantor = async (req, res) => {
     
     const [locations] = await db.execute(`
       SELECT 
-        id,
+        id_lokasi_kantor as id,
         nama_lokasi,
         alamat,
         lintang,
@@ -115,7 +115,7 @@ const updateLokasiKantor = async (req, res) => {
     const db = await getConnection();
 
     // Check if location exists
-    const [checkRows] = await db.execute('SELECT id FROM lokasi_kantor WHERE id = ?', [id]);
+    const [checkRows] = await db.execute('SELECT id_lokasi_kantor FROM lokasi_kantor WHERE id_lokasi_kantor = ?', [id]);
     if (checkRows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -127,7 +127,7 @@ const updateLokasiKantor = async (req, res) => {
     const [result] = await db.execute(`
       UPDATE lokasi_kantor 
       SET nama_lokasi = ?, alamat = ?, lintang = ?, bujur = ?, radius = ?
-      WHERE id = ?
+      WHERE id_lokasi_kantor = ?
     `, [
       nama_lokasi.trim(),
       alamat.trim(),
@@ -161,7 +161,7 @@ const deleteLokasiKantor = async (req, res) => {
     const db = await getConnection();
 
     // Cek penggunaan di dinas_lokasi
-    const [countRows] = await db.execute('SELECT COUNT(*) as count FROM dinas_lokasi WHERE id_lokasi = ?', [id]);
+    const [countRows] = await db.execute('SELECT COUNT(*) as count FROM dinas_lokasi WHERE id_lokasi_kantor = ?', [id]);
     const count = countRows[0].count;
 
     if (count > 0) {
@@ -172,7 +172,7 @@ const deleteLokasiKantor = async (req, res) => {
     }
 
     // Soft delete
-    const [result] = await db.execute('UPDATE lokasi_kantor SET is_active = 0 WHERE id = ?', [id]);
+    const [result] = await db.execute('UPDATE lokasi_kantor SET is_active = 0 WHERE id_lokasi_kantor = ?', [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
@@ -343,7 +343,7 @@ const createHariLibur = async (req, res) => {
 
     // Check if holiday already exists
     const [checkRows] = await db.execute(
-      'SELECT id FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+      'SELECT id_hari_libur FROM hari_libur WHERE tanggal = ? AND is_active = 1',
       [tanggal]
     );
 
@@ -391,7 +391,7 @@ const deleteHariLibur = async (req, res) => {
     const db = await getConnection();
 
     const [result] = await db.execute(
-      'UPDATE hari_libur SET is_active = 0 WHERE id = ?',
+      'UPDATE hari_libur SET is_active = 0 WHERE id_hari_libur = ?',
       [id]
     );
 

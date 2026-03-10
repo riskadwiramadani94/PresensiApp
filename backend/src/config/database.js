@@ -1,15 +1,17 @@
 const mysql = require('mysql2/promise');
+require('dotenv').config();
 
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'hadirin_db',
-  charset: 'utf8',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'hadirin_db',
+  charset: 'utf8mb4',
   connectionLimit: 10,
   queueLimit: 0,
   idleTimeout: 60000,
-  acquireTimeout: 60000
+  acquireTimeout: 60000,
+  timezone: '+07:00'
 };
 
 let pool;

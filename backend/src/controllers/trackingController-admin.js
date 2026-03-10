@@ -48,20 +48,20 @@ const getTracking = async (req, res) => {
 
     // Hitung jarak dari kantor terdekat untuk setiap pegawai
     const [lokasiKantor] = await db.execute(`
-      SELECT id, nama_lokasi, lintang, bujur, radius FROM lokasi_kantor WHERE is_active = 1
+      SELECT id_lokasi_kantor as id, nama_lokasi, lintang, bujur, radius FROM lokasi_kantor WHERE is_active = 1
     `);
 
     // Get lokasi dinas untuk pegawai yang sedang dinas
     const [lokasiDinas] = await db.execute(`
       SELECT 
         dl.id_dinas,
-        lk.id,
+        lk.id_lokasi_kantor as id,
         lk.nama_lokasi,
         lk.lintang,
         lk.bujur,
         lk.radius
       FROM dinas_lokasi dl
-      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE lk.is_active = 1
     `);
 

@@ -143,7 +143,7 @@ const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, mon
       
       // Check if it's a holiday
       const [holidayRows] = await db.execute(
-        'SELECT id FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+        'SELECT id_hari_libur FROM hari_libur WHERE tanggal = ? AND is_active = 1',
         [dateStr]
       );
       const isHoliday = holidayRows.length > 0;
@@ -182,7 +182,7 @@ const autoGenerateTidakHadir = async (db, filter_date, start_date, end_date, mon
             if (presensiDinasRows.length === 0) {
               // Belum ada presensi dinas → Insert "Tidak Hadir" DINAS
               await db.execute(
-                'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id) VALUES (?, ?, "Tidak Hadir", "disetujui", "dinas", ?)',
+                'INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, id_dinas) VALUES (?, ?, "Tidak Hadir", "disetujui", "dinas", ?)',
                 [pegawai.id_user, dateStr, dinasRows[0].id_dinas]
               );
             }
@@ -272,7 +272,7 @@ const getLaporan = async (req, res) => {
 
       // Hitung total dinas
       const [totalDinasRows] = await db.execute(`
-        SELECT COUNT(DISTINCT dp.id) as total 
+        SELECT COUNT(DISTINCT dp.id_dinas_pegawai) as total 
         FROM dinas_pegawai dp
         INNER JOIN dinas d ON dp.id_dinas = d.id_dinas
         WHERE dp.status_konfirmasi = 'konfirmasi'
@@ -423,9 +423,9 @@ const getLaporan = async (req, res) => {
         FROM dinas d
         INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
         INNER JOIN pegawai p ON dp.id_user = p.id_user
-        LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
+        LEFT JOIN presensi pr ON d.id_dinas = pr.id_dinas AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
         LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
-        LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+        LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
         WHERE 1=1
       `;
       
@@ -819,7 +819,7 @@ const getDetailAbsenPegawai = async (req, res) => {
             const dinas_id = isDinas ? dinasRows[0].id_dinas : null;
             
             await db.execute(`
-              INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id)
+              INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, id_dinas)
               VALUES (?, ?, 'Tidak Hadir', 'disetujui', ?, ?)
             `, [user_id, dateStr, jenis_presensi, dinas_id]);
             
@@ -845,7 +845,7 @@ const getDetailAbsenPegawai = async (req, res) => {
           const dinas_id = isDinas ? dinasRows[0].id_dinas : null;
           
           await db.execute(`
-            INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, dinas_id)
+            INSERT IGNORE INTO presensi (id_user, tanggal, status, status_validasi, jenis_presensi, id_dinas)
             VALUES (?, ?, 'Tidak Hadir', 'disetujui', ?, ?)
           `, [user_id, dateStr, jenis_presensi, dinas_id]);
           
@@ -1026,9 +1026,9 @@ const getDetailLaporan = async (req, res) => {
         FROM dinas d
         INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
         INNER JOIN pegawai p ON dp.id_user = p.id_user
-        LEFT JOIN presensi pr ON d.id_dinas = pr.dinas_id AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
+        LEFT JOIN presensi pr ON d.id_dinas = pr.id_dinas AND pr.id_user = dp.id_user AND pr.jenis_presensi = 'dinas'
         LEFT JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas
-        LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+        LEFT JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
         WHERE d.id_dinas = ?
         GROUP BY d.id_dinas, dp.id_user, p.nama_lengkap, p.nip, p.foto_profil, p.jabatan, dp.status_konfirmasi, dp.tanggal_konfirmasi
       `, [id]);
@@ -1085,7 +1085,7 @@ const getDetailAbsen = async (req, res) => {
         END as lokasi_pulang
       FROM presensi p
       INNER JOIN pegawai pg ON p.id_user = pg.id_user
-      LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
+      LEFT JOIN lokasi_kantor lk ON p.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE DATE_FORMAT(p.tanggal, '%Y-%m-%d') = ? AND p.id_user = ?
       ORDER BY 
         CASE WHEN p.jenis_presensi = 'dinas' THEN 1 ELSE 2 END,

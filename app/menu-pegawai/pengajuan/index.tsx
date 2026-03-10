@@ -38,6 +38,7 @@ export default function PengajuanScreen() {
   const [userId, setUserId] = useState<string>('');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPengajuan, setSelectedPengajuan] = useState<PengajuanData | null>(null);
@@ -266,19 +267,27 @@ export default function PengajuanScreen() {
   };
 
   const handleDeletePengajuan = async (id: number) => {
-    setShowDeleteModal(false);
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/${id}`, {
+      console.log('Deleting pengajuan ID:', id);
+      const url = `${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/${id}`;
+      console.log('Delete URL:', url);
+      
+      const response = await fetch(url, {
         method: 'DELETE'
       });
       
+      console.log('Response status:', response.status);
       const result = await response.json();
+      console.log('Delete result:', result);
       
       if (result.success) {
         alert.showAlert({ 
           type: 'success', 
           message: 'Pengajuan berhasil dihapus',
-          onConfirm: () => fetchPengajuan()
+          onConfirm: async () => {
+            console.log('Refreshing data...');
+            await fetchPengajuan();
+          }
         });
       } else {
         alert.showAlert({ type: 'error', message: result.message || 'Gagal menghapus pengajuan' });
@@ -370,11 +379,11 @@ export default function PengajuanScreen() {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
+        <View style={styles.searchInputWrapper}>
           <Ionicons name="search-outline" size={20} color="#666" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari Pegawai..."
+            placeholder="Cari Pengajuan..."
             placeholderTextColor="#999"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -634,6 +643,8 @@ export default function PengajuanScreen() {
                 <TouchableOpacity 
                   style={styles.deleteButton}
                   onPress={() => {
+                    console.log('Delete button pressed for ID:', selectedPengajuan.id_pengajuan);
+                    setDeleteId(selectedPengajuan.id_pengajuan);
                     closeDetailModal();
                     setTimeout(() => setShowDeleteModal(true), 300);
                   }}
@@ -672,8 +683,8 @@ export default function PengajuanScreen() {
                 style={styles.deleteConfirmButton}
                 onPress={() => {
                   setShowDeleteModal(false);
-                  if (selectedPengajuan) {
-                    handleDeletePengajuan(selectedPengajuan.id_pengajuan);
+                  if (deleteId) {
+                    handleDeletePengajuan(deleteId);
                   }
                 }}
               >
@@ -702,31 +713,36 @@ export default function PengajuanScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   searchContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
     gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
-  searchBox: {
+  searchInputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E8F0EF',
     gap: 12,
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    fontWeight: '400',
   },
   filterButton: {
     width: 40,

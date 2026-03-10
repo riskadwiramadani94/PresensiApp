@@ -1,59 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Location from 'expo-location';
-import * as ImagePicker from 'expo-image-picker';
 import { AppHeader } from '../../../components';
 import { getApiUrl } from '../../../constants/config';
-import { CustomAlert } from '../../../components/CustomAlert';
-import { useCustomAlert } from '../../../hooks/useCustomAlert';
 
-type TabType = 'absen' | 'riwayat';
+type StatusType = 'semua' | 'akan_datang' | 'berlangsung' | 'selesai';
 
-interface AbsenLembur {
-  id_absen_lembur: number;
-  id_pengajuan: number;
-  tanggal: string;
-  jam_masuk: string | null;
-  jam_pulang: string | null;
-  jam_rencana_mulai: string;
-  jam_rencana_selesai: string;
-  total_jam: number | null;
-  lokasi_detail: string;
-  latitude: number;
-  longitude: number;
-  radius: number;
-  status: 'masuk' | 'selesai';
-}
+
 
 export default function LemburScreen() {
-  const [activeTab, setActiveTab] = useState<TabType>('absen');
-  const [userId, setUserId] = useState<string>('');
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [userLocation, setUserLocation] = useState<any>(null);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [photoUri, setPhotoUri] = useState('');
-  const [selectedAbsen, setSelectedAbsen] = useState<any>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
-  
-  const [absenList, setAbsenList] = useState<AbsenLembur[]>([]);
-  const [riwayatList, setRiwayatList] = useState<AbsenLembur[]>([]);
-  const [pengajuanList, setPengajuanList] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<StatusType>('semua');
+  const [lemburList, setLemburList] = useState<any[]>([]);
+  const [filteredLembur, setFilteredLembur] = useState<any[]>([]);
+  const [userId, setUserId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadUserId();
-    getCurrentLocation();
   }, []);
 
   useEffect(() => {
     if (userId) {
-      fetchData();
+      fetchLembur();
     }
-  }, [userId, activeTab]);
+  }, [userId]);
+
+  useEffect(() => {
+    filterLembur();
+  }, [activeTab, lemburList, searchQuery]);
 
   const loadUserId = async () => {
     try {
@@ -64,657 +44,414 @@ export default function LemburScreen() {
       }
     } catch (error) {
       console.error('Error loading user ID:', error);
+      setLoading(false);
     }
   };
 
-  const getCurrentLocation = async () => {
+
+
+  const fetchLembur = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      setLoading(true);
+      console.log('Fetching lembur for user:', userId);
       
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      setUserLocation(location.coords);
-    } catch (error) {
-      console.error('Error getting location:', error);
-    }
-  };
-
-  const fetchData = async () => {
-    if (activeTab === 'absen') {
-      await fetchAbsenAktif();
-    } else {
-      await fetchRiwayat();
-    }
-    setLoading(false);
-  };
-
-  const fetchAbsenAktif = async () => {
-    try {
-      /* ========================================
-         API ENDPOINTS CONFIGURATION
-         Endpoint: /pegawai/lembur/api/pengajuan-hari-ini
-         Method: GET
-         Params: user_id
-      ======================================== */
-      const pengajuanResponse = await fetch(getApiUrl(`/pegawai/lembur/api/pengajuan-hari-ini?user_id=${userId}`));
-      const pengajuanResult = await pengajuanResponse.json();
+      // Coba beberapa endpoint yang mungkin ada
+      let response, result;
       
-      /* ========================================
-         API ENDPOINTS CONFIGURATION
-         Endpoint: /pegawai/lembur/api/absen-aktif
-         Method: GET
-         Params: user_id
-      ======================================== */
-      const absenResponse = await fetch(getApiUrl(`/pegawai/lembur/api/absen-aktif?user_id=${userId}`));
-      const absenResult = await absenResponse.json();
-      
-      if (pengajuanResult.success) {
-        setPengajuanList(pengajuanResult.data || []);
+      // Endpoint 1: pengajuan hari ini
+      try {
+        response = await fetch(getApiUrl(`/pegawai/lembur/api/pengajuan-hari-ini?user_id=${userId}`));
+        result = await response.json();
+        console.log('Endpoint pengajuan-hari-ini:', result);
+        
+        if (result.success && result.data && result.data.length > 0) {
+          setLemburList(result.data);
+          console.log('Data found from pengajuan-hari-ini:', result.data.length);
+          return;
+        }
+      } catch (e) {
+        console.log('Endpoint pengajuan-hari-ini failed:', e);
       }
       
-      if (absenResult.success) {
-        setAbsenList(absenResult.data || []);
+      // Endpoint 2: riwayat (untuk melihat semua data)
+      try {
+        response = await fetch(getApiUrl(`/pegawai/lembur/api/riwayat?user_id=${userId}`));
+        result = await response.json();
+        console.log('Endpoint riwayat:', result);
+        
+        if (result.success && result.data && result.data.length > 0) {
+          setLemburList(result.data);
+          console.log('Data found from riwayat:', result.data.length);
+          return;
+        }
+      } catch (e) {
+        console.log('Endpoint riwayat failed:', e);
       }
+      
+      // Jika tidak ada data
+      console.log('No lembur data found from any endpoint');
+      setLemburList([]);
+      
     } catch (error) {
-      console.error('Error fetching absen aktif:', error);
-    }
-  };
-
-  const fetchRiwayat = async () => {
-    try {
-      /* ========================================
-         API ENDPOINTS CONFIGURATION
-         Endpoint: /pegawai/lembur/api/riwayat
-         Method: GET
-         Params: user_id
-      ======================================== */
-      const response = await fetch(getApiUrl(`/pegawai/lembur/api/riwayat?user_id=${userId}`));
-      const result = await response.json();
-      if (result.success) {
-        setRiwayatList(result.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching riwayat:', error);
+      console.error('Error fetching lembur:', error);
+      setLemburList([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await getCurrentLocation();
-    await fetchData();
+    await fetchLembur();
     setRefreshing(false);
   };
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371e3;
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
+  const filterLembur = () => {
+    let filtered = lemburList;
 
-  const checkSchedule = (jamMulai: string, jamSelesai: string) => {
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    
-    const [startHour, startMin] = jamMulai.split(':').map(Number);
-    const [endHour, endMin] = jamSelesai.split(':').map(Number);
-    
-    const startTime = startHour * 60 + startMin;
-    const endTime = endHour * 60 + endMin;
-    
-    return currentTime >= startTime && currentTime <= endTime;
-  };
+    if (activeTab !== 'semua') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-  const getLocationStatus = async (pengajuan: any) => {
-    try {
-      /* ========================================
-         API ENDPOINTS CONFIGURATION
-         Endpoint: /pegawai/lembur/api/lokasi
-         Method: GET
-         Params: user_id, tanggal
-      ======================================== */
-      const lokasiResponse = await fetch(getApiUrl(`/pegawai/lembur/api/lokasi?user_id=${userId}&tanggal=${pengajuan.tanggal_mulai}`));
-      const lokasiResult = await lokasiResponse.json();
-      
-      if (!lokasiResult.success || !userLocation) {
-        return { valid: false, distance: 0, lokasi: null };
-      }
-      
-      const lokasi = lokasiResult.data;
-      const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        lokasi.latitude,
-        lokasi.longitude
+      filtered = filtered.filter((item) => {
+        const mulai = new Date(item.tanggal_mulai);
+        const selesai = new Date(item.tanggal_selesai);
+        mulai.setHours(0, 0, 0, 0);
+        selesai.setHours(23, 59, 59, 999);
+
+        if (activeTab === 'akan_datang') {
+          return mulai > today;
+        } else if (activeTab === 'berlangsung') {
+          return today >= mulai && today <= selesai;
+        } else if (activeTab === 'selesai') {
+          return selesai < today;
+        }
+        return true;
+      });
+    }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((item) => 
+        item.alasan_text.toLowerCase().includes(query) ||
+        item.nomor_pengajuan?.toLowerCase().includes(query)
       );
-      
-      return {
-        valid: distance <= lokasi.radius,
-        distance: Math.round(distance),
-        lokasi: lokasi
-      };
-    } catch (error) {
-      return { valid: false, distance: 0, lokasi: null };
+    }
+
+    setFilteredLembur(filtered);
+  };
+
+  const getStatusInfo = (item: any) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const mulai = new Date(item.tanggal_mulai);
+    const selesai = new Date(item.tanggal_selesai);
+    mulai.setHours(0, 0, 0, 0);
+    selesai.setHours(23, 59, 59, 999);
+
+    if (today >= mulai && today <= selesai) {
+      return { label: 'Berlangsung', color: '#4CAF50', icon: 'radio-button-on' };
+    } else if (mulai > today) {
+      return { label: 'Akan Datang', color: '#FF9800', icon: 'time' };
+    } else {
+      return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
     }
   };
 
-  const openCamera = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        showAlert({ type: 'error', title: 'Error', message: 'Izin kamera diperlukan' });
-        return;
-      }
-      
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.6,
-      });
-      
-      if (!result.canceled) {
-        setPhotoUri(result.assets[0].uri);
-        setShowPreviewModal(true);
-      }
-    } catch (error) {
-      console.error('Error opening camera:', error);
-      showAlert({ type: 'error', title: 'Error', message: 'Gagal membuka kamera' });
-    }
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
-  const handleRetake = () => {
-    setShowPreviewModal(false);
-    setTimeout(() => openCamera(), 300);
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedAbsen || !photoUri || !userLocation) return;
-    
-    setIsProcessing(true);
-    setShowPreviewModal(false);
-    
-    try {
-      const formData = new FormData();
-      
-      if (selectedAbsen.jenis === 'masuk') {
-        formData.append('id_pengajuan', selectedAbsen.id_pengajuan.toString());
-        formData.append('user_id', userId);
-        formData.append('lokasi_id', selectedAbsen.lokasi_id.toString());
-        formData.append('dinas_id', selectedAbsen.dinas_id?.toString() || '');
-      } else {
-        formData.append('id_absen_lembur', selectedAbsen.id_absen_lembur.toString());
-      }
-      
-      formData.append('latitude', userLocation.latitude.toString());
-      formData.append('longitude', userLocation.longitude.toString());
-      
-      const filename = photoUri.split('/').pop();
-      const match = /\.(\w+)$/.exec(filename || '');
-      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
-      
-      formData.append('foto', {
-        uri: photoUri,
-        name: filename || `lembur_${selectedAbsen.jenis}_${Date.now()}.jpg`,
-        type: fileType,
-      } as any);
-      
-      const endpoint = selectedAbsen.jenis === 'masuk' 
-        ? '/pegawai/lembur/api/absen-masuk'
-        : '/pegawai/lembur/api/absen-pulang';
-      
-      /* ========================================
-         API ENDPOINTS CONFIGURATION
-         Endpoint: /pegawai/lembur/api/absen-masuk atau absen-pulang
-         Method: POST
-         Body: FormData (foto, koordinat, dll)
-      ======================================== */
-      const response = await fetch(getApiUrl(endpoint), {
-        method: 'POST',
-        body: formData,
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        showAlert({ type: 'success', title: 'Sukses', message: result.message });
-        await fetchData();
-      } else {
-        showAlert({ type: 'error', title: 'Error', message: result.message });
-      }
-    } catch (error) {
-      console.error('Error submitting:', error);
-      showAlert({ type: 'error', title: 'Error', message: 'Terjadi kesalahan saat mengirim data' });
-    } finally {
-      setIsProcessing(false);
-      setPhotoUri('');
-      setSelectedAbsen(null);
-    }
-  };
-
-  const handleAbsenMasukPertama = async (pengajuan: any, locationStatus: any) => {
-    if (!checkSchedule(pengajuan.jam_mulai, pengajuan.jam_selesai)) {
-      showAlert({ type: 'warning', title: 'Belum Waktunya', message: 'Absen hanya bisa dilakukan sesuai jadwal lembur' });
-      return;
-    }
-
-    if (!locationStatus.valid) {
-      showAlert({ type: 'warning', title: 'Di Luar Radius', message: `Anda berada ${locationStatus.distance}m dari lokasi (radius: ${locationStatus.lokasi?.radius}m)` });
-      return;
-    }
-    
-    setSelectedAbsen({
-      id_pengajuan: pengajuan.id_pengajuan,
-      lokasi_id: locationStatus.lokasi.lokasi_id,
-      dinas_id: locationStatus.lokasi.dinas_id,
-      jenis: 'masuk'
+  const handleDetailPress = (item: any) => {
+    router.push({
+      pathname: '/menu-pegawai/lembur/detail',
+      params: { id: item.id_pengajuan || item.id || item.id_absen_lembur }
     });
-    
-    await openCamera();
   };
 
-  const handleAbsenPulang = (absen: AbsenLembur, radiusStatus: any) => {
-    if (!checkSchedule(absen.jam_rencana_mulai, absen.jam_rencana_selesai)) {
-      showAlert({ type: 'warning', title: 'Belum Waktunya', message: 'Absen pulang hanya bisa dilakukan sesuai jadwal lembur' });
-      return;
-    }
 
-    if (!radiusStatus.valid) {
-      showAlert({ type: 'warning', title: 'Di Luar Radius', message: 'Anda berada di luar radius lokasi' });
-      return;
-    }
+
+  const renderLemburCard = (item: any) => {
+    const status = getStatusInfo(item);
     
-    setSelectedAbsen({ ...absen, jenis: 'pulang' });
-    openCamera();
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
-
-  const formatPeriode = (tanggalMulai: string, tanggalSelesai: string) => {
-    const mulai = new Date(tanggalMulai);
-    const selesai = new Date(tanggalSelesai);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    
-    const diffTime = Math.abs(selesai.getTime() - mulai.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    
-    if (tanggalMulai === tanggalSelesai) {
-      return `${mulai.getDate()} ${months[mulai.getMonth()]} ${mulai.getFullYear()}`;
-    }
-    
-    if (mulai.getMonth() === selesai.getMonth() && mulai.getFullYear() === selesai.getFullYear()) {
-      return `${mulai.getDate()} - ${selesai.getDate()} ${months[mulai.getMonth()]} ${mulai.getFullYear()} (${diffDays} hari)`;
-    }
-    
-    if (mulai.getFullYear() === selesai.getFullYear()) {
-      return `${mulai.getDate()} ${months[mulai.getMonth()]} - ${selesai.getDate()} ${months[selesai.getMonth()]} ${mulai.getFullYear()} (${diffDays} hari)`;
-    }
-    
-    return `${mulai.getDate()} ${months[mulai.getMonth()]} ${mulai.getFullYear()} - ${selesai.getDate()} ${months[selesai.getMonth()]} ${selesai.getFullYear()} (${diffDays} hari)`;
-  };
-
-  const formatTime = (timeString: string) => {
-    return timeString.substring(0, 5);
-  };
-
-  /* ========================================
-     SKELETON LOADING COMPONENT
-     Komponen untuk menampilkan placeholder
-     saat data sedang dimuat dari server
-  ======================================== */
-  const SkeletonBox = ({ width, height = 12, style }: any) => (
-    <View style={[{ width, height, backgroundColor: '#E0E0E0', borderRadius: 4 }, style]} />
-  );
-
-  const renderSkeleton = () => (
-    <View style={styles.container}>
-      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
-      <AppHeader title="Lembur" showBack={true} />
-      
-      <View style={styles.tabs}>
-        <View style={[styles.tab, styles.tabActive]}>
-          <Ionicons name="finger-print" size={18} color="#004643" />
-          <Text style={[styles.tabText, styles.tabTextActive]}>Absen</Text>
-        </View>
-        <View style={styles.tab}>
-          <Ionicons name="time" size={18} color="#999" />
-          <Text style={styles.tabText}>Riwayat</Text>
-        </View>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {[1, 2, 3].map((item) => (
-          <View key={item} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <SkeletonBox width="60%" height={16} />
-              <SkeletonBox width={80} height={20} style={{ borderRadius: 10 }} />
-            </View>
-            <SkeletonBox width="40%" height={12} style={{ marginBottom: 6 }} />
-            <SkeletonBox width="90%" height={12} style={{ marginBottom: 8 }} />
-            <SkeletonBox width="70%" height={12} style={{ marginBottom: 10 }} />
-            <SkeletonBox width="100%" height={36} style={{ borderRadius: 8 }} />
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  );
-
-  const PengajuanCard = ({ pengajuan }: any) => {
-    const [locationStatus, setLocationStatus] = useState<any>({ valid: false, distance: 0, lokasi: null });
-
-    useEffect(() => {
-      getLocationStatus(pengajuan).then(setLocationStatus);
-    }, [userLocation]);
-
-    const isScheduleValid = checkSchedule(pengajuan.jam_mulai, pengajuan.jam_selesai);
-    const canAbsen = isScheduleValid && locationStatus.valid;
-
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        key={item.id_pengajuan || item.id}
+        style={styles.card}
+        onPress={() => handleDetailPress(item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeader}>
-          <View style={styles.dateRow}>
-            <Ionicons name="calendar" size={16} color="#004643" />
-            <Text style={styles.dateText}>{formatPeriode(pengajuan.tanggal_mulai, pengajuan.tanggal_selesai)}</Text>
+          <View style={styles.cardTitle}>
+            <Text style={styles.lemburName}>Lembur - {item.alasan_text || item.alasan || 'Lembur'}</Text>
+            <Text style={styles.pengajuanNumber}>{item.nomor_pengajuan || item.nomor_spt || 'No. Pengajuan'}</Text>
           </View>
-          <View style={[styles.badge, { backgroundColor: canAbsen ? '#4CAF5020' : '#FF980020' }]}>
-            <Text style={[styles.badgeText, { color: canAbsen ? '#4CAF50' : '#FF9800' }]}>
-              {canAbsen ? 'Siap Absen' : isScheduleValid ? 'Di Luar Radius' : 'Belum Waktunya'}
+          <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>
+              {status.label}
             </Text>
           </View>
         </View>
 
-        <View style={styles.scheduleRow}>
-          <Ionicons name="time-outline" size={14} color="#666" />
-          <Text style={styles.scheduleText}>
-            {formatTime(pengajuan.jam_mulai)} - {formatTime(pengajuan.jam_selesai)}
-          </Text>
-        </View>
-
-        <Text style={styles.reasonText}>{pengajuan.alasan_text}</Text>
-
-        {locationStatus.lokasi && (
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={14} color="#666" />
-            <Text style={styles.locationText}>{locationStatus.lokasi.nama_lokasi}</Text>
-            <View style={[styles.radiusBadge, { backgroundColor: locationStatus.valid ? '#4CAF50' : '#F44336' }]}>
-              <Text style={styles.radiusText}>{locationStatus.distance}m</Text>
+        <View style={styles.cardInfo}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="calendar-outline" size={16} color="#00695C" />
             </View>
-          </View>
-        )}
-
-        <TouchableOpacity 
-          style={[styles.button, !canAbsen && styles.buttonDisabled]}
-          onPress={() => handleAbsenMasukPertama(pengajuan, locationStatus)}
-          disabled={!canAbsen || isProcessing}
-        >
-          <Ionicons name={canAbsen ? "camera" : "lock-closed"} size={18} color="#fff" />
-          <Text style={styles.buttonText}>
-            {isProcessing ? 'Memproses...' : 'Absen Masuk'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const AbsenAktifCard = ({ item }: { item: AbsenLembur }) => {
-    const radiusStatus = (() => {
-      if (!userLocation) return { valid: false, distance: 0 };
-      const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        item.latitude,
-        item.longitude
-      );
-      return {
-        valid: distance <= item.radius,
-        distance: Math.round(distance)
-      };
-    })();
-
-    const isScheduleValid = checkSchedule(item.jam_rencana_mulai, item.jam_rencana_selesai);
-    const canAbsen = isScheduleValid && radiusStatus.valid;
-
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.dateRow}>
-            <Ionicons name="calendar" size={16} color="#004643" />
-            <Text style={styles.dateText}>{formatDate(item.tanggal)}</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: '#FF980020' }]}>
-            <Text style={[styles.badgeText, { color: '#FF9800' }]}>Sedang Lembur</Text>
-          </View>
-        </View>
-
-        <View style={styles.scheduleRow}>
-          <Ionicons name="time-outline" size={14} color="#666" />
-          <Text style={styles.scheduleText}>
-            {formatTime(item.jam_rencana_mulai)} - {formatTime(item.jam_rencana_selesai)}
-          </Text>
-        </View>
-
-        <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={14} color="#666" />
-          <Text style={styles.locationText}>{item.lokasi_detail}</Text>
-          <View style={[styles.radiusBadge, { backgroundColor: radiusStatus.valid ? '#4CAF50' : '#F44336' }]}>
-            <Text style={styles.radiusText}>{radiusStatus.distance}m</Text>
-          </View>
-        </View>
-
-        <View style={styles.timeRow}>
-          <View style={styles.timeBox}>
-            <Text style={styles.timeLabel}>Masuk</Text>
-            <Text style={styles.timeValue}>{item.jam_masuk ? formatTime(item.jam_masuk) : '-'}</Text>
-          </View>
-          <View style={styles.timeBox}>
-            <Text style={styles.timeLabel}>Pulang</Text>
-            <Text style={styles.timeValue}>{item.jam_pulang ? formatTime(item.jam_pulang) : '-'}</Text>
-          </View>
-        </View>
-
-        {item.status === 'masuk' && (
-          <TouchableOpacity 
-            style={[styles.button, styles.buttonDanger, !canAbsen && styles.buttonDisabled]}
-            onPress={() => handleAbsenPulang(item, radiusStatus)}
-            disabled={!canAbsen || isProcessing}
-          >
-            <Ionicons name={canAbsen ? "camera" : "lock-closed"} size={18} color="#fff" />
-            <Text style={styles.buttonText}>
-              {isProcessing ? 'Memproses...' : 'Absen Pulang'}
+            <Text style={styles.infoText}>
+              {formatDate(item.tanggal_mulai || item.tanggal)} - {formatDate(item.tanggal_selesai || item.tanggal)}
             </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          </View>
+          <View style={styles.infoRow}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="time-outline" size={16} color="#00695C" />
+            </View>
+            <Text style={styles.infoText}>
+              {item.jam_mulai || item.jam_rencana_mulai || '-'} - {item.jam_selesai || item.jam_rencana_selesai || '-'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.cardFooter}>
+          <View style={styles.footerLeft}>
+            <Ionicons name="briefcase-outline" size={20} color="#64748B" />
+            <Text style={styles.footerText}>Lembur</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+        </View>
+      </TouchableOpacity>
     );
   };
 
-  const renderAbsen = () => (
-    <ScrollView 
-      style={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#004643']} />}
-    >
-      {pengajuanList.map((pengajuan) => (
-        <PengajuanCard key={`pengajuan-${pengajuan.id_pengajuan}`} pengajuan={pengajuan} />
-      ))}
 
-      {absenList.map((item) => (
-        <AbsenAktifCard key={item.id_absen_lembur} item={item} />
-      ))}
 
-      {absenList.length === 0 && pengajuanList.length === 0 && (
-        <View style={styles.empty}>
-          <Ionicons name="calendar-outline" size={48} color="#CCC" />
-          <Text style={styles.emptyText}>Belum ada lembur hari ini</Text>
-        </View>
-      )}
-    </ScrollView>
-  );
 
-  const renderRiwayat = () => (
-    <ScrollView 
-      style={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#004643']} />}
-    >
-      {riwayatList.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="time-outline" size={48} color="#CCC" />
-          <Text style={styles.emptyText}>Belum ada riwayat lembur</Text>
-        </View>
-      ) : (
-        riwayatList.map((item) => (
-          <View key={item.id_absen_lembur} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.dateRow}>
-                <Ionicons name="calendar" size={16} color="#004643" />
-                <Text style={styles.dateText}>{formatDate(item.tanggal)}</Text>
-              </View>
-              <View style={[styles.badge, { backgroundColor: '#4CAF5020' }]}>
-                <Text style={[styles.badgeText, { color: '#4CAF50' }]}>{item.total_jam} Jam</Text>
-              </View>
-            </View>
 
-            <View style={styles.scheduleRow}>
-              <Ionicons name="time-outline" size={14} color="#666" />
-              <Text style={styles.scheduleText}>
-                {formatTime(item.jam_rencana_mulai)} - {formatTime(item.jam_rencana_selesai)}
-              </Text>
-            </View>
 
-            <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color="#666" />
-              <Text style={styles.locationText}>{item.lokasi_detail}</Text>
-            </View>
 
-            <View style={styles.timeRow}>
-              <View style={styles.timeBox}>
-                <Text style={styles.timeLabel}>Masuk</Text>
-                <Text style={styles.timeValue}>{formatTime(item.jam_masuk!)}</Text>
-              </View>
-              <View style={styles.timeBox}>
-                <Text style={styles.timeLabel}>Pulang</Text>
-                <Text style={styles.timeValue}>{formatTime(item.jam_pulang!)}</Text>
-              </View>
-            </View>
-          </View>
-        ))
-      )}
-    </ScrollView>
-  );
 
-  if (loading) {
-    return renderSkeleton();
-  }
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+      
       <AppHeader title="Lembur" showBack={true} />
 
-      <View style={styles.tabs}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'absen' && styles.tabActive]}
-          onPress={() => setActiveTab('absen')}
-        >
-          <Ionicons name="finger-print" size={18} color={activeTab === 'absen' ? '#004643' : '#999'} />
-          <Text style={[styles.tabText, activeTab === 'absen' && styles.tabTextActive]}>Absen</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'riwayat' && styles.tabActive]}
-          onPress={() => setActiveTab('riwayat')}
-        >
-          <Ionicons name="time" size={18} color={activeTab === 'riwayat' ? '#004643' : '#999'} />
-          <Text style={[styles.tabText, activeTab === 'riwayat' && styles.tabTextActive]}>Riwayat</Text>
-        </TouchableOpacity>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputWrapper}>
+          <Ionicons name="search-outline" size={20} color="#666" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari Lembur..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {activeTab === 'absen' && renderAbsen()}
-      {activeTab === 'riwayat' && renderRiwayat()}
-
-      <Modal visible={showPreviewModal} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Preview Foto</Text>
-            <Image source={{ uri: photoUri }} style={styles.previewImage} />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButton} onPress={handleRetake}>
-                <Ionicons name="refresh" size={20} color="#666" />
-                <Text style={styles.modalButtonText}>Ulangi</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleSubmit}>
-                <Ionicons name="checkmark" size={20} color="#fff" />
-                <Text style={[styles.modalButtonText, { color: '#fff' }]}>Kirim</Text>
-              </TouchableOpacity>
+      {loading ? (
+        <View style={styles.content}>
+          {[1, 2, 3, 4, 5].map((item) => (
+            <View key={item} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardTitle}>
+                  <View style={[styles.skeletonText, { width: '75%', height: 18, marginBottom: 8 }]} />
+                  <View style={[styles.skeletonText, { width: '45%', height: 12 }]} />
+                </View>
+                <View style={[styles.skeletonText, { width: 80, height: 26, borderRadius: 8 }]} />
+              </View>
+              <View style={styles.cardInfo}>
+                <View style={styles.infoRow}>
+                  <View style={[styles.skeletonText, { width: 28, height: 28, borderRadius: 10, marginRight: 10 }]} />
+                  <View style={[styles.skeletonText, { flex: 1, height: 14 }]} />
+                </View>
+                <View style={styles.infoRow}>
+                  <View style={[styles.skeletonText, { width: 28, height: 28, borderRadius: 10, marginRight: 10 }]} />
+                  <View style={[styles.skeletonText, { flex: 1, height: 14 }]} />
+                </View>
+              </View>
+              <View style={styles.cardFooter}>
+                <View style={styles.footerLeft}>
+                  <View style={[styles.skeletonText, { width: 20, height: 20, borderRadius: 4, marginRight: 8 }]} />
+                  <View style={[styles.skeletonText, { width: 50, height: 12 }]} />
+                </View>
+                <View style={[styles.skeletonText, { width: 18, height: 18, borderRadius: 4 }]} />
+              </View>
             </View>
-          </View>
+          ))}
         </View>
-      </Modal>
-      
-      <CustomAlert
-        visible={visible}
-        type={config.type}
-        title={config.title}
-        message={config.message}
-        onClose={hideAlert}
-        onConfirm={config.onConfirm ? handleConfirm : undefined}
-        confirmText={config.confirmText}
-        cancelText={config.cancelText}
-      />
+      ) : (
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#004643']} />
+          }
+        >
+          {filteredLembur.length > 0 ? (
+            filteredLembur.map((item) => renderLemburCard(item))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="briefcase-outline" size={64} color="#E0E0E0" />
+              <Text style={styles.emptyTitle}>Belum Ada Lembur</Text>
+              <Text style={styles.emptySubtitle}>
+                Anda belum memiliki jadwal lembur
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 6, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: '#004643' },
-  tabText: { fontSize: 13, color: '#999', fontWeight: '500' },
-  tabTextActive: { color: '#004643', fontWeight: '600' },
-  content: { flex: 1, padding: 12, backgroundColor: '#F5F5F5' },
-  card: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#E8E8E8' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dateText: { fontSize: 13, fontWeight: '600', color: '#004643' },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  badgeText: { fontSize: 11, fontWeight: '600' },
-  scheduleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  scheduleText: { fontSize: 12, color: '#666' },
-  reasonText: { fontSize: 12, color: '#666', marginBottom: 8, lineHeight: 16 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  locationText: { flex: 1, fontSize: 12, color: '#666' },
-  radiusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  radiusText: { fontSize: 11, fontWeight: '600', color: '#fff' },
-  timeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  timeBox: { flex: 1, backgroundColor: '#F8F8F8', borderRadius: 8, padding: 8, alignItems: 'center' },
-  timeLabel: { fontSize: 11, color: '#999', marginBottom: 2 },
-  timeValue: { fontSize: 15, fontWeight: '600', color: '#004643' },
-  button: { flexDirection: 'row', backgroundColor: '#004643', paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  buttonDanger: { backgroundColor: '#F44336' },
-  buttonDisabled: { backgroundColor: '#CCC' },
-  buttonText: { fontSize: 13, fontWeight: '600', color: '#fff' },
-  empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  emptyText: { fontSize: 13, color: '#999', marginTop: 8 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 16, width: '100%', maxWidth: 400 },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 12, textAlign: 'center' },
-  previewImage: { width: '100%', height: 250, borderRadius: 8, marginBottom: 12 },
-  modalButtons: { flexDirection: 'row', gap: 10 },
-  modalButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, gap: 6, backgroundColor: '#F5F5F5' },
-  modalButtonPrimary: { backgroundColor: '#004643' },
-  modalButtonText: { fontSize: 13, fontWeight: '600', color: '#666' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E8F0EF',
+    gap: 12,
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    paddingVertical: 14,
+    fontWeight: '400',
+  },
+  content: {
+    flex: 1,
+    paddingTop: 10,
+    backgroundColor: '#fff',
+  },
+  skeletonText: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+  },
+  card: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    marginHorizontal: 20,
+    marginTop: 2,
+    borderWidth: 1,
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  cardTitle: { flex: 1, marginRight: 10 },
+  lemburName: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 6 },
+  pengajuanNumber: { fontSize: 11, color: '#64748B', fontWeight: '600', letterSpacing: 0.5 },
+  cardInfo: { marginBottom: 0 },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoIconBox: {
+    width: 28,
+    height: 28,
+    backgroundColor: '#F0F7F7',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#475569',
+    flex: 1,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: -14,
+    marginBottom: -14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
 });

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 06, 2026 at 05:37 AM
+-- Generation Time: Mar 10, 2026 at 05:10 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -41,9 +41,7 @@ CREATE TABLE `absen_lembur` (
   `foto_masuk` varchar(255) DEFAULT NULL,
   `foto_pulang` varchar(255) DEFAULT NULL,
   `total_jam` decimal(5,2) DEFAULT NULL COMMENT 'Otomatis dihitung',
-  `lokasi_lembur` enum('kantor','dinas') DEFAULT 'kantor',
-  `lokasi_id` int(11) DEFAULT NULL COMMENT 'ID lokasi kantor/dinas',
-  `dinas_id` int(11) DEFAULT NULL COMMENT 'ID dinas jika lembur dinas',
+  `id_lokasi_kantor` int(11) DEFAULT NULL COMMENT 'ID lokasi kantor',
   `status` enum('masuk','selesai') DEFAULT 'masuk',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `face_confidence` decimal(5,2) DEFAULT NULL COMMENT 'Tingkat kemiripan wajah (0-100)'
@@ -71,7 +69,7 @@ CREATE TABLE `dinas` (
   `jam_selesai` time DEFAULT NULL,
   `deskripsi` text DEFAULT NULL,
   `dokumen_spt` varchar(255) DEFAULT NULL,
-  `status` enum('akan_datang','sedang_berlangsung','selesai') DEFAULT 'akan_datang',
+  `status` enum('aktif','selesai','dibatalkan') DEFAULT 'aktif',
   `created_by` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -83,13 +81,12 @@ CREATE TABLE `dinas` (
 --
 
 CREATE TABLE `dinas_lokasi` (
-  `id` int(11) NOT NULL,
+  `id_dinas_lokasi` int(11) NOT NULL,
   `id_dinas` int(11) NOT NULL,
   `id_lokasi_kantor` int(11) NOT NULL,
   `urutan` int(11) DEFAULT 1,
   `is_lokasi_utama` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `id_lokasi` int(11) NOT NULL
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -99,7 +96,7 @@ CREATE TABLE `dinas_lokasi` (
 --
 
 CREATE TABLE `dinas_pegawai` (
-  `id` int(11) NOT NULL,
+  `id_dinas_pegawai` int(11) NOT NULL,
   `id_dinas` int(11) NOT NULL,
   `id_user` int(11) NOT NULL,
   `status_konfirmasi` enum('pending','konfirmasi','tolak') DEFAULT 'pending',
@@ -131,7 +128,7 @@ CREATE TABLE `faq` (
 --
 
 CREATE TABLE `hari_libur` (
-  `id` int(11) NOT NULL,
+  `id_hari_libur` int(11) NOT NULL,
   `tanggal` date NOT NULL,
   `nama_libur` varchar(255) NOT NULL,
   `jenis` enum('nasional','keagamaan','perusahaan') DEFAULT 'nasional',
@@ -145,7 +142,7 @@ CREATE TABLE `hari_libur` (
 --
 
 CREATE TABLE `jam_kerja_hari` (
-  `id` int(11) NOT NULL,
+  `id_jam_kerja_hari` int(11) NOT NULL,
   `hari` enum('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu') NOT NULL,
   `jam_masuk` time NOT NULL DEFAULT '08:00:00',
   `batas_absen` time NOT NULL DEFAULT '08:30:00',
@@ -160,7 +157,7 @@ CREATE TABLE `jam_kerja_hari` (
 --
 
 CREATE TABLE `jam_kerja_history` (
-  `id` int(11) NOT NULL,
+  `id_jam_kerja_history` int(11) NOT NULL,
   `hari` enum('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu') NOT NULL,
   `jam_masuk` time NOT NULL,
   `batas_absen` time NOT NULL,
@@ -178,7 +175,7 @@ CREATE TABLE `jam_kerja_history` (
 --
 
 CREATE TABLE `lokasi_kantor` (
-  `id` int(11) NOT NULL,
+  `id_lokasi_kantor` int(11) NOT NULL,
   `nama_lokasi` varchar(255) NOT NULL,
   `alamat` text NOT NULL,
   `lintang` decimal(10,8) NOT NULL,
@@ -187,8 +184,6 @@ CREATE TABLE `lokasi_kantor` (
   `status` enum('aktif','nonaktif') DEFAULT 'aktif',
   `jenis_lokasi` enum('tetap','dinas') DEFAULT 'tetap',
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `tanggal_mulai_dinas` date DEFAULT NULL,
-  `tanggal_selesai_dinas` date DEFAULT NULL,
   `keterangan` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -199,7 +194,7 @@ CREATE TABLE `lokasi_kantor` (
 --
 
 CREATE TABLE `lokasi_realtime` (
-  `id` int(11) NOT NULL,
+  `id_lokasi_realtime` int(11) NOT NULL,
   `id_user` int(11) NOT NULL,
   `lintang` double NOT NULL,
   `bujur` double NOT NULL,
@@ -213,7 +208,7 @@ CREATE TABLE `lokasi_realtime` (
 --
 
 CREATE TABLE `lupa_password` (
-  `id` int(11) NOT NULL,
+  `id_lupa_password` int(11) NOT NULL,
   `email` varchar(100) NOT NULL,
   `kode_otp` varchar(6) NOT NULL,
   `waktu_expired` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -254,7 +249,6 @@ CREATE TABLE `pegawai` (
 CREATE TABLE `pengajuan` (
   `id_pengajuan` int(11) NOT NULL,
   `id_user` int(11) NOT NULL,
-  `id_pegawai` int(11) DEFAULT NULL,
   `jenis_pengajuan` enum('izin_datang_terlambat','izin_pulang_cepat','cuti_sakit','cuti_alasan_penting','cuti_tahunan','lembur') NOT NULL,
   `tanggal_mulai` date NOT NULL,
   `tanggal_selesai` date DEFAULT NULL,
@@ -277,7 +271,7 @@ CREATE TABLE `pengajuan` (
 --
 
 CREATE TABLE `pengaturan_sistem` (
-  `id` int(11) NOT NULL,
+  `id_pengaturan_sistem` int(11) NOT NULL,
   `key_setting` varchar(100) NOT NULL,
   `value` text NOT NULL,
   `description` varchar(255) DEFAULT NULL
@@ -307,10 +301,18 @@ CREATE TABLE `presensi` (
   `divalidasi_oleh` int(11) DEFAULT NULL,
   `catatan_validasi` text DEFAULT NULL,
   `waktu_validasi` timestamp NULL DEFAULT NULL,
-  `lokasi_id` int(11) DEFAULT NULL COMMENT 'ID lokasi tempat absen',
+  `id_lokasi_kantor` int(11) DEFAULT NULL COMMENT 'ID lokasi tempat absen',
   `jenis_presensi` enum('kantor','dinas') DEFAULT 'kantor' COMMENT 'Jenis presensi',
-  `dinas_id` int(11) DEFAULT NULL COMMENT 'ID dinas jika absen dinas',
-  `face_confidence` decimal(5,2) DEFAULT NULL COMMENT 'Tingkat kemiripan wajah (0-100)'
+  `id_dinas` int(11) DEFAULT NULL COMMENT 'ID dinas jika absen dinas',
+  `face_confidence` decimal(5,2) DEFAULT NULL COMMENT 'Tingkat kemiripan wajah (0-100)',
+  `status_validasi_masuk` enum('menunggu','disetujui','ditolak') DEFAULT 'menunggu',
+  `status_validasi_pulang` enum('menunggu','disetujui','ditolak') DEFAULT NULL,
+  `divalidasi_masuk_oleh` int(11) DEFAULT NULL,
+  `divalidasi_pulang_oleh` int(11) DEFAULT NULL,
+  `waktu_validasi_masuk` timestamp NULL DEFAULT NULL,
+  `waktu_validasi_pulang` timestamp NULL DEFAULT NULL,
+  `catatan_validasi_masuk` text DEFAULT NULL,
+  `catatan_validasi_pulang` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -344,8 +346,7 @@ ALTER TABLE `absen_lembur`
   ADD PRIMARY KEY (`id_absen_lembur`),
   ADD KEY `fk_absen_lembur_pengajuan` (`id_pengajuan`),
   ADD KEY `fk_absen_lembur_user` (`id_user`),
-  ADD KEY `fk_absen_lembur_lokasi` (`lokasi_id`),
-  ADD KEY `fk_absen_lembur_dinas` (`dinas_id`);
+  ADD KEY `fk_absen_lembur_lokasi` (`id_lokasi_kantor`);
 
 --
 -- Indexes for table `dinas`
@@ -359,16 +360,16 @@ ALTER TABLE `dinas`
 -- Indexes for table `dinas_lokasi`
 --
 ALTER TABLE `dinas_lokasi`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_dinas_lokasi`),
   ADD UNIQUE KEY `unique_dinas_lokasi` (`id_dinas`,`id_lokasi_kantor`),
-  ADD KEY `idx_dinas` (`id_dinas`),
-  ADD KEY `idx_lokasi` (`id_lokasi_kantor`);
+  ADD KEY `idx_id_dinas` (`id_dinas`),
+  ADD KEY `idx_id_lokasi_kantor` (`id_lokasi_kantor`);
 
 --
 -- Indexes for table `dinas_pegawai`
 --
 ALTER TABLE `dinas_pegawai`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_dinas_pegawai`),
   ADD KEY `id_dinas` (`id_dinas`),
   ADD KEY `id_user` (`id_user`);
 
@@ -382,27 +383,27 @@ ALTER TABLE `faq`
 -- Indexes for table `hari_libur`
 --
 ALTER TABLE `hari_libur`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id_hari_libur`);
 
 --
 -- Indexes for table `jam_kerja_hari`
 --
 ALTER TABLE `jam_kerja_hari`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_jam_kerja_hari`),
   ADD UNIQUE KEY `hari` (`hari`);
 
 --
 -- Indexes for table `jam_kerja_history`
 --
 ALTER TABLE `jam_kerja_history`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_jam_kerja_history`),
   ADD KEY `idx_hari_tanggal` (`hari`,`tanggal_mulai_berlaku`);
 
 --
 -- Indexes for table `lokasi_kantor`
 --
 ALTER TABLE `lokasi_kantor`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_lokasi_kantor`),
   ADD KEY `idx_jenis_lokasi` (`jenis_lokasi`),
   ADD KEY `idx_is_active` (`is_active`);
 
@@ -410,14 +411,14 @@ ALTER TABLE `lokasi_kantor`
 -- Indexes for table `lokasi_realtime`
 --
 ALTER TABLE `lokasi_realtime`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_lokasi_realtime`),
   ADD UNIQUE KEY `id_user` (`id_user`);
 
 --
 -- Indexes for table `lupa_password`
 --
 ALTER TABLE `lupa_password`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_lupa_password`),
   ADD KEY `idx_email` (`email`),
   ADD KEY `idx_kode_otp` (`kode_otp`),
   ADD KEY `idx_waktu_expired` (`waktu_expired`),
@@ -437,14 +438,13 @@ ALTER TABLE `pegawai`
 ALTER TABLE `pengajuan`
   ADD PRIMARY KEY (`id_pengajuan`),
   ADD KEY `id_user` (`id_user`),
-  ADD KEY `approved_by` (`disetujui_oleh`),
-  ADD KEY `fk_pegawai_pengajuan` (`id_pegawai`);
+  ADD KEY `approved_by` (`disetujui_oleh`);
 
 --
 -- Indexes for table `pengaturan_sistem`
 --
 ALTER TABLE `pengaturan_sistem`
-  ADD PRIMARY KEY (`id`),
+  ADD PRIMARY KEY (`id_pengaturan_sistem`),
   ADD UNIQUE KEY `key_setting` (`key_setting`);
 
 --
@@ -452,9 +452,9 @@ ALTER TABLE `pengaturan_sistem`
 --
 ALTER TABLE `presensi`
   ADD PRIMARY KEY (`id_presensi`),
-  ADD UNIQUE KEY `unique_user_date` (`id_user`,`tanggal`),
-  ADD KEY `fk_presensi_lokasi` (`lokasi_id`),
-  ADD KEY `fk_presensi_dinas` (`dinas_id`);
+  ADD UNIQUE KEY `unique_user_date_jenis` (`id_user`,`tanggal`,`jenis_presensi`),
+  ADD KEY `fk_presensi_lokasi_kantor` (`id_lokasi_kantor`),
+  ADD KEY `fk_presensi_dinas` (`id_dinas`);
 
 --
 -- Indexes for table `users`
@@ -483,13 +483,13 @@ ALTER TABLE `dinas`
 -- AUTO_INCREMENT for table `dinas_lokasi`
 --
 ALTER TABLE `dinas_lokasi`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_dinas_lokasi` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `dinas_pegawai`
 --
 ALTER TABLE `dinas_pegawai`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_dinas_pegawai` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `faq`
@@ -501,37 +501,37 @@ ALTER TABLE `faq`
 -- AUTO_INCREMENT for table `hari_libur`
 --
 ALTER TABLE `hari_libur`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_hari_libur` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `jam_kerja_hari`
 --
 ALTER TABLE `jam_kerja_hari`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_jam_kerja_hari` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `jam_kerja_history`
 --
 ALTER TABLE `jam_kerja_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_jam_kerja_history` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `lokasi_kantor`
 --
 ALTER TABLE `lokasi_kantor`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_lokasi_kantor` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `lokasi_realtime`
 --
 ALTER TABLE `lokasi_realtime`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_lokasi_realtime` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `lupa_password`
 --
 ALTER TABLE `lupa_password`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_lupa_password` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `pegawai`
@@ -549,7 +549,7 @@ ALTER TABLE `pengajuan`
 -- AUTO_INCREMENT for table `pengaturan_sistem`
 --
 ALTER TABLE `pengaturan_sistem`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_pengaturan_sistem` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `presensi`
@@ -571,8 +571,7 @@ ALTER TABLE `users`
 -- Constraints for table `absen_lembur`
 --
 ALTER TABLE `absen_lembur`
-  ADD CONSTRAINT `fk_absen_lembur_dinas` FOREIGN KEY (`dinas_id`) REFERENCES `dinas` (`id_dinas`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_absen_lembur_lokasi` FOREIGN KEY (`lokasi_id`) REFERENCES `lokasi_kantor` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_absen_lembur_lokasi_kantor` FOREIGN KEY (`id_lokasi_kantor`) REFERENCES `lokasi_kantor` (`id_lokasi_kantor`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_absen_lembur_pengajuan` FOREIGN KEY (`id_pengajuan`) REFERENCES `pengajuan` (`id_pengajuan`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_absen_lembur_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
 
@@ -581,6 +580,13 @@ ALTER TABLE `absen_lembur`
 --
 ALTER TABLE `dinas`
   ADD CONSTRAINT `dinas_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id_user`);
+
+--
+-- Constraints for table `dinas_lokasi`
+--
+ALTER TABLE `dinas_lokasi`
+  ADD CONSTRAINT `fk_dinas_lokasi_dinas` FOREIGN KEY (`id_dinas`) REFERENCES `dinas` (`id_dinas`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_dinas_lokasi_lokasi_kantor` FOREIGN KEY (`id_lokasi_kantor`) REFERENCES `lokasi_kantor` (`id_lokasi_kantor`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `dinas_pegawai`
@@ -611,7 +617,6 @@ ALTER TABLE `pegawai`
 -- Constraints for table `pengajuan`
 --
 ALTER TABLE `pengajuan`
-  ADD CONSTRAINT `fk_pegawai_pengajuan` FOREIGN KEY (`id_pegawai`) REFERENCES `pegawai` (`id_pegawai`) ON DELETE CASCADE,
   ADD CONSTRAINT `pengajuan_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE,
   ADD CONSTRAINT `pengajuan_ibfk_2` FOREIGN KEY (`disetujui_oleh`) REFERENCES `users` (`id_user`) ON DELETE SET NULL;
 
@@ -619,8 +624,8 @@ ALTER TABLE `pengajuan`
 -- Constraints for table `presensi`
 --
 ALTER TABLE `presensi`
-  ADD CONSTRAINT `fk_presensi_dinas` FOREIGN KEY (`dinas_id`) REFERENCES `dinas` (`id_dinas`) ON DELETE SET NULL,
-  ADD CONSTRAINT `fk_presensi_lokasi` FOREIGN KEY (`lokasi_id`) REFERENCES `lokasi_kantor` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_presensi_dinas` FOREIGN KEY (`id_dinas`) REFERENCES `dinas` (`id_dinas`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_presensi_lokasi_kantor` FOREIGN KEY (`id_lokasi_kantor`) REFERENCES `lokasi_kantor` (`id_lokasi_kantor`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_user_presensi` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
 COMMIT;
 

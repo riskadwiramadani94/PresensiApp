@@ -156,7 +156,7 @@ const checkDinasStatus = async (req, res) => {
       // Ambil lokasi yang didaftarkan di dinas ini
       const [lokasiDinasRows] = await db.execute(`
         SELECT 
-          lk.id,
+          lk.id_lokasi_kantor as id,
           lk.nama_lokasi,
           lk.alamat,
           lk.lintang AS latitude,
@@ -164,7 +164,7 @@ const checkDinasStatus = async (req, res) => {
           lk.radius,
           lk.jenis_lokasi
         FROM dinas_lokasi dl
-        INNER JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+        INNER JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
         WHERE dl.id_dinas = ?
           AND lk.status = 'aktif'
           AND lk.is_active = 1
@@ -190,7 +190,7 @@ const checkDinasStatus = async (req, res) => {
       // Query 2a: Ambil semua lokasi kantor tetap
       const [lokasiRows] = await db.execute(`
         SELECT 
-          id,
+          id_lokasi_kantor as id,
           nama_lokasi,
           alamat,
           lintang AS latitude,
@@ -280,7 +280,7 @@ const getPresensi = async (req, res) => {
           'dinas' as jenis_presensi,
           p.status_validasi
         FROM presensi p
-        JOIN dinas d ON p.dinas_id = d.id_dinas
+        JOIN dinas d ON p.id_dinas = d.id_dinas
         WHERE p.id_user = ?
         AND p.tanggal BETWEEN ? AND ?
         AND p.jenis_presensi = 'dinas'
@@ -641,7 +641,7 @@ const submitPresensi = async (req, res) => {
       [lokasiRows] = await db.execute(`
         SELECT lk.* 
         FROM dinas_lokasi dl
-        JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id
+        JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
         WHERE dl.id_dinas = ? AND lk.status = 'aktif' AND lk.is_active = 1
       `, [id_dinas]);
     } else {
@@ -666,7 +666,7 @@ const submitPresensi = async (req, res) => {
         lokasi_valid = true;
         nama_lokasi = lokasi.nama_lokasi;
         jenis_lokasi_absen = lokasi.jenis_lokasi;
-        lokasi_id_valid = lokasi.id;
+        lokasi_id_valid = lokasi.id_lokasi_kantor;
         console.log(`✓ Valid location: ${nama_lokasi}, ID: ${lokasi_id_valid}`);
         if (lokasi.jenis_lokasi === 'dinas') {
           nama_lokasi += ' (Dinas)';
@@ -762,7 +762,7 @@ const submitPresensi = async (req, res) => {
           await db.execute(`
             INSERT INTO presensi (
               id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, 
-              foto_masuk, status, alasan_luar_lokasi, status_validasi, lokasi_id, jenis_presensi, dinas_id
+              foto_masuk, status, alasan_luar_lokasi, status_validasi, lokasi_id, jenis_presensi, id_dinas
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'dinas', ?)
           `, [
             user_id, tanggal_only, jam_sekarang, latitude, longitude, 
@@ -1001,7 +1001,7 @@ const getRiwayatGabungan = async (req, res) => {
         lk.nama_lokasi as lokasi,
         d.nama_kegiatan as kegiatan_dinas
       FROM presensi p
-      JOIN dinas d ON p.dinas_id = d.id_dinas
+      JOIN dinas d ON p.id_dinas = d.id_dinas
       LEFT JOIN lokasi_kantor lk ON p.lokasi_id = lk.id
       WHERE p.id_user = ?
         AND p.jenis_presensi = 'dinas'

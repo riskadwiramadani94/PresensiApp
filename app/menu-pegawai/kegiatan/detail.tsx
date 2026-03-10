@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { AppHeader, CustomAlert } from '../../../hooks/useCustomAlert';
+import { AppHeader, CustomAlert } from '../../../components';
+import { useCustomAlert } from '../../../hooks/useCustomAlert';
 import { PegawaiAPI, API_CONFIG } from '../../../constants/config';
 
 export default function DetailKegiatanScreen() {
@@ -284,6 +285,8 @@ export default function DetailKegiatanScreen() {
             <Text style={styles.cardTitle}>Waktu & Linimasa</Text>
           </View>
           
+          <View style={styles.separator} />
+          
           <View style={styles.timelineContainer}>
             <View style={styles.timePoint}>
               <View style={styles.timeDot} />
@@ -365,9 +368,6 @@ export default function DetailKegiatanScreen() {
                   <Text style={styles.personnelNameModern}>{pegawai.nama_lengkap}</Text>
                   <Text style={styles.personnelNipModern}>NIP: {pegawai.nip}</Text>
                 </View>
-                <TouchableOpacity style={styles.personnelAction}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={18} color="#00695C" />
-                </TouchableOpacity>
               </View>
             ))}
           </>

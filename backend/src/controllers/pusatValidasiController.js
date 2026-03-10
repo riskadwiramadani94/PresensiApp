@@ -9,7 +9,7 @@ const pusatValidasiController = {
       const query = `
         SELECT 
           pr.id_presensi as id,
-          pr.dinas_id as id_dinas,
+          pr.id_dinas as id_dinas,
           pr.id_user,
           pr.tanggal as tanggal_absen,
           pr.jam_masuk,
@@ -36,7 +36,7 @@ const pusatValidasiController = {
         FROM presensi pr
         JOIN users u ON pr.id_user = u.id_user
         JOIN pegawai pg ON u.id_user = pg.id_user
-        JOIN dinas d ON pr.dinas_id = d.id_dinas
+        JOIN dinas d ON pr.id_dinas = d.id_dinas
         WHERE pr.jenis_presensi = 'dinas' AND pr.status_validasi = 'menunggu'
         ORDER BY pr.tanggal DESC, pr.jam_masuk DESC
       `;
@@ -63,7 +63,7 @@ const pusatValidasiController = {
       const query = `
         SELECT 
           pr.id_presensi as id,
-          pr.dinas_id as id_dinas,
+          pr.id_dinas as id_dinas,
           pr.id_user,
           pr.tanggal as tanggal_absen,
           pr.jam_masuk,
@@ -90,7 +90,7 @@ const pusatValidasiController = {
         FROM presensi pr
         JOIN users u ON pr.id_user = u.id_user
         JOIN pegawai pg ON u.id_user = pg.id_user
-        JOIN dinas d ON pr.dinas_id = d.id_dinas
+        JOIN dinas d ON pr.id_dinas = d.id_dinas
         WHERE pr.jenis_presensi = 'dinas'
         ORDER BY pr.tanggal DESC, pr.jam_masuk DESC
         LIMIT 100
@@ -136,7 +136,7 @@ const pusatValidasiController = {
           COALESCE(pg.divisi, '-') as divisi
         FROM pengajuan p
         JOIN users u ON p.id_user = u.id_user
-        LEFT JOIN pegawai pg ON p.id_pegawai = pg.id_pegawai
+        LEFT JOIN pegawai pg ON u.id_user = pg.id_user
         WHERE p.status = 'menunggu'
         ORDER BY p.tanggal_pengajuan DESC
       `;
@@ -182,7 +182,7 @@ const pusatValidasiController = {
           COALESCE(pg.divisi, '-') as divisi
         FROM pengajuan p
         JOIN users u ON p.id_user = u.id_user
-        LEFT JOIN pegawai pg ON p.id_pegawai = pg.id_pegawai
+        LEFT JOIN pegawai pg ON u.id_user = pg.id_user
         ORDER BY p.tanggal_pengajuan DESC
         LIMIT 100
       `;
@@ -256,7 +256,7 @@ const pusatValidasiController = {
             FROM dinas_pegawai dp
             INNER JOIN dinas d ON dp.id_dinas = d.id_dinas
             LEFT JOIN presensi pr ON dp.id_user = pr.id_user 
-              AND pr.dinas_id = dp.id_dinas 
+              AND pr.id_dinas = dp.id_dinas 
               AND pr.tanggal = CURDATE()
               AND pr.jenis_presensi = 'dinas'
             WHERE pr.id_presensi IS NULL 
