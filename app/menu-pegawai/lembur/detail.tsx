@@ -30,13 +30,25 @@ export default function DetailLemburScreen() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [absenData, setAbsenData] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [photoUri, setPhotoUri] = useState('');
   const [selectedAbsen, setSelectedAbsen] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailAbsenData, setDetailAbsenData] = useState<any>(null);
+  const [nearestLocation, setNearestLocation] = useState<any>(null);
+  const [distanceToLocation, setDistanceToLocation] = useState<number>(0);
+
+  const [userId, setUserId] = useState<string>('');
+  // Update lokasi dan radius setiap 10 detik
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (userLocation) {
+        findNearestLocation(userLocation);
+      }
+    }, 10000); // 10 detik
+
+    return () => clearInterval(interval);
+  }, [userLocation]);
 
   // Update waktu setiap 30 detik untuk realtime
   useEffect(() => {
@@ -46,10 +58,8 @@ export default function DetailLemburScreen() {
 
     return () => clearInterval(interval);
   }, []);
-  const [userId, setUserId] = useState<string>('');
-  
+
   const calendarRef = useRef<ScrollView>(null);
-  const photoTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
     if (params.id) {
@@ -65,10 +75,10 @@ export default function DetailLemburScreen() {
   }, [userId]);
 
   useEffect(() => {
-    if (lembur && selectedDate) {
+    if (selectedDate) {
       fetchAbsenData();
     }
-  }, [selectedDate, lembur]);
+  }, [selectedDate]);
 
   const loadUserId = async () => {
     try {
@@ -91,6 +101,9 @@ export default function DetailLemburScreen() {
         accuracy: Location.Accuracy.Balanced,
       });
       setUserLocation(location.coords);
+      
+      // Cari lokasi terdekat dan hitung jarak
+      await findNearestLocation(location.coords);
     } catch (error) {
       console.error('Error getting location:', error);
     }
@@ -107,73 +120,73 @@ export default function DetailLemburScreen() {
       setLoading(true);
       console.log('Fetching detail lembur for ID:', params.id, 'User:', userId);
       
-      // Coba beberapa endpoint yang mungkin ada
-      let response, result;
+      // Gunakan endpoint detail yang baru
+      const response = await fetch(getApiUrl(`/pegawai/lembur/api/detail?id_pengajuan=${params.id}&user_id=${userId}`));
+      const result = await response.json();
+      console.log('Detail lembur response:', result);
       
-      // Endpoint 1: detail dengan ID pengajuan
-      try {
-        response = await fetch(getApiUrl(`/pegawai/lembur/api/detail?id_pengajuan=${params.id}&user_id=${userId}`));
-        result = await response.json();
-        console.log('Endpoint detail (id_pengajuan):', result);
-        
       if (result.success && result.data) {
         setLembur(result.data);
-        setSelectedDate(getTodayDateString());
-        console.log('Detail found, setting selected date to:', getTodayDateString());
-      }
-      } catch (e) {
-        console.log('Endpoint detail (id_pengajuan) failed:', e);
-      }
-      
-      // Endpoint 2: cari dari riwayat berdasarkan ID
-      try {
-        response = await fetch(getApiUrl(`/pegawai/lembur/api/riwayat?user_id=${userId}`));
-        result = await response.json();
-        console.log('Searching in riwayat for ID:', params.id);
+        // Langsung set hari ini tanpa perlu klik
+        const today = getTodayDateString();
+        setSelectedDate(today);
+        console.log('Detail found, auto-selected today:', today);
+      } else {
+        // Fallback ke endpoint lama jika tidak ditemukan
+        console.log('Trying fallback endpoints...');
         
-        if (result.success && result.data) {
-          const foundItem = result.data.find((item: any) => 
-            item.id_pengajuan == params.id || 
-            item.id == params.id || 
-            item.id_absen_lembur == params.id
-          );
+        // Endpoint fallback: cari dari riwayat berdasarkan ID
+        try {
+          const riwayatResponse = await fetch(getApiUrl(`/pegawai/lembur/api/riwayat?user_id=${userId}`));
+          const riwayatResult = await riwayatResponse.json();
+          console.log('Searching in riwayat for ID:', params.id);
           
-          if (foundItem) {
-            setLembur(foundItem);
-            setSelectedDate(getTodayDateString());
-            console.log('Detail found from riwayat:', foundItem);
-            return;
+          if (riwayatResult.success && riwayatResult.data) {
+            const foundItem = riwayatResult.data.find((item: any) => 
+              item.id_pengajuan == params.id || 
+              item.id == params.id || 
+              item.id_absen_lembur == params.id
+            );
+            
+            if (foundItem) {
+              setLembur(foundItem);
+              const today = getTodayDateString();
+              setSelectedDate(today);
+              console.log('Detail found from riwayat, auto-selected today:', today);
+              return;
+            }
           }
+        } catch (e) {
+          console.log('Riwayat search failed:', e);
         }
-      } catch (e) {
-        console.log('Riwayat search failed:', e);
-      }
-      
-      // Endpoint 3: cari dari pengajuan hari ini
-      try {
-        response = await fetch(getApiUrl(`/pegawai/lembur/api/pengajuan-hari-ini?user_id=${userId}`));
-        result = await response.json();
-        console.log('Searching in pengajuan-hari-ini for ID:', params.id);
         
-        if (result.success && result.data) {
-          const foundItem = result.data.find((item: any) => 
-            item.id_pengajuan == params.id || 
-            item.id == params.id
-          );
+        // Endpoint fallback: cari dari pengajuan hari ini
+        try {
+          const pengajuanResponse = await fetch(getApiUrl(`/pegawai/lembur/api/pengajuan-hari-ini?user_id=${userId}`));
+          const pengajuanResult = await pengajuanResponse.json();
+          console.log('Searching in pengajuan-hari-ini for ID:', params.id);
           
-          if (foundItem) {
-            setLembur(foundItem);
-            setSelectedDate(getTodayDateString());
-            console.log('Detail found from pengajuan-hari-ini:', foundItem);
-            return;
+          if (pengajuanResult.success && pengajuanResult.data) {
+            const foundItem = pengajuanResult.data.find((item: any) => 
+              item.id_pengajuan == params.id || 
+              item.id == params.id
+            );
+            
+            if (foundItem) {
+              setLembur(foundItem);
+              const today = getTodayDateString();
+              setSelectedDate(today);
+              console.log('Detail found from pengajuan-hari-ini, auto-selected today:', today);
+              return;
+            }
           }
+        } catch (e) {
+          console.log('Pengajuan-hari-ini search failed:', e);
         }
-      } catch (e) {
-        console.log('Pengajuan-hari-ini search failed:', e);
+        
+        console.log('No lembur detail found for ID:', params.id);
+        alert.showAlert({ type: 'error', message: 'Data lembur tidak ditemukan' });
       }
-      
-      console.log('No lembur detail found for ID:', params.id);
-      alert.showAlert({ type: 'error', message: 'Data lembur tidak ditemukan' });
       
     } catch (error) {
       console.error('Error fetching detail:', error);
@@ -225,20 +238,59 @@ export default function DetailLemburScreen() {
   };
 
   const getStatusInfo = () => {
-    if (!lembur) return { label: '', color: '', icon: '' };
+    if (!lembur || !selectedDate) return { label: '', color: '', icon: '' };
     
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const mulai = new Date(lembur.tanggal_mulai);
-    const selesai = new Date(lembur.tanggal_selesai);
-    mulai.setHours(0, 0, 0, 0);
-    selesai.setHours(23, 59, 59, 999);
+    const now = new Date();
+    const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+    
+    const mulai = new Date(lembur.tanggal_mulai + 'T00:00:00');
+    const selesai = new Date(lembur.tanggal_selesai + 'T00:00:00');
 
-    if (today >= mulai && today <= selesai) {
-      return { label: 'Berlangsung', color: '#4CAF50', icon: 'radio-button-on' };
-    } else if (mulai > today) {
+    console.log('=== STATUS DEBUG ===');
+    console.log('Selected date:', selectedDate);
+    console.log('Lembur mulai:', lembur.tanggal_mulai);
+    console.log('Lembur selesai:', lembur.tanggal_selesai);
+    console.log('Jam lembur:', lembur.jam_mulai, '-', lembur.jam_selesai);
+    console.log('Waktu sekarang:', now.getHours() + ':' + now.getMinutes());
+    console.log('selectedDateObj >= mulai?', selectedDateObj >= mulai);
+    console.log('selectedDateObj <= selesai?', selectedDateObj <= selesai);
+
+    // Jika tanggal yang dipilih dalam periode lembur, cek jam kerja
+    if (selectedDateObj >= mulai && selectedDateObj <= selesai) {
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+      const [startHour, startMin] = lembur.jam_mulai.split(':').map(Number);
+      const [endHour, endMin] = lembur.jam_selesai.split(':').map(Number);
+      
+      const startTime = startHour * 60 + startMin;
+      const endTime = endHour * 60 + endMin;
+      
+      console.log('Current time (minutes):', currentTime);
+      console.log('Start time (minutes):', startTime);
+      console.log('End time (minutes):', endTime);
+      
+      // Jika tanggal yang dipilih adalah hari ini, cek jam
+      const today = new Date().toISOString().split('T')[0];
+      if (selectedDate === today) {
+        if (currentTime < startTime) {
+          console.log('STATUS: Akan Datang');
+          return { label: 'Akan Datang', color: '#FF9800', icon: 'time' };
+        } else if (currentTime >= startTime && currentTime <= endTime) {
+          console.log('STATUS: Berlangsung');
+          return { label: 'Berlangsung', color: '#4CAF50', icon: 'radio-button-on' };
+        } else {
+          console.log('STATUS: Selesai Hari Ini');
+          return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
+        }
+      } else {
+        // Jika tanggal masa lalu dalam periode lembur
+        console.log('STATUS: Selesai');
+        return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
+      }
+    } else if (mulai > selectedDateObj) {
+      console.log('STATUS: Akan Datang');
       return { label: 'Akan Datang', color: '#FF9800', icon: 'time' };
     } else {
+      console.log('STATUS: Selesai');
       return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
     }
   };
@@ -262,6 +314,38 @@ export default function DetailLemburScreen() {
               Math.sin(Δλ/2) * Math.sin(Δλ/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
+  };
+
+  const findNearestLocation = async (coords: any) => {
+    try {
+      const response = await fetch(getApiUrl('/pegawai/lembur/api/lokasi-terdekat'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latitude: coords.latitude,
+          longitude: coords.longitude
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success && result.data) {
+        setNearestLocation(result.data);
+        const distance = calculateDistance(
+          coords.latitude,
+          coords.longitude,
+          result.data.latitude,
+          result.data.longitude
+        );
+        setDistanceToLocation(distance);
+      }
+    } catch (error) {
+      console.error('Error finding nearest location:', error);
+    }
+  };
+
+  const isWithinRadius = () => {
+    if (!nearestLocation || !distanceToLocation) return false;
+    return distanceToLocation <= nearestLocation.radius;
   };
 
   const checkSchedule = (jamMulai: string, jamSelesai: string) => {
@@ -292,15 +376,8 @@ export default function DetailLemburScreen() {
       });
       
       if (!result.canceled) {
-        setPhotoUri(result.assets[0].uri);
-        setShowPreviewModal(true);
-        
-        Animated.spring(photoTranslateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 65,
-          friction: 11
-        }).start();
+        // Langsung submit tanpa konfirmasi
+        await handleSubmitDirect(result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error opening camera:', error);
@@ -308,27 +385,10 @@ export default function DetailLemburScreen() {
     }
   };
 
-  const closePhotoModal = () => {
-    Animated.timing(photoTranslateY, {
-      toValue: SCREEN_HEIGHT,
-      duration: 250,
-      useNativeDriver: true
-    }).start(() => {
-      setShowPreviewModal(false);
-      setPhotoUri('');
-    });
-  };
-
-  const handleRetake = () => {
-    closePhotoModal();
-    setTimeout(() => openCamera(), 300);
-  };
-
-  const handleSubmit = async () => {
-    if (!selectedAbsen || !photoUri || !userLocation) return;
+  const handleSubmitDirect = async (photoUriParam: string) => {
+    if (!selectedAbsen || !photoUriParam || !userLocation) return;
     
     setIsProcessing(true);
-    closePhotoModal();
     
     try {
       const formData = new FormData();
@@ -344,12 +404,12 @@ export default function DetailLemburScreen() {
       formData.append('latitude', userLocation.latitude.toString());
       formData.append('longitude', userLocation.longitude.toString());
       
-      const filename = photoUri.split('/').pop();
+      const filename = photoUriParam.split('/').pop();
       const match = /\.(\\w+)$/.exec(filename || '');
       const fileType = match ? `image/${match[1]}` : 'image/jpeg';
       
       formData.append('foto', {
-        uri: photoUri,
+        uri: photoUriParam,
         name: filename || `lembur_${selectedAbsen.jenis}_${Date.now()}.jpg`,
         type: fileType,
       } as any);
@@ -380,70 +440,95 @@ export default function DetailLemburScreen() {
     }
   };
 
+
   const canAbsenMasuk = () => {
-    if (!lembur || selectedDate !== getTodayDateString()) return false;
-    return checkSchedule(lembur.jam_mulai, lembur.jam_selesai);
+    if (!lembur) return false;
+    // Hapus validasi waktu ketat - lembur bisa kapan saja dalam periode
+    const today = getTodayDateString();
+    const lemburStart = new Date(lembur.tanggal_mulai);
+    const lemburEnd = new Date(lembur.tanggal_selesai);
+    const selectedDateObj = new Date(selectedDate);
+    
+    // Cek apakah tanggal yang dipilih dalam periode lembur
+    return selectedDateObj >= lemburStart && selectedDateObj <= lemburEnd;
   };
 
   const canAbsenPulang = () => {
-    if (!lembur || selectedDate !== getTodayDateString()) return false;
-    return checkSchedule(lembur.jam_mulai, lembur.jam_selesai);
+    if (!lembur) return false;
+    // Hapus validasi waktu ketat - lembur bisa kapan saja dalam periode
+    const today = getTodayDateString();
+    const lemburStart = new Date(lembur.tanggal_mulai);
+    const lemburEnd = new Date(lembur.tanggal_selesai);
+    const selectedDateObj = new Date(selectedDate);
+    
+    // Cek apakah tanggal yang dipilih dalam periode lembur
+    return selectedDateObj >= lemburStart && selectedDateObj <= lemburEnd;
   };
 
   const getAbsenInfo = (jenis: 'masuk' | 'pulang') => {
-    if (!lembur) return { canAbsen: false, message: '' };
+    if (!lembur) return { canAbsen: false, message: '', radiusInfo: null };
     
-    const now = new Date();
-    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     const today = getTodayDateString();
-    const selectedDateObj = new Date(selectedDate);
-    const todayObj = new Date(today);
+    const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+    const todayObj = new Date(today + 'T00:00:00');
+    const lemburStart = new Date(lembur.tanggal_mulai + 'T00:00:00');
+    const lemburEnd = new Date(lembur.tanggal_selesai + 'T00:00:00');
+    
+    // Info radius untuk ditampilkan
+    const radiusInfo = nearestLocation ? {
+      distance: Math.round(distanceToLocation),
+      radius: nearestLocation.radius,
+      isWithin: isWithinRadius(),
+      locationName: nearestLocation.nama_lokasi
+    } : null;
+    
+    // Jika tanggal yang dipilih di luar periode lembur
+    if (selectedDateObj < lemburStart || selectedDateObj > lemburEnd) {
+      return { canAbsen: false, message: `Tanggal di luar periode lembur (${formatDate(lembur.tanggal_mulai)} - ${formatDate(lembur.tanggal_selesai)})`, radiusInfo };
+    }
     
     // Jika tanggal yang dipilih adalah masa depan
     if (selectedDateObj > todayObj) {
-      return { canAbsen: false, message: `Absen akan tersedia pada ${formatDate(selectedDate)} pukul ${lembur.jam_mulai}` };
+      return { canAbsen: false, message: `Absen akan tersedia pada ${formatDate(selectedDate)}`, radiusInfo };
     }
     
-    // Jika tanggal yang dipilih adalah masa lalu
-    if (selectedDateObj < todayObj) {
-      if (jenis === 'masuk') {
-        return { canAbsen: false, message: absenData?.jam_masuk ? `Sudah absen masuk pada ${absenData.jam_masuk}` : 'Waktu absen sudah terlewat' };
-      } else {
-        return { canAbsen: false, message: absenData?.jam_pulang ? `Sudah absen pulang pada ${absenData.jam_pulang}` : 'Waktu absen sudah terlewat' };
+    // Validasi jam kerja lembur untuk hari ini
+    if (selectedDate === today) {
+      const now = new Date();
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+      const [startHour, startMin] = lembur.jam_mulai.split(':').map(Number);
+      const [endHour, endMin] = lembur.jam_selesai.split(':').map(Number);
+      
+      const startTime = startHour * 60 + startMin;
+      const endTime = endHour * 60 + endMin;
+      
+      // Jika belum waktunya lembur
+      if (currentTime < startTime) {
+        return { canAbsen: false, message: `Lembur dimulai pada ${lembur.jam_mulai}`, radiusInfo };
+      }
+      
+      // Jika sudah lewat waktu lembur
+      if (currentTime > endTime && jenis === 'masuk') {
+        return { canAbsen: false, message: `Waktu lembur sudah berakhir (${lembur.jam_selesai})`, radiusInfo };
       }
     }
     
-    // Jika hari ini
+    // Jika hari ini atau masa lalu dalam periode lembur
     if (jenis === 'masuk') {
       if (absenData?.jam_masuk) {
-        return { canAbsen: false, message: `Sudah absen masuk pada ${absenData.jam_masuk}` };
+        return { canAbsen: false, message: `Sudah absen masuk pada ${absenData.jam_masuk}`, radiusInfo };
       }
-      
-      if (!canAbsenMasuk()) {
-        return { 
-          canAbsen: false, 
-          message: `Tidak dapat melakukan absen pada pukul ${currentTime}. Waktu absen: ${lembur.jam_mulai} - ${lembur.jam_selesai}` 
-        };
-      }
-      
-      return { canAbsen: true, message: 'Silahkan lakukan absen masuk sekarang' };
+      return { canAbsen: isWithinRadius(), message: isWithinRadius() ? 'Silahkan lakukan absen masuk lembur' : 'Anda berada di luar radius lokasi', radiusInfo };
     } else {
       if (!absenData?.jam_masuk) {
-        return { canAbsen: false, message: 'Harus absen masuk terlebih dahulu' };
+        return { canAbsen: false, message: 'Harus absen masuk terlebih dahulu', radiusInfo };
       }
       
       if (absenData?.jam_pulang) {
-        return { canAbsen: false, message: `Sudah absen pulang pada ${absenData.jam_pulang}` };
+        return { canAbsen: false, message: `Sudah absen pulang pada ${absenData.jam_pulang}`, radiusInfo };
       }
       
-      if (!canAbsenPulang()) {
-        return { 
-          canAbsen: false, 
-          message: `Tidak dapat melakukan absen pada pukul ${currentTime}. Waktu absen: ${lembur.jam_mulai} - ${lembur.jam_selesai}` 
-        };
-      }
-      
-      return { canAbsen: true, message: 'Silahkan lakukan absen pulang sekarang' };
+      return { canAbsen: isWithinRadius(), message: isWithinRadius() ? 'Silahkan lakukan absen pulang lembur' : 'Anda berada di luar radius lokasi', radiusInfo };
     }
   };
 
@@ -482,36 +567,21 @@ export default function DetailLemburScreen() {
     return '0.00';
   };
 
-  const handleAbsen = (jenis: 'masuk' | 'pulang') => {
+  const handleAbsen = async (jenis: 'masuk' | 'pulang') => {
     if (!lembur || !userLocation) return;
 
-    // Validasi waktu
-    if (jenis === 'masuk' && !canAbsenMasuk()) {
-      alert.showAlert({ type: 'warning', message: 'Belum waktunya absen masuk lembur' });
+    // Hanya validasi periode lembur, tidak validasi jam
+    if (!canAbsenMasuk() && jenis === 'masuk') {
+      alert.showAlert({ type: 'warning', message: 'Tanggal di luar periode lembur yang disetujui' });
       return;
     }
     
-    if (jenis === 'pulang' && !canAbsenPulang()) {
-      alert.showAlert({ type: 'warning', message: 'Belum waktunya absen pulang lembur' });
+    if (!canAbsenPulang() && jenis === 'pulang') {
+      alert.showAlert({ type: 'warning', message: 'Tanggal di luar periode lembur yang disetujui' });
       return;
     }
 
-    // Validasi lokasi
-    if (lembur.lokasi && lembur.lokasi.length > 0) {
-      const lokasi = lembur.lokasi[0];
-      const distance = calculateDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        lokasi.latitude,
-        lokasi.longitude
-      );
-      
-      if (distance > lokasi.radius) {
-        alert.showAlert({ type: 'warning', message: `Anda berada ${Math.round(distance)}m dari lokasi (radius: ${lokasi.radius}m)` });
-        return;
-      }
-    }
-    
+    // Otomatis deteksi lokasi terdekat (tidak perlu validasi radius di frontend)
     setSelectedAbsen({ jenis, id_absen_lembur: absenData?.id_absen_lembur });
     openCamera();
   };
@@ -706,8 +776,10 @@ export default function DetailLemburScreen() {
 
         {/* Calendar Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Pilih Tanggal</Text>
-          <View style={styles.activeIndicator} />
+          <View style={styles.sectionTitleContainer}>
+            <Text style={styles.sectionTitle}>Pilih Tanggal</Text>
+            <View style={styles.activeIndicator} />
+          </View>
         </View>
 
         <ScrollView 
@@ -749,14 +821,36 @@ export default function DetailLemburScreen() {
               <Text style={styles.absenLabel}>Absen Masuk</Text>
               <Text style={styles.absenTime}>{absenData?.jam_masuk || '-'}</Text>
               <Text style={styles.absenInfoText}>{getAbsenInfo('masuk').message}</Text>
+              
+              {/* Indikator Radius */}
+              {getAbsenInfo('masuk').radiusInfo && (
+                <View style={styles.radiusIndicator}>
+                  <View style={[
+                    styles.radiusStatus,
+                    { backgroundColor: getAbsenInfo('masuk').radiusInfo?.isWithin ? '#E8F5E8' : '#FFF0F0' }
+                  ]}>
+                    <View style={[
+                      styles.radiusDot,
+                      { backgroundColor: getAbsenInfo('masuk').radiusInfo?.isWithin ? '#4CAF50' : '#F44336' }
+                    ]} />
+                    <Text style={[
+                      styles.radiusText,
+                      { color: getAbsenInfo('masuk').radiusInfo?.isWithin ? '#4CAF50' : '#F44336' }
+                    ]}>
+                      {getAbsenInfo('masuk').radiusInfo?.isWithin ? 'Di dalam radius' : 'Di luar radius'} 
+                      ({getAbsenInfo('masuk').radiusInfo?.distance}m)
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
             <View style={styles.absenActions}>
               <TouchableOpacity 
-                style={[styles.absenBtn, (!absenData?.jam_masuk && canAbsenMasuk() && styles.absenBtnActive)]}
+                style={[styles.absenBtn, (getAbsenInfo('masuk').canAbsen && styles.absenBtnActive)]}
                 onPress={() => handleAbsen('masuk')}
-                disabled={!!absenData?.jam_masuk || !canAbsenMasuk() || isProcessing}
+                disabled={!getAbsenInfo('masuk').canAbsen || isProcessing}
               >
-                <Ionicons name="camera" size={18} color={(absenData?.jam_masuk || !canAbsenMasuk()) ? '#999' : '#fff'} />
+                <Ionicons name="camera" size={18} color={getAbsenInfo('masuk').canAbsen ? '#fff' : '#999'} />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.detailBtn, absenData?.jam_masuk && styles.detailBtnActive]}
@@ -773,14 +867,36 @@ export default function DetailLemburScreen() {
               <Text style={styles.absenLabel}>Absen Pulang</Text>
               <Text style={styles.absenTime}>{absenData?.jam_pulang || '-'}</Text>
               <Text style={styles.absenInfoText}>{getAbsenInfo('pulang').message}</Text>
+              
+              {/* Indikator Radius */}
+              {getAbsenInfo('pulang').radiusInfo && (
+                <View style={styles.radiusIndicator}>
+                  <View style={[
+                    styles.radiusStatus,
+                    { backgroundColor: getAbsenInfo('pulang').radiusInfo?.isWithin ? '#E8F5E8' : '#FFF0F0' }
+                  ]}>
+                    <View style={[
+                      styles.radiusDot,
+                      { backgroundColor: getAbsenInfo('pulang').radiusInfo?.isWithin ? '#4CAF50' : '#F44336' }
+                    ]} />
+                    <Text style={[
+                      styles.radiusText,
+                      { color: getAbsenInfo('pulang').radiusInfo?.isWithin ? '#4CAF50' : '#F44336' }
+                    ]}>
+                      {getAbsenInfo('pulang').radiusInfo?.isWithin ? 'Di dalam radius' : 'Di luar radius'} 
+                      ({getAbsenInfo('pulang').radiusInfo?.distance}m)
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
             <View style={styles.absenActions}>
               <TouchableOpacity 
-                style={[styles.absenBtn, (absenData?.jam_masuk && !absenData?.jam_pulang && canAbsenPulang() && styles.absenBtnActive)]}
+                style={[styles.absenBtn, (getAbsenInfo('pulang').canAbsen && styles.absenBtnActive)]}
                 onPress={() => handleAbsen('pulang')}
-                disabled={!absenData?.jam_masuk || !!absenData?.jam_pulang || !canAbsenPulang() || isProcessing}
+                disabled={!getAbsenInfo('pulang').canAbsen || isProcessing}
               >
-                <Ionicons name="camera" size={18} color={(absenData?.jam_masuk && !absenData?.jam_pulang && canAbsenPulang()) ? '#fff' : '#999'} />
+                <Ionicons name="camera" size={18} color={getAbsenInfo('pulang').canAbsen ? '#fff' : '#999'} />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.detailBtn, absenData?.jam_pulang && styles.detailBtnActive]}
@@ -816,64 +932,9 @@ export default function DetailLemburScreen() {
           )}
         </View>
 
-        {/* Lokasi Lembur */}
-        {lembur.lokasi && lembur.lokasi.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Lokasi Lembur</Text>
-            </View>
-            
-            {lembur.lokasi.map((lokasi: any, index: number) => (
-              <View key={index} style={styles.lokasiCard}>
-                <View style={styles.lokasiHeader}>
-                  <View style={styles.lokasiIconBox}>
-                    <Ionicons name="location" size={20} color="#004643" />
-                  </View>
-                  <Text style={styles.lokasiName}>{lokasi.nama_lokasi}</Text>
-                </View>
-                
-                {lokasi.alamat && (
-                  <Text style={styles.lokasiAddress}>{lokasi.alamat}</Text>
-                )}
-              </View>
-            ))}
-          </>
-        )}
+        {/* Lokasi Lembur - Dihapus karena otomatis deteksi */}
       </ScrollView>
 
-      {/* Photo Modal */}
-      <Modal visible={showPreviewModal} transparent animationType="none" statusBarTranslucent onRequestClose={closePhotoModal}>
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closePhotoModal} />
-          <Animated.View style={[styles.photoBottomSheet, { transform: [{ translateY: photoTranslateY }] }]}>
-            <View style={styles.handleContainer}>
-              <View style={styles.handleBar} />
-            </View>
-            
-            <View style={styles.photoSheetContent}>
-              <Text style={styles.photoSheetTitle}>Preview Foto Absen</Text>
-              
-              <View style={styles.photoImageContainer}>
-                {photoUri && (
-                  <Image source={{ uri: photoUri }} style={styles.photoImage} resizeMode="cover" />
-                )}
-              </View>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.modalButton} onPress={handleRetake}>
-                  <Ionicons name="refresh" size={20} color="#666" />
-                  <Text style={styles.modalButtonText}>Ulangi</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={handleSubmit}>
-                  <Ionicons name="checkmark" size={20} color="#fff" />
-                  <Text style={[styles.modalButtonText, { color: '#fff' }]}>Kirim</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Animated.View>
-        </View>
-      </Modal>
-      
       {/* Detail Absen Modal */}
       <Modal visible={showDetailModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowDetailModal(false)}>
         <View style={styles.modalOverlay}>
@@ -926,7 +987,7 @@ export default function DetailLemburScreen() {
                     <View style={styles.detailInfoRow}>
                       <Ionicons name="location-outline" size={16} color="#004643" />
                       <Text style={styles.detailInfoLabel}>Koordinat</Text>
-                      <Text style={styles.detailInfoValue}>{detailAbsenData.lintang.toFixed(6)}, {detailAbsenData.bujur.toFixed(6)}</Text>
+                      <Text style={styles.detailInfoValue}>{detailAbsenData.lintang?.toFixed(6)}, {detailAbsenData.bujur?.toFixed(6)}</Text>
                     </View>
                   </View>
                 </View>
@@ -1028,7 +1089,8 @@ const styles = StyleSheet.create({
 
   // Section Header
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginBottom: 15, marginTop: 5 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#1A1A1A', letterSpacing: -0.3 },
+  sectionTitleContainer: { alignItems: 'flex-start' },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#1A1A1A', letterSpacing: -0.3, marginBottom: 8 },
   activeIndicator: { width: 40, height: 4, backgroundColor: '#004643', borderRadius: 2 },
   dateLabel: { fontSize: 12, fontWeight: '700', color: '#64748B', backgroundColor: '#F1F5F9', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 },
 
@@ -1117,28 +1179,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalBackdrop: { flex: 1 },
-  photoBottomSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 34,
-    maxHeight: SCREEN_HEIGHT * 0.85,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 20,
-  },
-  handleContainer: { paddingVertical: 12, alignItems: 'center' },
-  handleBar: { width: 40, height: 4, backgroundColor: '#DDD', borderRadius: 2 },
-  photoSheetContent: { paddingHorizontal: 20, paddingBottom: 16 },
-  photoSheetTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A', textAlign: 'center', marginBottom: 16 },
-  photoImageContainer: { alignItems: 'center', justifyContent: 'center', minHeight: 300, borderRadius: 16, padding: 8, overflow: 'hidden' },
-  photoImage: { width: '100%', height: 300, borderRadius: 12 },
-  modalButtons: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  modalButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6, backgroundColor: '#F5F5F5' },
-  modalButtonPrimary: { backgroundColor: '#004643' },
-  modalButtonText: { fontSize: 13, fontWeight: '600', color: '#666' },
 
   // Total Jam Container
   totalJamContainer: {
@@ -1170,6 +1210,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     marginTop: 4,
+  },
+
+  // Radius Indicator Styles
+  radiusIndicator: {
+    marginTop: 8,
+  },
+  radiusStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  radiusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  radiusText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
 
   // Skeleton Styles

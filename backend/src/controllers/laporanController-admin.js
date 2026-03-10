@@ -485,7 +485,7 @@ const getLaporan = async (req, res) => {
           peng.alasan_text,
           peng.status
         FROM pengajuan peng
-        INNER JOIN pegawai p ON peng.id_pegawai = p.id_pegawai
+        INNER JOIN pegawai p ON peng.id_user = p.id_user
         WHERE peng.jenis_pengajuan IN ('izin_pribadi', 'cuti_sakit', 'cuti_tahunan')
       `;
       
@@ -566,40 +566,26 @@ const getLaporan = async (req, res) => {
             SUM(CASE WHEN peng.status = 'disetujui' THEN 1 ELSE 0 END) as disetujui,
             SUM(CASE WHEN peng.status = 'menunggu' THEN 1 ELSE 0 END) as pending,
             SUM(CASE WHEN peng.status = 'ditolak' THEN 1 ELSE 0 END) as ditolak,
+            SUM(CASE WHEN peng.status = 'disetujui' THEN 1 ELSE 0 END) as total_hari,
             SUM(
               CASE 
                 WHEN peng.status = 'disetujui' 
-                THEN DATEDIFF(
-                  COALESCE(peng.tanggal_selesai, peng.tanggal_mulai), 
-                  peng.tanggal_mulai
-                ) + 1
+                AND al.jam_masuk IS NOT NULL 
+                AND al.jam_pulang IS NOT NULL
+                AND al.total_jam IS NOT NULL
+                THEN al.total_jam
                 ELSE 0
               END
-            ) as total_hari,
-            SUM(
-              CASE 
-                WHEN peng.status = 'disetujui' 
-                AND peng.jam_mulai IS NOT NULL 
-                AND peng.jam_selesai IS NOT NULL
-                AND EXISTS (
-                  SELECT 1 FROM absen_lembur al 
-                  WHERE al.id_pengajuan = peng.id_pengajuan 
-                  AND al.jam_masuk IS NOT NULL
-                )
-                THEN TIMESTAMPDIFF(HOUR, 
-                  CONCAT(peng.tanggal_mulai, ' ', peng.jam_mulai),
-                  CONCAT(COALESCE(peng.tanggal_selesai, peng.tanggal_mulai), ' ', peng.jam_selesai)
-                )
-                ELSE 0
-              END
-            ) as total_jam
+            ) as total_jam,
+            SUM(CASE WHEN al.jam_masuk IS NOT NULL THEN 1 ELSE 0 END) as total_hadir
           FROM pengajuan peng
-          WHERE peng.id_pegawai = ? 
+          LEFT JOIN absen_lembur al ON peng.id_pengajuan = al.id_pengajuan
+          WHERE peng.id_user = ? 
           AND peng.jenis_pengajuan = 'lembur'
           ${dateFilter}
         `;
         
-        const [summaryRows] = await db.execute(summaryQuery, [pegawai.id_pegawai, ...dateParams]);
+        const [summaryRows] = await db.execute(summaryQuery, [pegawai.id_user, ...dateParams]);
         const summary = summaryRows[0];
         
         // Only include pegawai with lembur data
@@ -909,15 +895,31 @@ const getDetailLaporan = async (req, res) => {
       const [rows] = await db.execute(`
         SELECT 
           peng.tanggal_mulai as tanggal,
-          peng.status,
-          peng.jam_mulai,
-          peng.jam_selesai,
+          peng.status as status_pengajuan,
+          peng.jam_mulai as jam_rencana_mulai,
+          peng.jam_selesai as jam_rencana_selesai,
           peng.alasan_text as keterangan,
+          al.jam_masuk as jam_actual_masuk,
+          al.jam_pulang as jam_actual_pulang,
+          al.foto_masuk,
+          al.foto_pulang,
+          al.lintang_masuk,
+          al.bujur_masuk,
+          al.lintang_pulang,
+          al.bujur_pulang,
+          al.total_jam as jam_actual_total,
+          CASE 
+            WHEN al.jam_masuk IS NOT NULL AND al.jam_pulang IS NOT NULL THEN 'Sudah Absen Lengkap'
+            WHEN al.jam_masuk IS NOT NULL THEN 'Sudah Absen Masuk'
+            WHEN peng.status = 'disetujui' THEN 'Belum Absen'
+            ELSE peng.status
+          END as status_final,
           CASE WHEN peng.id_pengajuan IS NOT NULL THEN 1 ELSE 0 END as has_pengajuan,
           CASE WHEN al.id_absen_lembur IS NOT NULL THEN 1 ELSE 0 END as has_absen
         FROM pengajuan peng
         LEFT JOIN absen_lembur al ON peng.id_pengajuan = al.id_pengajuan
-        WHERE peng.id_pegawai = ?
+        INNER JOIN pegawai p ON peng.id_user = p.id_user
+        WHERE p.id_pegawai = ?
         AND peng.jenis_pengajuan = 'lembur'
         ${dateFilter}
         ORDER BY peng.tanggal_mulai DESC

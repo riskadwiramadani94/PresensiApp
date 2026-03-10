@@ -2,6 +2,15 @@ const express = require('express');
 const router = express.Router();
 const lemburController = require('../controllers/lemburController');
 
+// Get lokasi terdekat dari posisi user
+router.post('/lokasi-terdekat', lemburController.getLokasiTerdekat);
+
+// Get detail lembur berdasarkan ID pengajuan
+router.get('/detail', lemburController.getDetailLembur);
+
+// Get absen lembur berdasarkan tanggal
+router.get('/absen-tanggal', lemburController.getAbsenLemburByTanggal);
+
 // Get pengajuan lembur hari ini yang disetujui
 router.get('/pengajuan-hari-ini', lemburController.getPengajuanLemburHariIni);
 

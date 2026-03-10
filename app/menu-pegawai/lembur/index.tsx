@@ -142,20 +142,53 @@ export default function LemburScreen() {
   };
 
   const getStatusInfo = (item: any) => {
+    const now = new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
     const mulai = new Date(item.tanggal_mulai);
     const selesai = new Date(item.tanggal_selesai);
     mulai.setHours(0, 0, 0, 0);
     selesai.setHours(23, 59, 59, 999);
 
-    if (today >= mulai && today <= selesai) {
-      return { label: 'Berlangsung', color: '#4CAF50', icon: 'radio-button-on' };
-    } else if (mulai > today) {
+    // Jika tanggal belum tiba
+    if (mulai > today) {
       return { label: 'Akan Datang', color: '#FF9800', icon: 'time' };
-    } else {
+    }
+    // Jika tanggal sudah lewat
+    else if (selesai < today) {
       return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
     }
+    // Jika hari ini, cek jam
+    else if (today >= mulai && today <= selesai) {
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+      const jamMulai = item.jam_mulai || item.jam_rencana_mulai;
+      const jamSelesai = item.jam_selesai || item.jam_rencana_selesai;
+      
+      if (jamMulai) {
+        const [startHour, startMin] = jamMulai.split(':').map(Number);
+        const startTime = startHour * 60 + startMin;
+        
+        // Jika belum waktunya mulai
+        if (currentTime < startTime) {
+          return { label: 'Akan Datang', color: '#FF9800', icon: 'time' };
+        }
+        
+        // Jika ada jam selesai, cek apakah sudah lewat
+        if (jamSelesai) {
+          const [endHour, endMin] = jamSelesai.split(':').map(Number);
+          const endTime = endHour * 60 + endMin;
+          
+          if (currentTime > endTime) {
+            return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
+          }
+        }
+      }
+      
+      return { label: 'Berlangsung', color: '#4CAF50', icon: 'radio-button-on' };
+    }
+    
+    return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
   };
 
   const formatDate = (dateStr: string) => {
@@ -191,6 +224,7 @@ export default function LemburScreen() {
             <Text style={styles.pengajuanNumber}>{item.nomor_pengajuan || item.nomor_spt || 'No. Pengajuan'}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
+            <View style={[styles.statusDot, { backgroundColor: status.color }]} />
             <Text style={[styles.statusText, { color: status.color }]}>
               {status.label}
             </Text>
@@ -426,9 +460,17 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   statusText: {
     fontSize: 10,

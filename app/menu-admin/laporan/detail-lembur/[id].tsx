@@ -1,100 +1,105 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
-import {
-    Animated,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    PanResponder,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from "react-native";
-import { AppHeader, SkeletonLoader } from "../../../../components";
-import { API_CONFIG, getApiUrl } from "../../../../constants/config";
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, FlatList, Modal, Animated, PanResponder, Dimensions, Image } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { AppHeader, CustomAlert } from '../../../../components';
+import { useCustomAlert } from '../../../../hooks/useCustomAlert';
+import { API_CONFIG, getApiUrl } from '../../../../constants/config';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface LemburDetail {
   tanggal: string;
-  status: string;
-  jam_mulai: string | null;
-  jam_selesai: string | null;
+  status_pengajuan: string;
+  status_final: string;
+  jam_rencana_mulai: string | null;
+  jam_rencana_selesai: string | null;
+  jam_actual_masuk: string | null;
+  jam_actual_pulang: string | null;
   keterangan: string;
   has_pengajuan: boolean;
   has_absen: boolean;
+  foto_masuk?: string;
+  foto_pulang?: string;
+  lintang_masuk?: number;
+  bujur_masuk?: number;
+  lintang_pulang?: number;
+  bujur_pulang?: number;
+  jam_actual_total?: number;
+  total_jam?: number;
+  face_confidence?: number;
+  id_lokasi_kantor?: number;
+  status_absen?: string;
 }
 
-const statusConfig = {
-  Disetujui: { color: "#4CAF50", icon: "checkmark-circle" },
-  Pending: { color: "#FF9800", icon: "time" },
-  Ditolak: { color: "#F44336", icon: "close-circle" },
-  "Belum Waktunya": { color: "#9E9E9E", icon: "time-outline" },
-  "Belum Absen": { color: "#FF6F00", icon: "alert-circle" },
-};
+interface PegawaiData {
+  id_pegawai: number;
+  nama_lengkap: string;
+  nip: string;
+  foto_profil?: string;
+  jabatan?: string;
+  divisi?: string;
+}
 
-export default function DetailLemburPegawai() {
+/**
+ * Detail Lembur Pegawai Screen
+ * 
+ * Modal detail hanya menampilkan data absensi lembur aktual dari tabel absen_lembur:
+ * - Jam masuk & jam pulang aktual
+ * - Total jam lembur
+ * - Foto masuk & foto pulang
+ * - Koordinat GPS (lintang/bujur)
+ * - Face confidence (jika ada)
+ * - Status absen
+ * 
+ * Data pengajuan lembur TIDAK ditampilkan di modal karena sudah ada di card list
+ */
+export default function DetailLemburPegawaiScreen() {
+  const alert = useCustomAlert();
   const router = useRouter();
-  const { id, filter, start_date, end_date, month, year } =
-    useLocalSearchParams();
-  const [pegawai, setPegawai] = useState({ nama: "", nip: "", user_id: "" });
-  const [pegawaiData, setPegawaiData] = useState<any>(null);
-  const [lemburData, setLemburData] = useState<LemburDetail[]>([]);
+  const params = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
-  const [detailLembur, setDetailLembur] = useState<any>(null);
+  const [pegawai, setPegawai] = useState<PegawaiData | null>(null);
+  const [lemburData, setLemburData] = useState<LemburDetail[]>([]);
+  const [periodInfo, setPeriodInfo] = useState('');
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [periodInfo, setPeriodInfo] = useState("");
-
+  const [detailLembur, setDetailLembur] = useState<any>(null);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [summary, setSummary] = useState({
+    total_pengajuan: 0,
+    disetujui: 0,
+    pending: 0,
+    ditolak: 0,
+    total_jam: 0,
+    total_hari: 0,
+    total_hadir: 0
+  });
 
   useEffect(() => {
-    fetchDetailLembur();
-    generatePeriodInfo();
-  }, []);
+    if (params.id) {
+      fetchDetailData();
+      generatePeriodInfo();
+    }
+  }, [params.id]);
 
   const generatePeriodInfo = () => {
+    const { filter, start_date, end_date, month, year } = params;
     const today = new Date();
-    const days = [
-      "Minggu",
-      "Senin",
-      "Selasa",
-      "Rabu",
-      "Kamis",
-      "Jumat",
-      "Sabtu",
-    ];
     const months = [
-      "Januari",
-      "Februari",
-      "Maret",
-      "April",
-      "Mei",
-      "Juni",
-      "Juli",
-      "Agustus",
-      "September",
-      "Oktober",
-      "November",
-      "Desember",
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ];
 
     switch (filter) {
-      case "mingguan":
+      case 'mingguan':
         if (start_date && end_date) {
           const startDate = new Date(start_date as string);
           const endDate = new Date(end_date as string);
-          setPeriodInfo(
-            `${startDate.getDate()} ${months[startDate.getMonth()].slice(0, 3)} - ${endDate.getDate()} ${months[endDate.getMonth()].slice(0, 3)} ${endDate.getFullYear()}`,
-          );
+          setPeriodInfo(`${startDate.getDate()} ${months[startDate.getMonth()].slice(0, 3)} - ${endDate.getDate()} ${months[endDate.getMonth()].slice(0, 3)} ${endDate.getFullYear()}`);
         }
         break;
-      case "bulanan":
+      case 'bulanan':
         if (month && year) {
           const targetMonth = parseInt(month as string) - 1;
           const targetYear = parseInt(year as string);
@@ -103,7 +108,7 @@ export default function DetailLemburPegawai() {
           setPeriodInfo(`${months[today.getMonth()]} ${today.getFullYear()}`);
         }
         break;
-      case "tahunan":
+      case 'tahunan':
         if (year) {
           setPeriodInfo(`Tahun ${year}`);
         } else {
@@ -111,93 +116,253 @@ export default function DetailLemburPegawai() {
         }
         break;
       default:
-        setPeriodInfo("Periode tidak diketahui");
+        setPeriodInfo('Periode tidak diketahui');
     }
   };
 
-  const fetchDetailLembur = async () => {
-    setLoading(true);
-
+  const fetchDetailData = async () => {
     try {
-      const pegawaiResponse = await fetch(
-        `${getApiUrl(API_CONFIG.ENDPOINTS.DETAIL_PEGAWAI)}/${id}`,
-      );
-      const pegawaiData = await pegawaiResponse.json();
+      setLoading(true);
+      
+      // Fetch pegawai data
+      const pegawaiResponse = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.DETAIL_PEGAWAI)}/${params.id}`);
+      const pegawaiResult = await pegawaiResponse.json();
 
-      if (pegawaiData.success && pegawaiData.data) {
-        setPegawaiData(pegawaiData.data);
-        setPegawai({
-          nama: pegawaiData.data.nama_lengkap || "Nama tidak ditemukan",
-          nip: pegawaiData.data.nip || "-",
-          user_id:
-            pegawaiData.data.id_user || pegawaiData.data.id_pegawai || "",
-        });
-
-        // Gunakan id_pegawai dari URL, bukan id_user dari data pegawai
-        await fetchLemburData(id as string);
-      } else {
-        setPegawai({
-          nama: "Data pegawai tidak ditemukan",
-          nip: "-",
-          user_id: "",
-        });
-        setLemburData([]);
+      if (pegawaiResult.success && pegawaiResult.data) {
+        setPegawai(pegawaiResult.data);
+        await fetchLemburData();
       }
     } catch (error) {
-      console.error("Fetch error:", error);
-      setPegawai({ nama: "Error memuat data", nip: "-", user_id: "" });
-      setLemburData([]);
+      console.error('Error fetching detail:', error);
+      alert.showAlert({ type: 'error', message: 'Gagal memuat detail pegawai' });
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchLemburData = async (pegawaiId: string) => {
+  const fetchLemburData = async () => {
     try {
-      // Gunakan id_pegawai untuk query detail lembur
-      let params: any = {
-        id_pegawai: pegawaiId,
-        type: "lembur",
+      const { filter, start_date, end_date, month, year } = params;
+      let queryParams: any = {
+        id_pegawai: params.id,
+        type: 'lembur'
       };
 
-      if (filter === "mingguan" && start_date && end_date) {
-        params.start_date = start_date;
-        params.end_date = end_date;
-      } else if (filter === "bulanan" && month && year) {
-        params.month = month;
-        params.year = year;
-      } else if (filter === "tahunan" && year) {
-        params.year = year;
+      if (filter === 'mingguan' && start_date && end_date) {
+        queryParams.start_date = start_date;
+        queryParams.end_date = end_date;
+      } else if (filter === 'bulanan' && month && year) {
+        queryParams.month = month;
+        queryParams.year = year;
+      } else if (filter === 'tahunan' && year) {
+        queryParams.year = year;
       }
 
-      console.log("Fetching lembur detail with params:", params);
-      const response = await fetch(
-        `${getApiUrl(API_CONFIG.ENDPOINTS.DETAIL_LAPORAN)}?${new URLSearchParams(params).toString()}`,
-      );
-      const data = await response.json();
+      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.DETAIL_LAPORAN)}?${new URLSearchParams(queryParams).toString()}`);
+      const result = await response.json();
 
-      console.log("Lembur detail response:", JSON.stringify(data, null, 2));
-
-      if (data.success && data.data) {
-        if (Array.isArray(data.data)) {
-          console.log("Setting lembur data:", data.data.length, "items");
-          setLemburData(data.data);
-        } else {
-          console.log("Data is not array, setting empty");
-          setLemburData([]);
+      if (result.success && result.data) {
+        if (Array.isArray(result.data)) {
+          setLemburData(result.data);
+          calculateSummary(result.data);
         }
-      } else {
-        setLemburData([]);
       }
     } catch (error) {
-      console.error("Error fetching lembur data:", error);
+      console.error('Error fetching lembur data:', error);
       setLemburData([]);
     }
   };
 
+  const calculateSummary = (data: LemburDetail[]) => {
+    const summary = {
+      total_pengajuan: data.length,
+      disetujui: data.filter(item => item.status_pengajuan === 'disetujui').length,
+      pending: data.filter(item => item.status_pengajuan === 'menunggu').length,
+      ditolak: data.filter(item => item.status_pengajuan === 'ditolak').length,
+      total_jam: 0,
+      total_hari: data.filter(item => item.status_pengajuan === 'disetujui').length,
+      total_hadir: data.filter(item => item.jam_actual_masuk !== null).length
+    };
+
+    // Calculate total hours from actual absen lembur
+    data.forEach(item => {
+      if (item.jam_actual_total) {
+        summary.total_jam += item.jam_actual_total;
+      } else if (item.jam_actual_masuk && item.jam_actual_pulang) {
+        const start = new Date(`2000-01-01 ${item.jam_actual_masuk}`);
+        const end = new Date(`2000-01-01 ${item.jam_actual_pulang}`);
+        const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+        summary.total_jam += hours;
+      }
+    });
+
+    setSummary(summary);
+  };
+
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'Sudah Absen Lengkap':
+      case 'selesai':
+        return { label: 'Sudah Absen Lengkap', color: '#4CAF50', icon: 'checkmark-circle' };
+      case 'Sudah Absen Masuk':
+      case 'masuk':
+        return { label: 'Sudah Absen Masuk', color: '#2196F3', icon: 'log-in' };
+      case 'Belum Absen':
+        return { label: 'Belum Absen', color: '#FF9800', icon: 'time' };
+      case 'disetujui':
+        return { label: 'Disetujui', color: '#4CAF50', icon: 'checkmark-circle' };
+      case 'menunggu':
+        return { label: 'Menunggu', color: '#FF9800', icon: 'time' };
+      case 'ditolak':
+        return { label: 'Ditolak', color: '#F44336', icon: 'close-circle' };
+      default:
+        return { label: status, color: '#9E9E9E', icon: 'help-circle' };
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+    
+    return {
+      day: days[date.getDay()],
+      date: date.getDate(),
+      month: months[date.getMonth()],
+      fullDate: `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
+    };
+  };
+
+  const renderLemburItem = ({ item }: { item: LemburDetail }) => {
+    const dateInfo = formatDate(item.tanggal);
+    const statusInfo = getStatusInfo(item.status_final);
+
+    return (
+      <TouchableOpacity 
+        style={styles.lemburItem}
+        onPress={() => showDetailForDate(item)}
+      >
+        <View style={[styles.leftBorder, { backgroundColor: statusInfo.color }]} />
+        
+        <View style={styles.dateSection}>
+          <Text style={styles.dayText}>{dateInfo.day}</Text>
+          <Text style={styles.dateText}>{dateInfo.date}</Text>
+          <Text style={styles.monthText}>{dateInfo.month}</Text>
+        </View>
+        
+        <View style={styles.contentSection}>
+          <View style={styles.statusRow}>
+            <Text style={styles.dayFull}>{dateInfo.day}</Text>
+            <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>
+              {statusInfo.label}
+            </Text>
+          </View>
+          
+          <Text style={styles.keteranganText} numberOfLines={2}>
+            {item.keterangan || 'Tidak ada keterangan'}
+          </Text>
+
+          <View style={styles.timeInfo}>
+            {item.jam_rencana_mulai && (
+              <Text style={styles.timeText}>
+                Rencana: {item.jam_rencana_mulai} - {item.jam_rencana_selesai || '-'}
+              </Text>
+            )}
+            {item.jam_actual_masuk && (
+              <Text style={styles.timeTextActual}>
+                Actual: {item.jam_actual_masuk} - {item.jam_actual_pulang || '...'}
+              </Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+        <AppHeader title="Detail Lembur Pegawai" showBack={true} />
+        
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Skeleton Loading */}
+          <View style={styles.premiumHeader}>
+            <View style={[styles.skeletonText, { width: '80%', height: 22, backgroundColor: 'rgba(255,255,255,0.3)', marginBottom: 10 }]} />
+            <View style={[styles.skeletonText, { width: '60%', height: 16, backgroundColor: 'rgba(255,255,255,0.2)' }]} />
+          </View>
+
+          <View style={styles.listContainer}>
+            {[1, 2, 3, 4, 5].map((item) => (
+              <View key={item} style={styles.lemburItem}>
+                <View style={[styles.skeletonText, { width: 4, height: '100%', backgroundColor: '#E0E0E0' }]} />
+                <View style={styles.dateSection}>
+                  <View style={[styles.skeletonText, { width: 40, height: 12, backgroundColor: '#F0F0F0', marginBottom: 4 }]} />
+                  <View style={[styles.skeletonText, { width: 30, height: 20, backgroundColor: '#E0E0E0', marginBottom: 4 }]} />
+                  <View style={[styles.skeletonText, { width: 35, height: 12, backgroundColor: '#F0F0F0' }]} />
+                </View>
+                <View style={styles.contentSection}>
+                  <View style={[styles.skeletonText, { width: '100%', height: 14, backgroundColor: '#E0E0E0', marginBottom: 6 }]} />
+                  <View style={[styles.skeletonText, { width: '90%', height: 12, backgroundColor: '#F0F0F0', marginBottom: 6 }]} />
+                  <View style={[styles.skeletonText, { width: '70%', height: 11, backgroundColor: '#F0F0F0' }]} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (!pegawai) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+        <AppHeader title="Detail Lembur Pegawai" showBack={true} />
+        <View style={styles.emptyContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color="#E0E0E0" />
+          <Text style={styles.emptyText}>Data pegawai tidak ditemukan</Text>
+        </View>
+      </View>
+    );
+  }
+
   const showDetailForDate = (item: LemburDetail) => {
-    // Gunakan id dari URL (id_pegawai) bukan user_id
-    fetchDetailLemburHarian(item.tanggal, id as string);
+    setDetailLembur({
+      tanggal: item.tanggal,
+      status_final: item.status_final,
+      absen: item.jam_actual_masuk ? {
+        jam_masuk: item.jam_actual_masuk,
+        jam_pulang: item.jam_actual_pulang,
+        foto_masuk: item.foto_masuk,
+        foto_pulang: item.foto_pulang,
+        lintang_masuk: item.lintang_masuk,
+        bujur_masuk: item.bujur_masuk,
+        lintang_pulang: item.lintang_pulang,
+        bujur_pulang: item.bujur_pulang,
+        total_jam: item.total_jam || item.jam_actual_total || (item.jam_actual_masuk && item.jam_actual_pulang ? 
+          calculateDuration(item.jam_actual_masuk, item.jam_actual_pulang) : '-'),
+        face_confidence: item.face_confidence,
+        status_absen: item.status_absen,
+        lokasi_masuk: 'Kantor',
+        lokasi_pulang: 'Kantor'
+      } : null
+    });
+    openBottomSheet();
+  };
+
+  const calculateDuration = (start: string, end: string) => {
+    if (!start || !end) return '-';
+    try {
+      const startTime = new Date(`2000-01-01 ${start}`);
+      const endTime = new Date(`2000-01-01 ${end}`);
+      const diff = endTime.getTime() - startTime.getTime();
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours} jam ${minutes} menit`;
+    } catch {
+      return '-';
+    }
   };
 
   const openBottomSheet = () => {
@@ -240,171 +405,17 @@ export default function DetailLemburPegawai() {
     },
   });
 
-  const fetchDetailLemburHarian = async (
-    tanggal: string,
-    pegawaiId: string,
-  ) => {
-    try {
-      // Format tanggal ke YYYY-MM-DD jika dalam format ISO
-      const dateObj = new Date(tanggal);
-      const formattedDate = dateObj.toISOString().split("T")[0];
-
-      console.log("Fetching detail lembur harian:", {
-        tanggal,
-        formattedDate,
-        pegawaiId,
-      });
-      // Gunakan id_pegawai bukan user_id
-      const response = await fetch(
-        `${getApiUrl(API_CONFIG.ENDPOINTS.DETAIL_LAPORAN)}?type=lembur&date=${formattedDate}&id_pegawai=${pegawaiId}`,
-      );
-      const data = await response.json();
-
-      console.log("Detail lembur harian response:", data);
-
-      if (
-        data.success &&
-        data.data &&
-        Array.isArray(data.data) &&
-        data.data.length > 0
-      ) {
-        // Transform array data ke format yang dibutuhkan modal
-        const firstItem = data.data[0];
-        const transformedData = {
-          tanggal: firstItem.tanggal,
-          status: firstItem.status,
-          pengajuan: {
-            alasan: firstItem.keterangan,
-            jam_mulai: firstItem.jam_mulai,
-            jam_selesai: firstItem.jam_selesai,
-            durasi: "-",
-          },
-          absen: null, // Belum ada data absen
-        };
-        setDetailLembur(transformedData);
-        openBottomSheet();
-      } else {
-        console.log("No detail data available");
-      }
-    } catch (error) {
-      console.error("Error fetching detail lembur:", error);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) {
-      return { day: "-", date: 0, month: "-" };
-    }
-    // Handle both ISO format and YYYY-MM-DD format
-    const date = new Date(dateString);
-    const days = [
-      "Minggu",
-      "Senin",
-      "Selasa",
-      "Rabu",
-      "Kamis",
-      "Jumat",
-      "Sabtu",
-    ];
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mei",
-      "Jun",
-      "Jul",
-      "Ags",
-      "Sep",
-      "Okt",
-      "Nov",
-      "Des",
-    ];
-
-    return {
-      day: days[date.getDay()],
-      date: date.getDate(),
-      month: months[date.getMonth()],
-    };
-  };
-
-  const renderLemburItem = ({ item }: { item: LemburDetail }) => {
-    if (!item || !item.tanggal) return null;
-    const dateInfo = formatDate(item.tanggal);
-    const config =
-      statusConfig[item.status as keyof typeof statusConfig] ||
-      statusConfig["Pending"];
-
-    return (
-      <TouchableOpacity
-        style={styles.lemburItem}
-        onPress={() => showDetailForDate(item)}
-      >
-        <View style={styles.dateSection}>
-          <Text style={styles.dayText}>{dateInfo.day}</Text>
-          <Text style={styles.dateText}>{dateInfo.date}</Text>
-          <Text style={styles.monthTextSmall}>{dateInfo.month}</Text>
-        </View>
-
-        <View style={styles.statusSection}>
-          <View style={styles.statusHeader}>
-            <View
-              style={[styles.statusBadge, { backgroundColor: config.color }]}
-            >
-              <Ionicons name={config.icon as any} size={16} color="white" />
-              <Text style={styles.statusText}>{item.status}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.keteranganText}>{item.keterangan || "-"}</Text>
-
-          {item.jam_mulai && (
-            <View style={styles.timeInfo}>
-              <Text style={styles.timeText}>
-                {item.jam_mulai} - {item.jam_selesai || "Belum"}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <Ionicons name="chevron-forward" size={20} color="#666" />
-      </TouchableOpacity>
-    );
-  };
-
   const renderDetailModal = () => {
-    if (!detailLembur || !detailLembur.tanggal) return null;
+    if (!detailLembur) return null;
 
     const formatDetailDate = (dateString: string) => {
-      if (!dateString) return "-";
-      // Handle both ISO and YYYY-MM-DD format
       const date = new Date(dateString);
-      const days = [
-        "Minggu",
-        "Senin",
-        "Selasa",
-        "Rabu",
-        "Kamis",
-        "Jumat",
-        "Sabtu",
-      ];
-      const months = [
-        "Januari",
-        "Februari",
-        "Maret",
-        "April",
-        "Mei",
-        "Juni",
-        "Juli",
-        "Agustus",
-        "September",
-        "Oktober",
-        "November",
-        "Desember",
-      ];
-
+      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
       return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
     };
+
+    const statusInfo = getStatusInfo(detailLembur.status_final);
 
     return (
       <Modal
@@ -415,147 +426,270 @@ export default function DetailLemburPegawai() {
         onRequestClose={closeBottomSheet}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={closeBottomSheet}
-          />
-          <Animated.View
-            style={[styles.bottomSheet, { transform: [{ translateY }] }]}
-          >
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeBottomSheet} />
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY }] }]}>
             <View {...panResponder.panHandlers} style={styles.handleContainer}>
               <View style={styles.handleBar} />
             </View>
 
             <View style={styles.sheetContent}>
-              <Text style={styles.sheetTitle}>Detail Lembur</Text>
+              <Text style={styles.sheetTitle}>Detail Absensi Lembur</Text>
 
-              <ScrollView
-                style={styles.detailScrollView}
-                showsVerticalScrollIndicator={false}
-              >
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
                 <View style={styles.detailHeader}>
-                  <Text style={styles.detailDate}>
-                    {formatDetailDate(detailLembur.tanggal)}
-                  </Text>
-                  <View
-                    style={[
-                      styles.detailStatusBadge,
-                      {
-                        backgroundColor:
-                          statusConfig[
-                            detailLembur.status as keyof typeof statusConfig
-                          ]?.color || "#9E9E9E",
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={
-                        (statusConfig[
-                          detailLembur.status as keyof typeof statusConfig
-                        ]?.icon as any) || "information-circle"
-                      }
-                      size={16}
-                      color="white"
-                    />
-                    <Text style={styles.detailStatusText}>
-                      {detailLembur.status}
-                    </Text>
+                  <Text style={styles.detailDate}>{formatDetailDate(detailLembur.tanggal)}</Text>
+                  <View style={[styles.detailStatusBadge, { backgroundColor: statusInfo.color }]}>
+                    <Ionicons name={statusInfo.icon as any} size={16} color="white" />
+                    <Text style={styles.detailStatusText}>{statusInfo.label}</Text>
                   </View>
                 </View>
 
-                {detailLembur.pengajuan && (
+                {detailLembur.absen ? (
                   <>
-                    <View style={styles.sectionHeaderConfirm}>
-                      <Ionicons
-                        name="document-text-outline"
-                        size={18}
-                        color="#004643"
-                      />
-                      <Text style={styles.sectionTitleConfirm}>
-                        Data Pengajuan Lembur
-                      </Text>
+                    {/* Waktu Absensi Lembur */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="time-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Waktu Absensi Lembur</Text>
                     </View>
                     <View style={styles.sectionDivider} />
 
-                    <View style={styles.confirmItemFull}>
-                      <Text style={styles.confirmLabel}>Alasan Lembur</Text>
-                      <Text style={styles.confirmValue}>
-                        {detailLembur.pengajuan.alasan || "-"}
-                      </Text>
+                    <View style={styles.confirmRow}>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Jam Masuk</Text>
+                        <Text style={styles.confirmValue}>{detailLembur.absen.jam_masuk}</Text>
+                      </View>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Jam Pulang</Text>
+                        <Text style={styles.confirmValue}>{detailLembur.absen.jam_pulang || '-'}</Text>
+                      </View>
                     </View>
+
+                    <View style={styles.confirmItemFull}>
+                      <Text style={styles.confirmLabel}>Total Jam Lembur</Text>
+                      <Text style={styles.confirmValue}>{detailLembur.absen.total_jam}</Text>
+                    </View>
+
+                    {/* Lokasi Absensi */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="location-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Lokasi Absensi</Text>
+                    </View>
+                    <View style={styles.sectionDivider} />
 
                     <View style={styles.confirmRow}>
                       <View style={styles.confirmItemHalf}>
-                        <Text style={styles.confirmLabel}>Waktu Mulai</Text>
-                        <Text style={styles.confirmValue}>
-                          {detailLembur.pengajuan.jam_mulai || "-"}
+                        <Text style={styles.confirmLabel}>Lokasi Masuk</Text>
+                        <Text style={styles.confirmValue}>{detailLembur.absen.lokasi_masuk || '-'}</Text>
+                      </View>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Lokasi Pulang</Text>
+                        <Text style={styles.confirmValue}>{detailLembur.absen.lokasi_pulang || '-'}</Text>
+                      </View>
+                    </View>
+
+                    {/* Koordinat GPS */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="navigate-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Koordinat GPS</Text>
+                    </View>
+                    <View style={styles.sectionDivider} />
+
+                    <View style={styles.confirmRow}>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Koordinat Masuk</Text>
+                        <Text style={[styles.confirmValue, styles.smallText]}>
+                          {detailLembur.absen.lintang_masuk && detailLembur.absen.bujur_masuk ? 
+                            `${parseFloat(detailLembur.absen.lintang_masuk).toFixed(6)}, ${parseFloat(detailLembur.absen.bujur_masuk).toFixed(6)}` : 
+                            'Tidak tersedia'}
                         </Text>
                       </View>
                       <View style={styles.confirmItemHalf}>
-                        <Text style={styles.confirmLabel}>Waktu Selesai</Text>
-                        <Text style={styles.confirmValue}>
-                          {detailLembur.pengajuan.jam_selesai || "-"}
+                        <Text style={styles.confirmLabel}>Koordinat Pulang</Text>
+                        <Text style={[styles.confirmValue, styles.smallText]}>
+                          {detailLembur.absen.lintang_pulang && detailLembur.absen.bujur_pulang ? 
+                            `${parseFloat(detailLembur.absen.lintang_pulang).toFixed(6)}, ${parseFloat(detailLembur.absen.bujur_pulang).toFixed(6)}` : 
+                            'Tidak tersedia'}
                         </Text>
+                      </View>
+                    </View>
+
+                    {/* Informasi Tambahan */}
+                    {(detailLembur.absen.face_confidence || detailLembur.absen.status_absen) && (
+                      <>
+                        <View style={styles.sectionHeaderModal}>
+                          <Ionicons name="information-circle-outline" size={18} color="#004643" />
+                          <Text style={styles.sectionTitleModal}>Informasi Tambahan</Text>
+                        </View>
+                        <View style={styles.sectionDivider} />
+
+                        {detailLembur.absen.face_confidence && (
+                          <View style={styles.confirmItemFull}>
+                            <Text style={styles.confirmLabel}>Tingkat Kemiripan Wajah</Text>
+                            <Text style={styles.confirmValue}>{detailLembur.absen.face_confidence}%</Text>
+                          </View>
+                        )}
+
+                        {detailLembur.absen.status_absen && (
+                          <View style={styles.confirmItemFull}>
+                            <Text style={styles.confirmLabel}>Status Absen</Text>
+                            <Text style={styles.confirmValue}>{detailLembur.absen.status_absen}</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+
+                    {/* Foto Presensi Lembur */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="camera-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Foto Presensi Lembur</Text>
+                    </View>
+                    <View style={styles.sectionDivider} />
+
+                    <View style={styles.photoRow}>
+                      {/* Foto Masuk */}
+                      <View style={styles.photoColumn}>
+                        <View style={styles.photoHeader}>
+                          <Ionicons name="camera" size={16} color="#4CAF50" />
+                          <Text style={styles.photoLabel}>Foto Masuk</Text>
+                        </View>
+                        <View style={styles.photoContainer}>
+                          {detailLembur.absen.foto_masuk ? (
+                            <Image 
+                              source={{ uri: detailLembur.absen.foto_masuk }} 
+                              style={styles.photoPresensi}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={styles.photoPlaceholder}>
+                              <Ionicons name="image-outline" size={40} color="#CCC" />
+                              <Text style={styles.photoPlaceholderText}>Tidak ada foto</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      
+                      {/* Foto Pulang */}
+                      <View style={styles.photoColumn}>
+                        <View style={styles.photoHeader}>
+                          <Ionicons name="camera" size={16} color="#FF5722" />
+                          <Text style={styles.photoLabel}>Foto Pulang</Text>
+                        </View>
+                        <View style={styles.photoContainer}>
+                          {detailLembur.absen.foto_pulang ? (
+                            <Image 
+                              source={{ uri: detailLembur.absen.foto_pulang }} 
+                              style={styles.photoPresensi}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={styles.photoPlaceholder}>
+                              <Ionicons name="image-outline" size={40} color="#CCC" />
+                              <Text style={styles.photoPlaceholderText}>Tidak ada foto</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    {/* Waktu Absensi Lembur - Tetap tampil meski kosong */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="time-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Waktu Absensi Lembur</Text>
+                    </View>
+                    <View style={styles.sectionDivider} />
+
+                    <View style={styles.confirmRow}>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Jam Masuk</Text>
+                        <Text style={styles.confirmValue}>-</Text>
+                      </View>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Jam Pulang</Text>
+                        <Text style={styles.confirmValue}>-</Text>
                       </View>
                     </View>
 
                     <View style={styles.confirmItemFull}>
-                      <Text style={styles.confirmLabel}>Durasi Diajukan</Text>
-                      <Text style={styles.confirmValue}>
-                        {detailLembur.pengajuan.durasi || "-"}
-                      </Text>
+                      <Text style={styles.confirmLabel}>Total Jam Lembur</Text>
+                      <Text style={styles.confirmValue}>-</Text>
+                    </View>
+
+                    {/* Lokasi Absensi - Tetap tampil meski kosong */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="location-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Lokasi Absensi</Text>
+                    </View>
+                    <View style={styles.sectionDivider} />
+
+                    <View style={styles.confirmRow}>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Lokasi Masuk</Text>
+                        <Text style={styles.confirmValue}>-</Text>
+                      </View>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Lokasi Pulang</Text>
+                        <Text style={styles.confirmValue}>-</Text>
+                      </View>
+                    </View>
+
+                    {/* Koordinat GPS - Tetap tampil meski kosong */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="navigate-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Koordinat GPS</Text>
+                    </View>
+                    <View style={styles.sectionDivider} />
+
+                    <View style={styles.confirmRow}>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Koordinat Masuk</Text>
+                        <Text style={[styles.confirmValue, styles.smallText]}>Tidak tersedia</Text>
+                      </View>
+                      <View style={styles.confirmItemHalf}>
+                        <Text style={styles.confirmLabel}>Koordinat Pulang</Text>
+                        <Text style={[styles.confirmValue, styles.smallText]}>Tidak tersedia</Text>
+                      </View>
+                    </View>
+
+                    {/* Foto Presensi Lembur - Tetap tampil meski kosong */}
+                    <View style={styles.sectionHeaderModal}>
+                      <Ionicons name="camera-outline" size={18} color="#004643" />
+                      <Text style={styles.sectionTitleModal}>Foto Presensi Lembur</Text>
+                    </View>
+                    <View style={styles.sectionDivider} />
+
+                    <View style={styles.photoRow}>
+                      {/* Foto Masuk */}
+                      <View style={styles.photoColumn}>
+                        <View style={styles.photoHeader}>
+                          <Ionicons name="camera" size={16} color="#4CAF50" />
+                          <Text style={styles.photoLabel}>Foto Masuk</Text>
+                        </View>
+                        <View style={styles.photoContainer}>
+                          <View style={styles.photoPlaceholder}>
+                            <Ionicons name="image-outline" size={40} color="#CCC" />
+                            <Text style={styles.photoPlaceholderText}>Tidak ada foto</Text>
+                          </View>
+                        </View>
+                      </View>
+                      
+                      {/* Foto Pulang */}
+                      <View style={styles.photoColumn}>
+                        <View style={styles.photoHeader}>
+                          <Ionicons name="camera" size={16} color="#FF5722" />
+                          <Text style={styles.photoLabel}>Foto Pulang</Text>
+                        </View>
+                        <View style={styles.photoContainer}>
+                          <View style={styles.photoPlaceholder}>
+                            <Ionicons name="image-outline" size={40} color="#CCC" />
+                            <Text style={styles.photoPlaceholderText}>Tidak ada foto</Text>
+                          </View>
+                        </View>
+                      </View>
                     </View>
                   </>
                 )}
-
-                {/* Selalu tampilkan section absen walaupun null */}
-                <>
-                  <View style={styles.sectionHeaderConfirm}>
-                    <Ionicons name="time-outline" size={18} color="#004643" />
-                    <Text style={styles.sectionTitleConfirm}>
-                      Data Absen Lembur
-                    </Text>
-                  </View>
-                  <View style={styles.sectionDivider} />
-
-                  <View style={styles.confirmRow}>
-                    <View style={styles.confirmItemHalf}>
-                      <Text style={styles.confirmLabel}>Check In</Text>
-                      <Text style={styles.confirmValue}>
-                        {detailLembur.absen?.jam_masuk || "-"}
-                      </Text>
-                    </View>
-                    <View style={styles.confirmItemHalf}>
-                      <Text style={styles.confirmLabel}>Check Out</Text>
-                      <Text style={styles.confirmValue}>
-                        {detailLembur.absen?.jam_keluar || "-"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.confirmItemFull}>
-                    <Text style={styles.confirmLabel}>Durasi Aktual</Text>
-                    <Text style={styles.confirmValue}>
-                      {detailLembur.absen?.durasi_aktual || "-"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.confirmRow}>
-                    <View style={styles.confirmItemHalf}>
-                      <Text style={styles.confirmLabel}>Lokasi Masuk</Text>
-                      <Text style={styles.confirmValue}>
-                        {detailLembur.absen?.lokasi_masuk || "-"}
-                      </Text>
-                    </View>
-                    <View style={styles.confirmItemHalf}>
-                      <Text style={styles.confirmLabel}>Lokasi Pulang</Text>
-                      <Text style={styles.confirmValue}>
-                        {detailLembur.absen?.lokasi_pulang || "-"}
-                      </Text>
-                    </View>
-                  </View>
-                </>
               </ScrollView>
             </View>
           </Animated.View>
@@ -564,308 +698,406 @@ export default function DetailLemburPegawai() {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <StatusBar
-          style="light"
-          translucent={true}
-          backgroundColor="transparent"
-        />
-        <AppHeader
-          title="Detail Lembur Pegawai"
-          showBack={true}
-          fallbackRoute="/laporan/laporan-detail-lembur"
-        />
-        <SkeletonLoader type="list" count={5} message="Memuat data lembur..." />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <StatusBar
-        style="light"
-        translucent={true}
-        backgroundColor="transparent"
-      />
-      <AppHeader
-        title="Detail Lembur Pegawai"
-        showBack={true}
-        fallbackRoute="/laporan/laporan-detail-lembur"
-      />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+      <AppHeader title="Detail Lembur Pegawai" showBack={true} />
 
-      <View style={styles.pegawaiInfo}>
-        <View style={styles.pegawaiHeader}>
-          {pegawaiData?.foto_profil ? (
-            <Image
-              source={{
-                uri: `${API_CONFIG.BASE_URL}${pegawaiData.foto_profil.replace("/uploads/pegawai/uploads/pegawai/", "/uploads/pegawai/")}`,
-              }}
-              style={styles.avatarImage}
-            />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Premium Header Section */}
+        <View style={styles.premiumHeader}>
+          <View style={styles.headerContent}>
+            <Text style={styles.pegawaiTitle} numberOfLines={2}>{pegawai.nama_lengkap}</Text>
+            <View style={styles.nipContainer}>
+              <Ionicons name="card-outline" size={14} color="#B2DFDB" />
+              <Text style={styles.nipText}>NIP: {pegawai.nip}</Text>
+            </View>
+            {pegawai.jabatan && (
+              <View style={styles.jabatanContainer}>
+                <Ionicons name="briefcase-outline" size={14} color="#B2DFDB" />
+                <Text style={styles.jabatanText}>{pegawai.jabatan}</Text>
+              </View>
+            )}
+          </View>
+          
+          {/* Periode Info dalam Header */}
+          <View style={styles.periodContainerHeader}>
+            <Ionicons name="calendar-outline" size={16} color="#B2DFDB" />
+            <Text style={styles.periodTextHeader}>{periodInfo}</Text>
+          </View>
+        </View>
+
+        {/* Statistik Lembur */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <View style={[styles.statIndicator, { backgroundColor: '#2196F3' }]} />
+              <Text style={styles.statLabel}>Total Pengajuan</Text>
+              <Text style={styles.statValue}>{summary.total_pengajuan}</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={[styles.statIndicator, { backgroundColor: '#4CAF50' }]} />
+              <Text style={styles.statLabel}>Disetujui</Text>
+              <Text style={styles.statValue}>{summary.disetujui}</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={[styles.statIndicator, { backgroundColor: '#9C27B0' }]} />
+              <Text style={styles.statLabel}>Hadir</Text>
+              <Text style={styles.statValue}>{summary.total_hadir}</Text>
+            </View>
+            <View style={styles.statCard}>
+              <View style={[styles.statIndicator, { backgroundColor: '#FF9800' }]} />
+              <Text style={styles.statLabel}>Total Jam</Text>
+              <Text style={styles.statValue}>{Math.round(summary.total_jam)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Detail Lembur List */}
+        <View style={styles.listContainer}>
+          {lemburData.length > 0 ? (
+            lemburData.map((item, index) => (
+              <View key={`${item.tanggal}-${index}`}>
+                {renderLemburItem({ item })}
+              </View>
+            ))
           ) : (
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>
-                {pegawai.nama.charAt(0).toUpperCase()}
-              </Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons name="moon-outline" size={48} color="#ccc" />
+              <Text style={styles.emptyText}>Tidak ada data lembur</Text>
+              <Text style={styles.emptySubText}>Belum ada pengajuan lembur untuk periode ini</Text>
             </View>
           )}
-          <View style={styles.pegawaiDetails}>
-            <Text style={styles.pegawaiNama}>{pegawai.nama}</Text>
-            <Text style={styles.pegawaiNip}>
-              NIP: {pegawai.nip || "Belum diisi"}
-            </Text>
-          </View>
         </View>
-      </View>
+      </ScrollView>
 
-      <View style={styles.periodInfo}>
-        <View style={styles.periodHeader}>
-          <Ionicons name="calendar-outline" size={20} color="#004643" />
-          <Text style={styles.periodTitle}>Periode Laporan</Text>
-        </View>
-        <Text style={styles.periodText}>{periodInfo}</Text>
-      </View>
-
-      <FlatList
-        data={lemburData}
-        keyExtractor={(item, index) => `${item.tanggal}-${index}`}
-        renderItem={renderLemburItem}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Ionicons name="moon-outline" size={60} color="#ccc" />
-            <Text style={styles.emptyText}>Tidak ada data lembur</Text>
-          </View>
-        )}
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.config.type}
+        title={alert.config.title}
+        message={alert.config.message}
+        onClose={alert.hideAlert}
+        onConfirm={alert.handleConfirm}
+        confirmText={alert.config.confirmText}
+        cancelText={alert.config.cancelText}
       />
+
+      {/* Detail Modal */}
       {renderDetailModal()}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFB" },
-  pegawaiInfo: {
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 16,
+  container: { flex: 1, backgroundColor: '#F4F7F7' },
+  scrollContent: { paddingBottom: 40 },
+  
+  // Premium Header Style
+  premiumHeader: {
+    backgroundColor: '#004643',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    marginBottom: 15,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12 },
+      android: { elevation: 8 },
+    }),
+  },
+  headerContent: { alignItems: 'flex-start' },
+  pegawaiTitle: { fontSize: 22, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, lineHeight: 28, marginBottom: 8 },
+  nipContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  nipText: { fontSize: 13, color: '#B2DFDB', fontWeight: '500', marginLeft: 6 },
+  jabatanContainer: { flexDirection: 'row', alignItems: 'center' },
+  jabatanText: { fontSize: 13, color: '#B2DFDB', fontWeight: '500', marginLeft: 6 },
+  
+  periodContainerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    alignSelf: 'flex-start',
   },
-  pegawaiHeader: { flexDirection: "row", alignItems: "center" },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E6F0EF",
-    overflow: "hidden",
-  },
-  avatarText: { color: "#004643", fontWeight: "bold", fontSize: 16 },
-  avatarImage: { width: 40, height: 40, borderRadius: 20, marginRight: 16 },
-  pegawaiDetails: { flex: 1 },
-  pegawaiNama: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  pegawaiNip: { fontSize: 14, color: "#666", fontWeight: "500" },
-  periodInfo: {
-    backgroundColor: "#F0F8F7",
-    marginHorizontal: 20,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E0F2F1",
-  },
-  periodHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  periodTitle: {
+  periodTextHeader: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#004643",
+    color: '#B2DFDB',
+    fontWeight: '600',
     marginLeft: 8,
   },
-  periodText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#004643",
-    textAlign: "left",
+  
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
-  listContainer: { paddingHorizontal: 20, paddingBottom: 20 },
-  lemburItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 16,
-    marginBottom: 12,
+  
+  // Stats Container
+  statsContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 12,
     borderRadius: 12,
     elevation: 2,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
   },
-  dateSection: { alignItems: "center", marginRight: 16, minWidth: 60 },
-  dayText: { fontSize: 12, color: "#666", marginBottom: 2 },
-  dateText: { fontSize: 20, fontWeight: "bold", color: "#333" },
-  monthTextSmall: { fontSize: 12, color: "#666", marginTop: 2 },
-  statusSection: { flex: 1, marginRight: 8 },
-  statusHeader: { marginBottom: 4 },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: "flex-start",
+  statIndicator: {
+    width: 30,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: 8,
   },
-  statusText: {
-    color: "white",
+  statLabel: {
+    fontSize: 10,
+    color: '#999',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  lemburItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginBottom: 12,
+    marginHorizontal: 2,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  leftBorder: {
+    width: 4,
+    height: '100%',
+  },
+  dateSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FAFAFA',
+    minWidth: 70,
+  },
+  dayText: {
+    fontSize: 10,
+    color: '#999',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  dateText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  monthText: {
     fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 4,
+    color: '#666',
+    marginTop: 2,
   },
-  keteranganText: { fontSize: 12, color: "#666", marginBottom: 4 },
-  timeInfo: { marginTop: 4 },
-  timeText: { fontSize: 11, color: "#888" },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+  contentSection: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'center',
   },
-  emptyText: { fontSize: 16, fontWeight: "600", color: "#666", marginTop: 16 },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  dayFull: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  keteranganText: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
+  },
+  timeInfo: {
+    marginTop: 4,
+  },
+  timeText: {
+    fontSize: 11,
+    color: '#888',
+    marginBottom: 2,
+  },
+  timeTextActual: {
+    fontSize: 11,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+
+  // Empty States
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  emptyState: { alignItems: 'center', paddingVertical: 40 },
+  emptyText: { fontSize: 14, fontWeight: '600', color: '#64748B', marginTop: 12 },
+  emptySubText: { fontSize: 12, color: '#94A3B8', marginTop: 4, textAlign: 'center' },
+
+  // Skeleton Styles
+  skeletonText: { backgroundColor: '#E0E0E0', borderRadius: 4 },
+
+  // Time Row Styles
+  timeItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  timeLabel: { fontSize: 11, color: '#64748B', fontWeight: '500' },
+
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalBackdrop: { flex: 1 },
   bottomSheet: {
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === "ios" ? 34 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     maxHeight: SCREEN_HEIGHT * 0.85,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 20,
   },
-  handleContainer: { paddingVertical: 12, alignItems: "center" },
-  handleBar: { width: 40, height: 4, backgroundColor: "#DDD", borderRadius: 2 },
+  handleContainer: { paddingVertical: 12, alignItems: 'center' },
+  handleBar: { width: 40, height: 4, backgroundColor: '#DDD', borderRadius: 2 },
   sheetContent: { paddingHorizontal: 20, paddingBottom: 16 },
   sheetTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
+    fontWeight: '700',
+    color: '#333',
     marginBottom: 16,
-    textAlign: "center",
+    textAlign: 'center',
   },
-  detailScrollView: { maxHeight: SCREEN_HEIGHT * 0.65 },
   detailHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: '#E5E7EB',
   },
-  detailDate: { fontSize: 15, fontWeight: "600", color: "#004643", flex: 1 },
+  detailDate: { fontSize: 15, fontWeight: '600', color: '#004643', flex: 1 },
   detailStatusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
     gap: 6,
   },
-  detailStatusText: { color: "white", fontSize: 14, fontWeight: "600" },
-  sectionHeaderConfirm: {
-    flexDirection: "row",
-    alignItems: "center",
+  detailStatusText: { color: 'white', fontSize: 12, fontWeight: '600' },
+  sectionHeaderModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    marginTop: 16,
     marginBottom: 8,
   },
-  sectionTitleConfirm: { fontSize: 15, fontWeight: "700", color: "#004643" },
-  sectionDivider: { height: 1, backgroundColor: "#E5E7EB", marginBottom: 12 },
-  confirmRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  sectionTitleModal: { fontSize: 15, fontWeight: '700', color: '#004643' },
+  sectionDivider: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 12 },
+  confirmRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   confirmItemHalf: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: '#F8F9FA',
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: '#E5E7EB',
   },
   confirmItemFull: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: '#F8F9FA',
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: '#E5E7EB',
     marginBottom: 12,
   },
   confirmLabel: {
     fontSize: 11,
-    fontWeight: "600",
-    color: "#6B7280",
+    fontWeight: '600',
+    color: '#6B7280',
     marginBottom: 6,
-    textTransform: "uppercase",
+    textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   confirmValue: {
     fontSize: 14,
-    color: "#1F2937",
-    fontWeight: "600",
+    color: '#1F2937',
+    fontWeight: '600',
     lineHeight: 18,
   },
-  photoRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
-  photoColumn: { flex: 1 },
+  smallText: { fontSize: 12 },
+  photoRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  photoColumn: {
+    flex: 1,
+  },
   photoHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
     gap: 6,
   },
-  photoLabel: { fontSize: 12, color: "#666", fontWeight: "600" },
+  photoLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+  },
   photoContainer: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: '#F8F9FA',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    overflow: "hidden",
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
     aspectRatio: 1,
   },
-  photoPresensi: { width: "100%", height: "100%" },
+  photoPresensi: {
+    width: '100%',
+    height: '100%',
+  },
   photoPlaceholder: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
   },
   photoPlaceholderText: {
     fontSize: 11,
-    color: "#999",
+    color: '#999',
     marginTop: 8,
-    fontWeight: "500",
+    fontWeight: '500',
   },
 });

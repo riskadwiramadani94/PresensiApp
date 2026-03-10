@@ -8,6 +8,7 @@ import {
     Animated,
     FlatList,
     Image,
+    Linking,
     Modal,
     PanResponder,
     Platform,
@@ -20,7 +21,9 @@ import {
 } from "react-native";
 import { AppHeader, CustomAlert } from "../../../components";
 import CustomCalendar from "../../../components/CustomCalendar";
+import Toast from "../../../components/Toast";
 import { useCustomAlert } from "../../../hooks/useCustomAlert";
+import { useToast } from "../../../hooks/useToast";
 import { API_CONFIG, getApiUrl } from "../../../constants/config";
 
 interface PegawaiLembur {
@@ -40,12 +43,13 @@ interface PegawaiLembur {
 
 export default function LaporanDetailLemburScreen() {
   const alert = useCustomAlert();
+  const toast = useToast();
   const router = useRouter();
   const today = new Date();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PegawaiLembur[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("asc");
 
   const [selectedStartDate, setSelectedStartDate] = useState(() => {
     const start = new Date(today);
@@ -85,12 +89,76 @@ export default function LaporanDetailLemburScreen() {
   const [showJenisModal, setShowJenisModal] = useState(false);
   const [showPeriodeModal, setShowPeriodeModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const jenisTranslateY = useRef(new Animated.Value(500)).current;
   const periodeTranslateY = useRef(new Animated.Value(500)).current;
   const calendarTranslateY = useRef(new Animated.Value(500)).current;
+  const exportTranslateY = useRef(new Animated.Value(500)).current;
   const [datePickerMode, setDatePickerMode] = useState<"start" | "end">(
     "start",
   );
+
+  const handleExportAll = async () => {
+    setShowExportModal(true);
+    Animated.timing(exportTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeExportModal = () => {
+    Animated.timing(exportTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowExportModal(false);
+    });
+  };
+
+  const handleExportFormat = async (format: 'excel' | 'pdf') => {
+    closeExportModal();
+    
+    try {
+      toast.showToast(`Sedang menyiapkan laporan lembur ${format.toUpperCase()}...`, 'loading');
+      
+      let params: any = {
+        type: 'lembur',
+        filter_date: jenisLaporan,
+        format: format
+      };
+
+      if (jenisLaporan === "mingguan") {
+        params.start_date = formatDateForAPI(selectedStartDate);
+        params.end_date = formatDateForAPI(selectedEndDate);
+      } else if (jenisLaporan === "bulanan") {
+        const months = [
+          "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+          "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+        ];
+        const [monthName, yearStr] = selectedPeriode.split(" ");
+        params.month = String(months.indexOf(monthName) + 1).padStart(2, "0");
+        params.year = yearStr;
+      } else if (jenisLaporan === "tahunan") {
+        params.year = selectedPeriode;
+      }
+
+      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_LAPORAN)}?${new URLSearchParams(params).toString()}`;
+      
+      // Buka URL untuk download - browser akan handle download
+      await Linking.openURL(url);
+      
+      // Delay sebentar lalu tampilkan success message
+      setTimeout(() => {
+        toast.showToast(`Laporan lembur ${format.toUpperCase()} berhasil diunduh!`, 'success');
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Export lembur error:', error);
+      toast.showToast('Gagal mengunduh laporan lembur', 'error');
+    }
+  };
 
   const jenisLaporanOptions = [
     { value: "mingguan", label: "Laporan Mingguan", icon: "calendar-outline" },
@@ -169,6 +237,26 @@ export default function LaporanDetailLemburScreen() {
         closePeriodeModal();
       } else {
         Animated.spring(periodeTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
+  const exportPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        exportTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeExportModal();
+      } else {
+        Animated.spring(exportTranslateY, {
           toValue: 0,
           useNativeDriver: true,
         }).start();
@@ -388,9 +476,9 @@ export default function LaporanDetailLemburScreen() {
         }
         const sortedData = result.data.sort(
           (a: PegawaiLembur, b: PegawaiLembur) =>
-            sortOrder === "desc"
-              ? b.nama_lengkap.localeCompare(a.nama_lengkap)
-              : a.nama_lengkap.localeCompare(b.nama_lengkap),
+            sortOrder === "asc"
+              ? a.nama_lengkap.localeCompare(b.nama_lengkap)
+              : b.nama_lengkap.localeCompare(a.nama_lengkap),
         );
         setData(sortedData);
         calculateStats(result.data);
@@ -439,13 +527,21 @@ export default function LaporanDetailLemburScreen() {
       return new URLSearchParams(params).toString();
     };
 
+    const summary = item.summary || {};
+    const approvalRate = summary.total_pengajuan > 0 
+      ? Math.round((summary.disetujui / summary.total_pengajuan) * 100) 
+      : 0;
+    const avgHours = summary.total_hari > 0 
+      ? Math.round((summary.total_jam / summary.total_hari) * 10) / 10 
+      : 0;
+
     return (
       <TouchableOpacity
         style={styles.pegawaiCard}
         onPress={() => {
           const queryParams = buildDetailParams();
           router.push(
-            `/laporan/detail-lembur/${item.id_pegawai}?${queryParams}` as any,
+            `/menu-admin/laporan/detail-lembur/${item.id_pegawai}?${queryParams}` as any,
           );
         }}
       >
@@ -466,25 +562,44 @@ export default function LaporanDetailLemburScreen() {
           )}
           <View style={styles.employeeInfo}>
             <Text style={styles.employeeName}>{item.nama_lengkap}</Text>
-            <Text style={styles.employeeNip}>{item.nip}</Text>
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoValue}>
-                  {item.summary?.total_hari || 0}
-                </Text>
-                <Text style={styles.infoLabel}>Hari</Text>
-              </View>
-              <View style={styles.infoDivider} />
-              <View style={styles.infoItem}>
-                <Text style={styles.infoValue}>
-                  {item.summary?.total_jam || 0}
-                </Text>
-                <Text style={styles.infoLabel}>Jam</Text>
-              </View>
-            </View>
+            <Text style={styles.employeeNip}>NIP: {item.nip}</Text>
           </View>
-          <View style={styles.chevronIcon}>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
+        </View>
+        
+        <View style={styles.divider} />
+        
+        <View style={styles.metricsRow}>
+          <View style={styles.metricItem}>
+            <Ionicons name="document-text-outline" size={12} color="#2196F3" />
+            <Text style={styles.metricValue}>{summary.total_pengajuan || 0}</Text>
+          </View>
+          <View style={styles.metricItem}>
+            <Ionicons name="checkmark-circle-outline" size={12} color="#4CAF50" />
+            <Text style={styles.metricValue}>{summary.disetujui || 0}</Text>
+          </View>
+          <View style={styles.metricItem}>
+            <Ionicons name="time-outline" size={12} color="#FF9800" />
+            <Text style={styles.metricValue}>{summary.pending || 0}</Text>
+          </View>
+          <View style={styles.metricItem}>
+            <Ionicons name="close-circle-outline" size={12} color="#F44336" />
+            <Text style={styles.metricValue}>{summary.ditolak || 0}</Text>
+          </View>
+          <View style={styles.metricSeparator} />
+          <View style={styles.metricItem}>
+            <Text style={styles.metricValue}>{summary.total_jam || 0}</Text>
+            <Text style={styles.metricLabel}>jam</Text>
+          </View>
+        </View>
+        
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiItem}>
+            <Ionicons name="trending-up-outline" size={12} color="#666" />
+            <Text style={styles.kpiText}>{approvalRate}% approval</Text>
+          </View>
+          <View style={styles.kpiSeparator} />
+          <View style={styles.kpiItem}>
+            <Text style={styles.kpiText}>{avgHours} jam/hari</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -503,6 +618,8 @@ export default function LaporanDetailLemburScreen() {
         title="Laporan Lembur"
         showBack={true}
         fallbackRoute="/laporan/laporan-admin"
+        rightIcon="download-outline"
+        onRightPress={handleExportAll}
       />
 
       {loading ? (
@@ -594,7 +711,7 @@ export default function LaporanDetailLemburScreen() {
               >
                 <Ionicons name="list" size={20} color="#004643" />
                 <Text style={styles.sectionTitle}>
-                  {sortOrder === "desc" ? "Z-A" : "A-Z"}
+                  {sortOrder === "asc" ? "A-Z" : "Z-A"}
                 </Text>
                 <Ionicons name="swap-vertical" size={18} color="#004643" />
               </TouchableOpacity>
@@ -918,6 +1035,68 @@ export default function LaporanDetailLemburScreen() {
         </View>
       </Modal>
 
+      {/* Modal Export Format */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeExportModal}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity
+            style={styles.bottomSheetBackdrop}
+            activeOpacity={1}
+            onPress={closeExportModal}
+          />
+          <Animated.View
+            style={[
+              styles.bottomSheet,
+              { transform: [{ translateY: exportTranslateY }] },
+            ]}
+          >
+            <View
+              {...exportPanResponder.panHandlers}
+              style={styles.handleContainer}
+            >
+              <View style={styles.handleBar} />
+            </View>
+
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Format Export</Text>
+            </View>
+
+            <View style={styles.bottomSheetContent}>
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('excel')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export Excel (.xlsx)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('pdf')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-text-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export PDF (.pdf)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
       <CustomAlert
         visible={alert.visible}
         type={alert.config.type}
@@ -927,6 +1106,13 @@ export default function LaporanDetailLemburScreen() {
         onConfirm={alert.handleConfirm}
         confirmText={alert.config.confirmText}
         cancelText={alert.config.cancelText}
+      />
+      
+      <Toast
+        visible={toast.visible}
+        message={toast.config.message}
+        type={toast.config.type}
+        onHide={toast.hideToast}
       />
     </View>
   );
@@ -964,24 +1150,31 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: "#fff",
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#FAFBFC',
   },
   searchInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8F9FA",
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#E8F0EF",
     gap: 12,
+    shadowColor: "#004643",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: "#333",
-    paddingVertical: 12,
+    paddingVertical: 14,
+    fontWeight: "400",
   },
   statsContainer: {
     marginHorizontal: 20,
@@ -1057,7 +1250,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginBottom: 12,
     borderRadius: 12,
-    padding: 14,
+    padding: 16,
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -1066,62 +1259,95 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#F0F0F0",
   },
-  cardHeader: { flexDirection: "row", alignItems: "center" },
+  cardHeader: { 
+    flexDirection: "row", 
+    alignItems: "center",
+    marginBottom: 12,
+  },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#E6F0EF",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
   avatarImage: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 12,
   },
-  avatarText: { color: "#004643", fontWeight: "700", fontSize: 16 },
-  employeeInfo: { flex: 1 },
+  avatarText: { 
+    color: "#004643", 
+    fontWeight: "700", 
+    fontSize: 16 
+  },
+  employeeInfo: { 
+    flex: 1 
+  },
   employeeName: {
     fontSize: 15,
     fontWeight: "600",
     color: "#1a1a1a",
     marginBottom: 2,
   },
-  employeeNip: { fontSize: 12, color: "#757575", marginBottom: 8 },
-  infoRow: {
+  employeeNip: { 
+    fontSize: 12, 
+    color: "#757575" 
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#F0F0F0",
+    marginBottom: 12,
+  },
+  metricsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    marginBottom: 10,
+    gap: 8,
   },
-  infoItem: {
+  metricItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  infoValue: {
+  metricValue: {
     fontSize: 13,
     fontWeight: "700",
     color: "#1a1a1a",
   },
-  infoLabel: {
+  metricLabel: {
     fontSize: 11,
     color: "#757575",
   },
-  infoDivider: {
+  metricSeparator: {
     width: 1,
     height: 12,
     backgroundColor: "#E0E0E0",
+    marginHorizontal: 4,
   },
-  chevronIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#F5F5F5",
-    justifyContent: "center",
+  kpiRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+  },
+  kpiItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  kpiText: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  kpiSeparator: {
+    width: 1,
+    height: 10,
+    backgroundColor: "#E0E0E0",
   },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { marginTop: 10, color: "#666" },

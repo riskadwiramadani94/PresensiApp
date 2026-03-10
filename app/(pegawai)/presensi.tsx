@@ -1043,11 +1043,10 @@ export default function PresensiScreen() {
                           </TouchableOpacity>
                         ) : hasCheckedOut ? (
                           <View style={styles.completedContainer}>
-                            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+                            <Ionicons name="checkmark-circle" size={32} color="#4CAF50" />
                             <Text style={styles.completedTitle}>Absensi Selesai</Text>
                             <Text style={styles.completedSubtext}>
-                              Anda sudah melakukan absen pulang hari ini.
-                              Silahkan absen kembali esok hari.
+                              Sudah absen pulang hari ini
                             </Text>
                           </View>
                         ) : (
@@ -1476,26 +1475,26 @@ const styles = StyleSheet.create({
   },
   completedContainer: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: '#F0F9FF',
     borderRadius: 12,
-    marginVertical: 8,
+    marginVertical: 4,
     borderWidth: 1,
     borderColor: '#E0F2FE',
   },
   completedTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#4CAF50',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 8,
+    marginBottom: 4,
   },
   completedSubtext: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   validationBadge: {
     flexDirection: 'row',

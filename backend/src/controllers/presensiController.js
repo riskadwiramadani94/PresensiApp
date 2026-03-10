@@ -923,7 +923,7 @@ const submitPresensi = async (req, res) => {
         // Update presensi biasa
         const [result] = await db.execute(`
           UPDATE presensi SET 
-            jam_pulang = ?, lintang_pulang = ?, bujur_pulang = ?, foto_pulang = ?, lokasi_pulang = ? 
+            jam_pulang = ?, lintang_pulang = ?, bujur_pulang = ?, foto_pulang = ?, alasan_luar_lokasi = ? 
           WHERE id_user = ? AND DATE(tanggal) = ? AND jam_masuk IS NOT NULL
         `, [
           jam_sekarang, latitude, longitude, fotoFile || null, nama_lokasi, 
