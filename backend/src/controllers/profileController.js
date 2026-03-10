@@ -119,7 +119,8 @@ const updateProfile = async (req, res) => {
           fs.unlinkSync(oldPath);
         }
       }
-      fotoPath = req.file.path.replace(/\\/g, '/');
+      // Simpan hanya path relatif dari uploads/
+      fotoPath = req.file.path.replace(/\\/g, '/').replace(/^.*uploads/, 'uploads');
     }
 
     let result;

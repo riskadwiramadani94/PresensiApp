@@ -792,6 +792,17 @@ export default function PresensiScreen() {
     });
   };
 
+  // Fungsi untuk membuka modal detail lokasi
+  const openLocationModal = (lokasi: any) => {
+    // Fungsi ini tidak digunakan lagi karena tidak ada modal
+    console.log('Location detail:', lokasi);
+  };
+
+  // Fungsi untuk menutup modal detail lokasi
+  const closeLocationModal = () => {
+    // Fungsi ini tidak digunakan lagi karena tidak ada modal
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -860,7 +871,7 @@ export default function PresensiScreen() {
           {...panResponder.panHandlers}
           style={styles.handleContainer}
         >
-          <View style={styles.handle} />
+          <View style={styles.handleBar} />
         </View>
 
         <View style={styles.panelContent}>
@@ -928,9 +939,9 @@ export default function PresensiScreen() {
                 )}
                 
                 {isDinas && dinasLokasi.length > 0 ? (
-                  <>
-                    {(() => {
-                      const lokasiDalamRadius = dinasLokasi.filter(lokasi => {
+                  <View style={styles.statusSummary}>
+                    <Ionicons 
+                      name={dinasLokasi.filter(lokasi => {
                         const lokasiLat = parseFloat(lokasi.latitude);
                         const lokasiLng = parseFloat(lokasi.longitude);
                         const jarak = location ? getDistance(
@@ -940,23 +951,34 @@ export default function PresensiScreen() {
                           lokasiLng
                         ) : 999999;
                         return jarak <= lokasi.radius;
-                      });
-                      
-                      return (
-                        <View style={styles.statusSummary}>
-                          <Ionicons 
-                            name={lokasiDalamRadius.length > 0 ? "checkmark-circle" : "close-circle"} 
-                            size={20} 
-                            color={lokasiDalamRadius.length > 0 ? "#4CAF50" : "#F44336"} 
-                          />
-                          <Text style={styles.statusSummaryText}>
-                            {lokasiDalamRadius.length} dari {dinasLokasi.length} lokasi dalam radius
-                          </Text>
-                        </View>
-                      );
-                    })()}
-                    <Text style={styles.statusHint}>Tap marker di map untuk detail lokasi</Text>
-                  </>
+                      }).length > 0 ? "checkmark-circle" : "close-circle"} 
+                      size={20} 
+                      color={dinasLokasi.filter(lokasi => {
+                        const lokasiLat = parseFloat(lokasi.latitude);
+                        const lokasiLng = parseFloat(lokasi.longitude);
+                        const jarak = location ? getDistance(
+                          location.latitude,
+                          location.longitude,
+                          lokasiLat,
+                          lokasiLng
+                        ) : 999999;
+                        return jarak <= lokasi.radius;
+                      }).length > 0 ? "#4CAF50" : "#F44336"} 
+                    />
+                    <Text style={styles.statusSummaryText}>
+                      {dinasLokasi.filter(lokasi => {
+                        const lokasiLat = parseFloat(lokasi.latitude);
+                        const lokasiLng = parseFloat(lokasi.longitude);
+                        const jarak = location ? getDistance(
+                          location.latitude,
+                          location.longitude,
+                          lokasiLat,
+                          lokasiLng
+                        ) : 999999;
+                        return jarak <= lokasi.radius;
+                      }).length} dari {dinasLokasi.length} lokasi dalam radius
+                    </Text>
+                  </View>
                 ) : (
                   <View style={styles.statusSummary}>
                     <Ionicons 
@@ -1157,11 +1179,12 @@ const styles = StyleSheet.create({
   },
   handleContainer: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
     justifyContent: 'center',
     cursor: 'grab',
+    width: '100%',
   },
-  handle: {
+  handleBar: {
     width: 40,
     height: 4,
     backgroundColor: '#DDD',
@@ -1232,6 +1255,76 @@ const styles = StyleSheet.create({
   },
   statusCompact: {
     marginBottom: 12,
+  },
+  locationCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F0F3F3',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  locationCardHeader: {
+    marginBottom: 12,
+  },
+  locationStatusSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  locationStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  locationHint: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locationItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  locationIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationInfo: {
+    flex: 1,
+  },
+  locationDistance: {
+    fontSize: 12,
+    color: '#666',
+  },
+  locationStatus: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   statusSummary: {
     flexDirection: 'row',

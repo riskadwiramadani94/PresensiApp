@@ -32,7 +32,7 @@ const LocationDetectController = {
 
       const pool = await getConnection();
       const query = `
-        SELECT id, nama_lokasi, alamat, lintang, bujur, radius 
+        SELECT id_lokasi_kantor as id, nama_lokasi, alamat, lintang, bujur, radius 
         FROM lokasi_kantor 
         WHERE is_active = 1 AND jenis_lokasi = 'tetap'
       `;

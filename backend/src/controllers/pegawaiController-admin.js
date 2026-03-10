@@ -182,7 +182,7 @@ const getDetailPegawai = async (req, res) => {
         DATE_FORMAT(p.tanggal_masuk, '%Y-%m-%d') as tanggal_masuk,
         CASE 
           WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
-          THEN CONCAT('/uploads/pegawai/', p.foto_profil)
+          THEN p.foto_profil
           ELSE NULL
         END as foto_profil,
         p.status_pegawai,
@@ -211,7 +211,7 @@ const getDetailPegawai = async (req, res) => {
           DATE_FORMAT(p.tanggal_masuk, '%Y-%m-%d') as tanggal_masuk,
           CASE 
             WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
-            THEN CONCAT('/uploads/pegawai/', p.foto_profil)
+            THEN p.foto_profil
             ELSE NULL
           END as foto_profil,
           p.status_pegawai,

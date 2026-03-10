@@ -108,14 +108,14 @@ const getDetailKegiatan = async (req, res) => {
     // Get lokasi dinas
     const [lokasi] = await db.execute(
       `SELECT 
-        l.id,
+        l.id_lokasi_kantor as id,
         l.nama_lokasi,
         l.alamat,
         l.lintang as latitude,
         l.bujur as longitude,
         l.radius
       FROM lokasi_kantor l
-      INNER JOIN dinas_lokasi dl ON l.id = dl.id_lokasi
+      INNER JOIN dinas_lokasi dl ON l.id_lokasi_kantor = dl.id_lokasi_kantor
       WHERE dl.id_dinas = ?`,
       [id]
     );

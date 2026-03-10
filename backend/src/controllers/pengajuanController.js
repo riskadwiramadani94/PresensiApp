@@ -97,25 +97,13 @@ const submitPengajuan = async (req, res) => {
 
     const db = await getConnection();
 
-    // Ambil id_pegawai dari tabel pegawai
-    const [pegawaiResult] = await db.execute(
-      'SELECT id_pegawai FROM pegawai WHERE id_user = ?',
-      [user_id]
-    );
-
-    if (pegawaiResult.length === 0) {
-      return res.json({ success: false, message: 'Data pegawai tidak ditemukan' });
-    }
-
-    const id_pegawai = pegawaiResult[0].id_pegawai;
-
     const [result] = await db.execute(`
       INSERT INTO pengajuan (
-        id_user, id_pegawai, jenis_pengajuan, tanggal_mulai, tanggal_selesai, 
+        id_user, jenis_pengajuan, tanggal_mulai, tanggal_selesai, 
         jam_mulai, jam_selesai, alasan_text, dokumen_foto, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'menunggu')
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'menunggu')
     `, [
-      user_id, id_pegawai, jenis_pengajuan, tanggal_mulai, tanggal_selesai || null,
+      user_id, jenis_pengajuan, tanggal_mulai, tanggal_selesai || null,
       jam_mulai || null, jam_selesai || null, alasan_text, dokumen_foto || null
     ]);
 

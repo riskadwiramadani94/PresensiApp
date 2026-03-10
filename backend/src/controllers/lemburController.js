@@ -160,7 +160,7 @@ exports.getAbsenLemburAktif = async (req, res) => {
         lk.radius
       FROM absen_lembur al
       JOIN pengajuan p ON al.id_pengajuan = p.id_pengajuan
-      JOIN lokasi_kantor lk ON al.lokasi_id = lk.id
+      JOIN lokasi_kantor lk ON al.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE al.id_user = ?
         AND al.status = 'masuk'
       ORDER BY al.tanggal DESC, al.jam_masuk DESC
@@ -203,7 +203,7 @@ exports.getRiwayatLembur = async (req, res) => {
         lk.radius
       FROM absen_lembur al
       JOIN pengajuan p ON al.id_pengajuan = p.id_pengajuan
-      JOIN lokasi_kantor lk ON al.lokasi_id = lk.id
+      JOIN lokasi_kantor lk ON al.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE al.id_user = ?
         AND al.status = 'selesai'
       ORDER BY al.tanggal DESC, al.jam_pulang DESC
