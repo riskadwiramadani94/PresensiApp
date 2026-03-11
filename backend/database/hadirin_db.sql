@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 10, 2026 at 05:10 AM
+-- Generation Time: Mar 11, 2026 at 03:52 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -45,7 +45,7 @@ CREATE TABLE `absen_lembur` (
   `status` enum('masuk','selesai') DEFAULT 'masuk',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `face_confidence` decimal(5,2) DEFAULT NULL COMMENT 'Tingkat kemiripan wajah (0-100)'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ;
 
 -- --------------------------------------------------------
 
@@ -72,7 +72,7 @@ CREATE TABLE `dinas` (
   `status` enum('aktif','selesai','dibatalkan') DEFAULT 'aktif',
   `created_by` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ;
 
 -- --------------------------------------------------------
 
@@ -133,7 +133,7 @@ CREATE TABLE `hari_libur` (
   `nama_libur` varchar(255) NOT NULL,
   `jenis` enum('nasional','keagamaan','perusahaan') DEFAULT 'nasional',
   `is_active` tinyint(1) DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ;
 
 -- --------------------------------------------------------
 
@@ -166,7 +166,7 @@ CREATE TABLE `jam_kerja_history` (
   `tanggal_mulai_berlaku` date NOT NULL,
   `tanggal_selesai_berlaku` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ;
 
 -- --------------------------------------------------------
 
@@ -238,7 +238,7 @@ CREATE TABLE `pegawai` (
   `status_pegawai` enum('Aktif','Tidak Aktif') DEFAULT 'Aktif',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ;
 
 -- --------------------------------------------------------
 
@@ -262,7 +262,7 @@ CREATE TABLE `pengajuan` (
   `tanggal_pengajuan` timestamp NOT NULL DEFAULT current_timestamp(),
   `waktu_persetujuan` timestamp NULL DEFAULT NULL,
   `catatan_persetujuan` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ;
 
 -- --------------------------------------------------------
 
@@ -313,7 +313,7 @@ CREATE TABLE `presensi` (
   `waktu_validasi_pulang` timestamp NULL DEFAULT NULL,
   `catatan_validasi_masuk` text DEFAULT NULL,
   `catatan_validasi_pulang` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ;
 
 -- --------------------------------------------------------
 

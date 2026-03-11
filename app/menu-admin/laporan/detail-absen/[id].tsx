@@ -1,3 +1,5 @@
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, ScrollView, Animated, PanResponder, Dimensions, Platform, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -96,7 +98,7 @@ export default function DetailAbsenPegawai() {
     closeExportModal();
     
     try {
-      toast.showToast(`Sedang mengunduh laporan ${format.toUpperCase()}...`, 'loading');
+      toast.showToast(`Sedang menyiapkan laporan ${format.toUpperCase()}...`, 'loading');
       
       // Build export parameters
       let params: any = {
@@ -113,10 +115,24 @@ export default function DetailAbsenPegawai() {
 
       const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_PEGAWAI)}?${new URLSearchParams(params).toString()}`;
       
-      // Simulasi download tanpa buka browser
-      setTimeout(() => {
-        toast.showToast(`Laporan pegawai ${format.toUpperCase()} berhasil diunduh!`, 'success');
-      }, 2000);
+      console.log('Export URL:', url);
+      
+      // Buka URL langsung untuk trigger download browser
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+        
+        // Generate filename untuk notifikasi
+        const fileExtension = format === 'excel' ? 'xlsx' : 'pdf';
+        const fileName = `Laporan_Pegawai_${pegawai.nama.replace(/\s+/g, '_')}_${filter}.${fileExtension}`;
+        
+        // Tampilkan notifikasi download
+        setTimeout(() => {
+          toast.showToast(`📥 ${fileName} berhasil diunduh`, 'success');
+        }, 1000);
+      } else {
+        toast.showToast('Tidak dapat membuka URL download', 'error');
+      }
       
     } catch (error: any) {
       console.error('Export pegawai error:', error);

@@ -173,7 +173,7 @@ export default function DetailIzinScreen() {
             {data.foto_profil ? (
               <Image source={{ uri: data.foto_profil }} style={styles.avatarImage} />
             ) : (
-              <Text style={styles.avatarText}>{data.nama_lengkap.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{data.nama_lengkap?.charAt(0).toUpperCase() || 'U'}</Text>
             )}
           </View>
           <View style={styles.profileInfo}>

@@ -542,8 +542,8 @@ export default function EditPegawai() {
 
         </ScrollView>
       
-        {/* Button Footer - Fixed di bawah seperti header */}
-        <View style={[styles.buttonFooter, { marginBottom: keyboardHeight }]}>
+        {/* Button Container - Fixed di bawah seperti Tambah Pegawai */}
+        <View style={[styles.buttonContainer, { marginBottom: keyboardHeight }]}>
         <TouchableOpacity 
           style={styles.saveButton}
           onPress={handleSave}
@@ -761,10 +761,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8
   },
-  buttonFooter: {
-    backgroundColor: '#fff',
+  buttonContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+    backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },

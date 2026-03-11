@@ -124,7 +124,12 @@ export default function DetailDinasScreen() {
         {/* ========================================
              SKELETON LOADING STATE - DETAIL DINAS
         ======================================== */}
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+          overScrollMode="never"
+        >
           {/* Skeleton Header */}
           <View style={styles.premiumHeader}>
             <View style={styles.headerTopRow}>
@@ -381,9 +386,6 @@ export default function DetailDinasScreen() {
                 <Text style={styles.jabatanTextModern}>{p.jabatan}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.personnelAction}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#00695C" />
-            </TouchableOpacity>
           </View>
         ))}
       </ScrollView>

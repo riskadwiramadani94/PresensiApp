@@ -1,7 +1,7 @@
 // Konfigurasi API untuk HadirinApp - Node.js Backend
 
 const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
-const BASE_URL = __DEV__ ? 'http://10.251.102.253:3000' : 'http://10.251.102.253:3000';
+const BASE_URL = __DEV__ ? 'http://10.251.102.191:3000' : 'http://10.251.102.191:3000';
 
 const debugLog = (message: string, data?: any) => {
   if (isDevelopment) {
@@ -416,6 +416,18 @@ export const KelolaDinasAPI = {
     try {
       const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.DELETE_DINAS)}/${id}`, {
         method: 'DELETE',
+      });
+      return response.json();
+    } catch (error) {
+      return { success: false, message: 'Tidak dapat terhubung ke server' };
+    }
+  },
+  
+  cancelDinas: async (id: number) => {
+    try {
+      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.DELETE_DINAS)}/${id}/cancel`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
       });
       return response.json();
     } catch (error) {

@@ -32,6 +32,7 @@ interface DinasAktif {
   radius: number;
   tanggal_mulai: string;
   tanggal_selesai: string;
+  status?: string;
   pegawai: Array<{
     nama: string;
     status: "hadir" | "terlambat" | "belum_absen";
@@ -51,7 +52,7 @@ export default function KelolaDinasScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDinas, setSelectedDinas] = useState<DinasAktif | null>(null);
   const [showActionModal, setShowActionModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const translateY = useRef(new Animated.Value(300)).current;
   const filterTranslateY = useRef(new Animated.Value(300)).current;
@@ -226,7 +227,14 @@ export default function KelolaDinasScreen() {
     }
   };
 
-  const getDinasStatus = (tanggalMulai: string, tanggalSelesai: string) => {
+  const getDinasStatus = (tanggalMulai: string, tanggalSelesai: string, statusDb?: string) => {
+    if (statusDb === 'dibatalkan') {
+      return { status: "Dibatalkan", color: "#F44336" };
+    }
+    if (statusDb === 'selesai') {
+      return { status: "Selesai", color: "#2196F3" };
+    }
+
     const today = new Date();
     const mulai = new Date(tanggalMulai);
     const selesai = new Date(tanggalSelesai);
@@ -271,6 +279,8 @@ export default function KelolaDinasScreen() {
             return status === "Selesai";
           case "belum_dimulai":
             return status === "Belum Dimulai";
+          case "dibatalkan":
+            return status === "Dibatalkan";
           default:
             return true;
         }
@@ -285,21 +295,21 @@ export default function KelolaDinasScreen() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentData = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
-  const deleteDinas = async (id: number, nama: string) => {
-    setShowDeleteModal(false);
+  const cancelDinas = async (id: number) => {
+    setShowCancelModal(false);
     try {
-      const result = await KelolaDinasAPI.deleteDinas(id);
+      const result = await KelolaDinasAPI.cancelDinas(id);
       if (result.success) {
         alert.showAlert({ 
           type: 'success', 
-          message: 'Data dinas berhasil dihapus',
+          message: 'Dinas berhasil dibatalkan',
           onConfirm: () => fetchDinasAktif()
         });
       } else {
-        alert.showAlert({ type: 'error', message: result.message || 'Gagal menghapus data dinas' });
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal membatalkan dinas' });
       }
     } catch (error) {
-      console.error("Delete error:", error);
+      console.error("Cancel error:", error);
       alert.showAlert({ type: 'error', message: 'Tidak dapat terhubung ke server' });
     }
   };
@@ -310,8 +320,10 @@ export default function KelolaDinasScreen() {
     const dinasStatusInfo = getDinasStatus(
       item.tanggal_mulai,
       item.tanggal_selesai,
+      item.status
     );
     const isBelumDimulai = dinasStatusInfo.status === "Belum Dimulai";
+    const isDibatalkan = dinasStatusInfo.status === "Dibatalkan";
 
     // Cek apakah dinas berlangsung dan masih dalam 1 jam pertama
     const canEditBerlangsung = () => {
@@ -327,7 +339,7 @@ export default function KelolaDinasScreen() {
       return hoursDiff <= 1; // Batas 1 jam
     };
 
-    const showActionButton = isBelumDimulai || canEditBerlangsung();
+    const showActionButton = (isBelumDimulai || canEditBerlangsung()) && !isDibatalkan;
 
     return (
       <TouchableOpacity
@@ -636,6 +648,7 @@ export default function KelolaDinasScreen() {
                   { value: "berlangsung", label: "Sedang Berlangsung", icon: "play-circle" },
                   { value: "selesai", label: "Selesai", icon: "checkmark-circle" },
                   { value: "belum_dimulai", label: "Belum Dimulai", icon: "time" },
+                  { value: "dibatalkan", label: "Dibatalkan", icon: "close-circle" },
                 ].map((option, index, array) => (
                   <TouchableOpacity
                     key={option.value}
@@ -726,14 +739,14 @@ export default function KelolaDinasScreen() {
                     style={styles.bottomSheetItem}
                     onPress={() => {
                       closeModal();
-                      setTimeout(() => setShowDeleteModal(true), 300);
+                      setTimeout(() => setShowCancelModal(true), 300);
                     }}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#F44336" />
+                    <Ionicons name="close-circle-outline" size={20} color="#F44336" />
                     <Text
                       style={[styles.bottomSheetItemText, { color: "#F44336" }]}
                     >
-                      Hapus
+                      Batalkan
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -743,42 +756,39 @@ export default function KelolaDinasScreen() {
         </View>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Cancel Confirmation Modal */}
       <Modal
-        visible={showDeleteModal}
+        visible={showCancelModal}
         transparent={true}
         animationType="fade"
         statusBarTranslucent={true}
-        onRequestClose={() => setShowDeleteModal(false)}
+        onRequestClose={() => setShowCancelModal(false)}
       >
         <View style={styles.deleteModalOverlay}>
           <View style={styles.deleteModalContainer}>
             <View style={styles.deleteIconContainer}>
-              <Ionicons name="trash-outline" size={48} color="#fff" />
+              <Ionicons name="close-circle-outline" size={48} color="#fff" />
             </View>
 
             <Text style={styles.deleteModalMessage}>
-              Hapus data dinas?
+              Batalkan dinas ini?
             </Text>
 
             <View style={styles.deleteModalButtons}>
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => setShowDeleteModal(false)}
+                onPress={() => setShowCancelModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Batal</Text>
+                <Text style={styles.cancelButtonText}>Tidak</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => {
-                  deleteDinas(
-                    selectedDinas?.id || 0,
-                    selectedDinas?.namaKegiatan || "",
-                  );
+                  cancelDinas(selectedDinas?.id || 0);
                 }}
               >
-                <Text style={styles.deleteButtonText}>Hapus</Text>
+                <Text style={styles.deleteButtonText}>Ya, Batalkan</Text>
               </TouchableOpacity>
             </View>
           </View>

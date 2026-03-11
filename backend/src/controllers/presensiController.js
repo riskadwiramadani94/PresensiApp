@@ -275,7 +275,11 @@ const getPresensi = async (req, res) => {
           DATE_FORMAT(p.tanggal, '%Y-%m-%d') as tanggal,
           TIME_FORMAT(p.jam_masuk, '%H:%i:%s') as jam_masuk,
           TIME_FORMAT(p.jam_pulang, '%H:%i:%s') as jam_keluar,
-          p.status,
+          CASE 
+            WHEN p.status_validasi = 'menunggu' THEN 'Tidak Hadir'
+            WHEN p.status_validasi = 'ditolak' THEN 'Tidak Hadir'
+            ELSE p.status
+          END as status,
           d.nama_kegiatan as keterangan,
           'dinas' as jenis_presensi,
           p.status_validasi
@@ -319,17 +323,35 @@ const getPresensi = async (req, res) => {
         console.log(`📅 Using dinas date ${dateStr} directly`);
         if (!presensiMap.has(dateStr) || 
             (row.jam_masuk && !presensiMap.get(dateStr).jam_masuk)) {
+          // Jika status_validasi masih menunggu atau ditolak, sembunyikan jam
+          let finalStatus = row.status;
+          let finalJamMasuk = row.jam_masuk;
+          let finalJamKeluar = row.jam_keluar;
+          let finalKeterangan = row.keterangan;
+          
+          if (row.status_validasi === 'menunggu') {
+            finalStatus = 'Tidak Hadir';
+            finalJamMasuk = null;
+            finalJamKeluar = null;
+            finalKeterangan = row.keterangan + ' - Menunggu validasi';
+          } else if (row.status_validasi === 'ditolak') {
+            finalStatus = 'Tidak Hadir';
+            finalJamMasuk = null;
+            finalJamKeluar = null;
+            finalKeterangan = row.keterangan + ' - Ditolak';
+          }
+          
           presensiMap.set(dateStr, {
             tanggal: dateStr,
-            jam_masuk: row.jam_masuk,
-            jam_keluar: row.jam_keluar,
-            status: row.status,
-            keterangan: row.keterangan,
+            jam_masuk: finalJamMasuk,
+            jam_keluar: finalJamKeluar,
+            status: finalStatus,
+            keterangan: finalKeterangan,
             jenis_presensi: row.jenis_presensi,
             status_validasi: row.status_validasi,
             kegiatan_dinas: row.keterangan
           });
-          console.log(`✅ Added dinas to presensiMap: ${dateStr} - ${row.status}`);
+          console.log(`✅ Added dinas to presensiMap: ${dateStr} - ${finalStatus} (validasi: ${row.status_validasi}, jam: ${finalJamMasuk ? 'visible' : 'hidden'})`);
         }
       });
       
@@ -422,14 +444,31 @@ const getPresensi = async (req, res) => {
           // Add Dinas- prefix if on dinas
           let finalStatus = presensiData.status;
           let finalKeterangan = presensiData.keterangan;
+          let finalJamMasuk = presensiData.jam_masuk;
+          let finalJamKeluar = presensiData.jam_keluar;
           
           if (isDinas) {
-            finalStatus = `Dinas-${presensiData.status}`;
-            finalKeterangan = `${dinasRows[0].nama_kegiatan} - ${finalKeterangan}`;
+            // Jika status_validasi masih menunggu atau ditolak, sembunyikan jam
+            if (presensiData.status_validasi === 'menunggu') {
+              finalStatus = 'Dinas-Tidak Hadir';
+              finalJamMasuk = null;
+              finalJamKeluar = null;
+              finalKeterangan = `${dinasRows[0].nama_kegiatan} - Menunggu validasi`;
+            } else if (presensiData.status_validasi === 'ditolak') {
+              finalStatus = 'Dinas-Tidak Hadir';
+              finalJamMasuk = null;
+              finalJamKeluar = null;
+              finalKeterangan = `${dinasRows[0].nama_kegiatan} - Ditolak`;
+            } else {
+              finalStatus = `Dinas-${presensiData.status}`;
+              finalKeterangan = `${dinasRows[0].nama_kegiatan} - ${finalKeterangan}`;
+            }
           }
           
           formattedData.push({
             ...presensiData,
+            jam_masuk: finalJamMasuk,
+            jam_keluar: finalJamKeluar,
             status: finalStatus,
             keterangan: finalKeterangan
           });
@@ -1006,7 +1045,11 @@ const getRiwayatGabungan = async (req, res) => {
         p.tanggal,
         p.jam_masuk,
         p.jam_pulang as jam_keluar,
-        p.status,
+        CASE 
+          WHEN p.status_validasi = 'menunggu' THEN 'Tidak Hadir'
+          WHEN p.status_validasi = 'ditolak' THEN 'Tidak Hadir'
+          ELSE p.status
+        END as status,
         'dinas' as jenis_presensi,
         p.status_validasi,
         lk.nama_lokasi as lokasi,

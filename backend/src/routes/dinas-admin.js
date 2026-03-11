@@ -5,7 +5,8 @@ const {
   getDinasAktifAdmin, 
   createDinasAdmin,
   updateDinas,
-  deleteDinas, 
+  deleteDinas,
+  cancelDinas,
   getRiwayatDinasAdmin, 
   getValidasiAbsenAdmin,
   getDinasStats,
@@ -19,6 +20,7 @@ router.get('/dinas-aktif', getDinasAktifAdmin);
 router.post('/create-dinas', uploadSPT, createDinasAdmin);
 router.put('/update-dinas/:id', uploadSPT, updateDinas);
 router.delete('/delete-dinas/:id', deleteDinas);
+router.put('/delete-dinas/:id/cancel', cancelDinas);
 router.get('/riwayat-dinas', getRiwayatDinasAdmin);
 router.get('/validasi-absen', getValidasiAbsenAdmin);
 router.get('/stats', getDinasStats);

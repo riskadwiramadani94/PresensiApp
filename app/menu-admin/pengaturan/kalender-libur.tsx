@@ -59,7 +59,10 @@ export default function KalenderLiburScreen() {
     namaLibur: "",
     jenis: "nasional",
   });
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [showYearPicker, setShowYearPicker] = useState(false);
   const translateY = useRef(new Animated.Value(500)).current;
+  const yearPickerTranslateY = useRef(new Animated.Value(500)).current;
 
   /* ========================================
      MODAL HANDLERS
@@ -314,6 +317,63 @@ export default function KalenderLiburScreen() {
     setCurrentMonth(newMonth);
   };
 
+  // Generate array tahun dari tahun sekarang sampai 5 tahun ke depan
+  const getYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = 0; i <= 5; i++) {
+      years.push(currentYear + i);
+    }
+    return years;
+  };
+
+  // Filter hari libur berdasarkan tahun yang dipilih
+  const getFilteredHariLibur = () => {
+    return hariLibur.filter((item) => {
+      const itemYear = new Date(item.tanggal).getFullYear();
+      return itemYear === selectedYear;
+    });
+  };
+
+  const openYearPicker = () => {
+    setShowYearPicker(true);
+    Animated.timing(yearPickerTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeYearPicker = () => {
+    Animated.timing(yearPickerTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowYearPicker(false);
+    });
+  };
+
+  const yearPickerPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        yearPickerTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeYearPicker();
+      } else {
+        Animated.spring(yearPickerTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
   /* ========================================
      RENDER
   ======================================== */
@@ -446,9 +506,18 @@ export default function KalenderLiburScreen() {
             </View>
 
             <View style={styles.listCard}>
-              <Text style={styles.listTitle}>Daftar Hari Libur</Text>
-              {hariLibur.length > 0 ? (
-                hariLibur.map((item, index) => (
+              <View style={styles.listHeader}>
+                <Text style={styles.listTitle}>Daftar Hari Libur</Text>
+                <TouchableOpacity 
+                  style={styles.yearFilterButton}
+                  onPress={openYearPicker}
+                >
+                  <Text style={styles.yearFilterText}>{selectedYear}</Text>
+                  <Ionicons name="chevron-down" size={16} color="#004643" />
+                </TouchableOpacity>
+              </View>
+              {getFilteredHariLibur().length > 0 ? (
+                getFilteredHariLibur().map((item, index) => (
                   <View key={`holiday-${item.id || index}`} style={styles.listItem}>
                     <View style={styles.listItemLeft}>
                       <Ionicons name="calendar" size={16} color="#004643" />
@@ -481,7 +550,7 @@ export default function KalenderLiburScreen() {
                 ))
               ) : (
                 <Text style={styles.emptyText}>
-                  Belum ada hari libur yang ditambahkan
+                  Belum ada hari libur untuk tahun {selectedYear}
                 </Text>
               )}
             </View>
@@ -683,6 +752,62 @@ export default function KalenderLiburScreen() {
         cancelText={alert.config.cancelText}
         autoClose={alert.config.type === 'success'}
       />
+
+      {/* Year Picker Modal */}
+      <Modal
+        visible={showYearPicker}
+        transparent
+        animationType="none"
+        statusBarTranslucent={true}
+        onRequestClose={closeYearPicker}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={closeYearPicker}
+          />
+          <Animated.View
+            style={[styles.bottomSheetModal, { transform: [{ translateY: yearPickerTranslateY }] }]}
+          >
+            <View {...yearPickerPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetContent}>
+              <Text style={styles.modalTitle}>Pilih Tahun</Text>
+              
+              <View style={styles.yearList}>
+                {getYearOptions().map((year) => (
+                  <TouchableOpacity
+                    key={year}
+                    style={[
+                      styles.yearOption,
+                      selectedYear === year && styles.yearOptionActive
+                    ]}
+                    onPress={() => {
+                      setSelectedYear(year);
+                      closeYearPicker();
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.yearOptionText,
+                        selectedYear === year && styles.yearOptionTextActive
+                      ]}
+                    >
+                      {year}
+                    </Text>
+                    {selectedYear === year && (
+                      <Ionicons name="checkmark-circle" size={24} color="#004643" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -857,7 +982,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
+  },
+  yearFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F0EF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#004643',
+  },
+  yearFilterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#004643',
   },
   listItem: {
     flexDirection: "row",
@@ -1274,5 +1420,34 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+  },
+
+  // Year Picker Styles
+  yearList: {
+    gap: 8,
+  },
+  yearOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  yearOptionActive: {
+    backgroundColor: '#E6F0EF',
+    borderColor: '#004643',
+  },
+  yearOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  yearOptionTextActive: {
+    color: '#004643',
+    fontWeight: '700',
   },
 });

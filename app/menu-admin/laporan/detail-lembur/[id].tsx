@@ -704,26 +704,32 @@ export default function DetailLemburPegawaiScreen() {
       <AppHeader title="Detail Lembur Pegawai" showBack={true} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Premium Header Section */}
+        {/* Premium Header Section - Ringkasan Lembur */}
         <View style={styles.premiumHeader}>
-          <View style={styles.headerContent}>
-            <Text style={styles.pegawaiTitle} numberOfLines={2}>{pegawai.nama_lengkap}</Text>
-            <View style={styles.nipContainer}>
-              <Ionicons name="card-outline" size={14} color="#B2DFDB" />
-              <Text style={styles.nipText}>NIP: {pegawai.nip}</Text>
-            </View>
-            {pegawai.jabatan && (
-              <View style={styles.jabatanContainer}>
-                <Ionicons name="briefcase-outline" size={14} color="#B2DFDB" />
-                <Text style={styles.jabatanText}>{pegawai.jabatan}</Text>
+          <View style={styles.headerTopRow}>
+            <View style={styles.titleWrapper}>
+              <Text style={styles.lemburTitle}>Laporan Lembur</Text>
+              <View style={styles.periodContainerInline}>
+                <Ionicons name="calendar-outline" size={14} color="#B2DFDB" />
+                <Text style={styles.periodTextInline}>{periodInfo}</Text>
               </View>
-            )}
+            </View>
+            <View style={styles.lemburIconContainer}>
+              <Ionicons name="moon" size={28} color="#FFF" />
+            </View>
           </View>
           
-          {/* Periode Info dalam Header */}
-          <View style={styles.periodContainerHeader}>
-            <Ionicons name="calendar-outline" size={16} color="#B2DFDB" />
-            <Text style={styles.periodTextHeader}>{periodInfo}</Text>
+          {/* Ringkasan Info */}
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Ionicons name="document-text-outline" size={16} color="#B2DFDB" />
+              <Text style={styles.summaryText}>{summary.total_pengajuan} Pengajuan</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Ionicons name="time-outline" size={16} color="#B2DFDB" />
+              <Text style={styles.summaryText}>Total {Math.round(summary.total_jam)} Jam</Text>
+            </View>
           </View>
         </View>
 
@@ -806,28 +812,57 @@ const styles = StyleSheet.create({
       android: { elevation: 8 },
     }),
   },
-  headerContent: { alignItems: 'flex-start' },
-  pegawaiTitle: { fontSize: 22, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, lineHeight: 28, marginBottom: 8 },
-  nipContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  nipText: { fontSize: 13, color: '#B2DFDB', fontWeight: '500', marginLeft: 6 },
-  jabatanContainer: { flexDirection: 'row', alignItems: 'center' },
-  jabatanText: { fontSize: 13, color: '#B2DFDB', fontWeight: '500', marginLeft: 6 },
+  headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 },
+  titleWrapper: { flex: 1, marginRight: 15 },
+  lemburTitle: { fontSize: 22, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, lineHeight: 28, marginBottom: 8 },
   
-  periodContainerHeader: {
+  periodContainerInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 15,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
+    marginTop: 4,
   },
-  periodTextHeader: {
+  periodTextInline: {
     fontSize: 14,
     color: '#B2DFDB',
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 6,
+  },
+  
+  lemburIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  summaryText: {
+    fontSize: 13,
+    color: '#FFF',
+    fontWeight: '600',
+  },
+  summaryDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    marginHorizontal: 12,
   },
   
   listContainer: {

@@ -63,6 +63,45 @@ export default function PengajuanScreen() {
     }
   };
 
+  // Fungsi untuk cek apakah pegawai sedang dinas
+  const checkDinasStatus = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const url = `http://10.251.102.191:3000/pegawai/presensi/api/check-dinas-status?user_id=${userId}&date=${today}`;
+      
+      console.log('Checking dinas status:', url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('Check dinas status response:', data);
+      return data.is_dinas || false;
+    } catch (error) {
+      console.error('Error checking dinas status:', error);
+      return false;
+    }
+  };
+
+  // Handler untuk memilih jenis pengajuan dengan validasi dinas
+  const handleSelectJenisPengajuan = async (value: string) => {
+    // Jika pilih lembur, cek apakah sedang dinas
+    if (value === 'lembur') {
+      const isDinas = await checkDinasStatus();
+      if (isDinas) {
+        closeBottomSheet();
+        showAlert({
+          type: 'info',
+          title: 'Tidak Dapat Mengajukan Lembur',
+          message: 'Anda sedang dalam periode dinas. Pegawai yang sedang dinas tidak dapat mengajukan lembur. Silakan ajukan lembur setelah periode dinas selesai.'
+        });
+        return;
+      }
+    }
+    
+    setJenisPengajuan(value);
+    closeBottomSheet();
+  };
+
   const selectedJenis = jenisPengajuanOptions.find(j => j.value === jenisPengajuan);
 
   const handleSubmit = () => {
@@ -102,10 +141,15 @@ export default function PengajuanScreen() {
           type: 'success',
           title: 'Sukses',
           message: 'Pengajuan berhasil dikirim',
-          onConfirm: () => router.replace('/menu-pegawai/pengajuan')
+          onConfirm: () => router.back()
         });
       } else {
-        showAlert({ type: 'error', title: 'Error', message: response.message || 'Gagal mengirim pengajuan' });
+        // Gunakan tipe 'info' untuk pesan validasi, bukan 'error'
+        showAlert({ 
+          type: 'info', 
+          title: 'Informasi', 
+          message: response.message || 'Gagal mengirim pengajuan' 
+        });
       }
     } catch (error) {
       showAlert({ type: 'error', title: 'Error', message: 'Terjadi kesalahan saat mengirim pengajuan' });
@@ -555,10 +599,7 @@ export default function PengajuanScreen() {
                     styles.bottomSheetItem,
                     jenisPengajuan === option.value && styles.bottomSheetItemActive
                   ]}
-                  onPress={() => {
-                    setJenisPengajuan(option.value);
-                    closeBottomSheet();
-                  }}
+                  onPress={() => handleSelectJenisPengajuan(option.value)}
                 >
                   <View style={styles.bottomSheetItemLeft}>
                     <View style={[

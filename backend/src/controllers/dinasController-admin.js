@@ -45,15 +45,20 @@ const getDinasAktifAdmin = async (req, res) => {
     if (status) {
       switch (status) {
         case 'berlangsung':
-          whereClause = `WHERE DATE(d.tanggal_mulai) <= '${today}' AND DATE(d.tanggal_selesai) >= '${today}'`;
+          whereClause = `WHERE d.status = 'aktif' AND DATE(d.tanggal_mulai) <= '${today}' AND DATE(d.tanggal_selesai) >= '${today}'`;
           break;
         case 'selesai':
-          whereClause = `WHERE DATE(d.tanggal_selesai) < '${today}'`;
+          whereClause = `WHERE d.status = 'selesai' OR (d.status = 'aktif' AND DATE(d.tanggal_selesai) < '${today}')`;
           break;
         case 'belum_dimulai':
-          whereClause = `WHERE DATE(d.tanggal_mulai) > '${today}'`;
+          whereClause = `WHERE d.status = 'aktif' AND DATE(d.tanggal_mulai) > '${today}'`;
+          break;
+        case 'dibatalkan':
+          whereClause = `WHERE d.status = 'dibatalkan'`;
           break;
       }
+    } else {
+      whereClause = `WHERE d.status != 'dibatalkan'`;
     }
 
     const [rows] = await db.execute(`
@@ -162,6 +167,16 @@ const getDinasAktifAdmin = async (req, res) => {
         };
       });
 
+      // Format tanggal ke YYYY-MM-DD tanpa timezone
+      const formatDate = (date) => {
+        if (!date) return null;
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
       dinas_list.push({
         id: row.id_dinas,
         namaKegiatan: row.nama_kegiatan,
@@ -185,13 +200,14 @@ const getDinasAktifAdmin = async (req, res) => {
         radius: row.radius_absen,
         koordinat_lat: parseFloat(row.lintang),
         koordinat_lng: parseFloat(row.bujur),
-        tanggal_mulai: row.tanggal_mulai,
-        tanggal_selesai: row.tanggal_selesai,
+        tanggal_mulai: formatDate(row.tanggal_mulai),
+        tanggal_selesai: formatDate(row.tanggal_selesai),
         deskripsi: row.deskripsi,
         dokumen_spt: row.dokumen_spt,
         created_at: row.created_at,
         created_by: row.created_by,
-        pegawai: pegawai
+        pegawai: pegawai,
+        status: row.status
       });
     }
 
@@ -658,6 +674,50 @@ const deleteDinas = async (req, res) => {
   }
 };
 
+const cancelDinas = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID dinas wajib diisi'
+      });
+    }
+
+    const db = await getConnection();
+
+    const [dinasRows] = await db.execute(
+      'SELECT * FROM dinas WHERE id_dinas = ?',
+      [id]
+    );
+
+    if (dinasRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Data dinas tidak ditemukan'
+      });
+    }
+
+    await db.execute(
+      'UPDATE dinas SET status = "dibatalkan" WHERE id_dinas = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Dinas berhasil dibatalkan'
+    });
+
+  } catch (error) {
+    console.error('Cancel dinas error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Gagal membatalkan dinas'
+    });
+  }
+};
+
 const updateDinas = async (req, res) => {
   let connection;
   try {
@@ -851,7 +911,8 @@ module.exports = {
   getDinasAktifAdmin, 
   createDinasAdmin,
   updateDinas,
-  deleteDinas, 
+  deleteDinas,
+  cancelDinas,
   getRiwayatDinasAdmin, 
   getValidasiAbsenAdmin,
   getDinasStats,

@@ -121,7 +121,12 @@ export default function DetailPegawai() {
         {/* ========================================
              SKELETON LOADING STATE - DETAIL PEGAWAI
         ======================================== */}
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+          overScrollMode="never"
+        >
           {/* Skeleton Header */}
           <LinearGradient colors={["#004643", "#065f46"]} style={styles.profileHeader}>
             <View style={styles.profileContent}>
@@ -238,6 +243,8 @@ export default function DetailPegawai() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        bounces={false}
+        overScrollMode="never"
       >
         {/* PROFILE HEADER SECTION */}
         <LinearGradient

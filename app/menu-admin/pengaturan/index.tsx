@@ -70,7 +70,7 @@ export default function PengaturanScreen() {
               <View style={styles.separator} />
               
               <TouchableOpacity
-                style={styles.menuItem}
+                style={[styles.menuItem, { marginTop: 12 }]}
                 onPress={() => router.push("/menu-admin/pengaturan/jam-kerja" as any)}
               >
                 <View style={styles.menuLeft}>
@@ -127,23 +127,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 30,
+    paddingBottom: 20,
   },
   section: {
     marginTop: 0,
   },
   elegantCard: {
     backgroundColor: '#FFF',
-    marginBottom: 16,
-    borderRadius: 20,
-    padding: 20,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 3,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10 },
   separator: { height: 1, backgroundColor: '#F0F3F3', marginBottom: 0 },
   menuItem: {

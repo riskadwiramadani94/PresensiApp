@@ -97,6 +97,114 @@ const submitPengajuan = async (req, res) => {
 
     const db = await getConnection();
 
+    // VALIDASI 1: Cek apakah pegawai sedang dinas jika mengajukan lembur
+    if (jenis_pengajuan === 'lembur') {
+      const [dinasRows] = await db.execute(`
+        SELECT d.id_dinas, d.nama_kegiatan, d.tanggal_mulai, d.tanggal_selesai
+        FROM dinas_pegawai dp
+        JOIN dinas d ON dp.id_dinas = d.id_dinas
+        WHERE dp.id_user = ?
+          AND d.status = 'aktif'
+          AND dp.status_konfirmasi = 'konfirmasi'
+          AND (
+            (? BETWEEN d.tanggal_mulai AND d.tanggal_selesai)
+            OR (? BETWEEN d.tanggal_mulai AND d.tanggal_selesai)
+            OR (d.tanggal_mulai BETWEEN ? AND ?)
+          )
+        LIMIT 1
+      `, [user_id, tanggal_mulai, tanggal_selesai || tanggal_mulai, tanggal_mulai, tanggal_selesai || tanggal_mulai]);
+
+      if (dinasRows.length > 0) {
+        const dinas = dinasRows[0];
+        return res.json({ 
+          success: false, 
+          message: `Tidak dapat mengajukan lembur karena Anda sedang dinas "${dinas.nama_kegiatan}" pada periode tersebut. Pegawai yang sedang dinas tidak dapat mengajukan lembur.`
+        });
+      }
+
+      // VALIDASI 2: Cek jam lembur harus di luar jam kerja untuk SETIAP HARI
+      if (jam_mulai) {
+        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const startDate = new Date(tanggal_mulai);
+        const endDate = tanggal_selesai ? new Date(tanggal_selesai) : new Date(tanggal_mulai);
+        const conflictDays = [];
+
+        // Loop setiap hari dalam periode lembur
+        let currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          const dayName = dayNames[currentDate.getDay()];
+
+          // Cek apakah hari libur
+          const [hariLiburRows] = await db.execute(
+            'SELECT id_hari_libur FROM hari_libur WHERE tanggal = ? AND is_active = 1',
+            [dateStr]
+          );
+          const isHoliday = hariLiburRows.length > 0;
+
+          if (!isHoliday) {
+            // Cek jam kerja dari jam_kerja_history (prioritas)
+            const [jamKerjaHistoryRows] = await db.execute(`
+              SELECT jam_pulang, is_kerja 
+              FROM jam_kerja_history 
+              WHERE hari = ? 
+              AND ? BETWEEN tanggal_mulai_berlaku AND IFNULL(tanggal_selesai_berlaku, '9999-12-31')
+              ORDER BY tanggal_mulai_berlaku DESC
+              LIMIT 1
+            `, [dayName, dateStr]);
+
+            let jamPulang = null;
+            let isKerja = false;
+
+            if (jamKerjaHistoryRows.length > 0) {
+              // Ada data di jam_kerja_history
+              jamPulang = jamKerjaHistoryRows[0].jam_pulang;
+              isKerja = jamKerjaHistoryRows[0].is_kerja === 1;
+            } else {
+              // Fallback ke jam_kerja_hari
+              const [jamKerjaHariRows] = await db.execute(
+                'SELECT jam_pulang, is_kerja FROM jam_kerja_hari WHERE hari = ?',
+                [dayName]
+              );
+              if (jamKerjaHariRows.length > 0) {
+                jamPulang = jamKerjaHariRows[0].jam_pulang;
+                isKerja = jamKerjaHariRows[0].is_kerja === 1;
+              }
+            }
+
+            // Jika hari kerja, validasi jam lembur harus setelah jam pulang
+            if (isKerja && jamPulang) {
+              // Bandingkan jam_mulai lembur dengan jam_pulang
+              if (jam_mulai <= jamPulang) {
+                conflictDays.push({
+                  tanggal: dateStr,
+                  hari: dayName,
+                  jam_pulang: jamPulang
+                });
+              }
+            }
+          }
+
+          // Next day
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // Jika ada konflik, tolak pengajuan
+        if (conflictDays.length > 0) {
+          const conflictDetails = conflictDays.map(day => {
+            const date = new Date(day.tanggal);
+            const dateFormatted = `${date.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'][date.getMonth()]} ${date.getFullYear()}`;
+            return `- ${day.hari}, ${dateFormatted} (jam pulang: ${day.jam_pulang})`;
+          }).join('\n');
+
+          return res.json({
+            success: false,
+            message: `Tidak dapat mengajukan lembur karena jam mulai lembur (${jam_mulai}) masih dalam jam kerja pada:\n${conflictDetails}\n\nLembur hanya dapat diajukan di luar jam kerja. Silakan sesuaikan jam lembur Anda.`
+          });
+        }
+      }
+    }
+
     const [result] = await db.execute(`
       INSERT INTO pengajuan (
         id_user, jenis_pengajuan, tanggal_mulai, tanggal_selesai, 

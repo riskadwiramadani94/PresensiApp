@@ -116,6 +116,7 @@ export default function DetailKegiatanScreen() {
           showsVerticalScrollIndicator={false} 
           contentContainerStyle={styles.scrollContent}
           bounces={false}
+          overScrollMode="never"
         >
           {/* Skeleton Premium Header */}
           <View style={styles.premiumHeader}>
@@ -228,6 +229,7 @@ export default function DetailKegiatanScreen() {
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
         bounces={false}
+        overScrollMode="never"
       >
         {/* Premium Header Section */}
         <View style={styles.premiumHeader}>

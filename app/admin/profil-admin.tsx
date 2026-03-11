@@ -250,7 +250,12 @@ export default function ProfilAdminScreen() {
         {/* ========================================
              SKELETON LOADING STATE - PROFIL ADMIN
         ======================================== */}
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+          overScrollMode="never"
+        >
           {/* Skeleton Header */}
           <LinearGradient colors={["#004643", "#065f46"]} style={styles.profileHeader}>
             <View style={styles.profileContent}>
@@ -440,7 +445,7 @@ export default function ProfilAdminScreen() {
             
             <View style={styles.separator} />
             
-            <View style={styles.infoRowModern}>
+            <View style={[styles.infoRowModern, { marginTop: 12 }]}>
               <View style={styles.infoIconBox}>
                 <Ionicons name="mail-outline" size={16} color="#00695C" />
               </View>
@@ -625,11 +630,11 @@ const styles = StyleSheet.create({
   
   // Header Section
   profileHeader: {
-    paddingTop: 20,
-    paddingBottom: 30,
-    paddingHorizontal: 25,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: 15,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
   },
   profileContent: {
     flexDirection: "row",
@@ -663,7 +668,7 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   profileTextInfo: {
-    marginLeft: 20,
+    marginLeft: 16,
     flex: 1,
   },
   mainName: {
@@ -774,24 +779,24 @@ const styles = StyleSheet.create({
   },
   
   // Info Section
-  infoSection: { marginTop: -20, paddingHorizontal: 16 },
+  infoSection: { marginTop: -15, paddingHorizontal: 16 },
   elegantCard: {
     backgroundColor: '#FFF',
-    marginBottom: 16,
-    borderRadius: 20,
-    padding: 20,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 3,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginLeft: 10, flex: 1 },
   separator: { height: 1, backgroundColor: '#F0F3F3', marginBottom: 0 },
   
   // Modern Info Rows
-  infoRowModern: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
+  infoRowModern: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   infoIconBox: { 
     width: 34, height: 34, backgroundColor: '#F0F7F7',
     borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 15, marginTop: 2 

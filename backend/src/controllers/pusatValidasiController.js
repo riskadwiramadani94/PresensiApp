@@ -12,7 +12,16 @@ const pusatValidasiController = {
           pr.id_dinas as id_dinas,
           pr.id_user,
           pr.tanggal as tanggal_absen,
-          pr.jam_masuk,
+          CASE 
+            WHEN pr.status_validasi = 'menunggu' THEN NULL
+            WHEN pr.status_validasi = 'ditolak' THEN NULL
+            ELSE pr.jam_masuk
+          END as jam_masuk,
+          CASE 
+            WHEN pr.status_validasi = 'menunggu' THEN NULL
+            WHEN pr.status_validasi = 'ditolak' THEN NULL
+            ELSE pr.jam_pulang
+          END as jam_pulang,
           pr.lintang_masuk as latitude_masuk,
           pr.bujur_masuk as longitude_masuk,
           CASE 
@@ -66,7 +75,16 @@ const pusatValidasiController = {
           pr.id_dinas as id_dinas,
           pr.id_user,
           pr.tanggal as tanggal_absen,
-          pr.jam_masuk,
+          CASE 
+            WHEN pr.status_validasi = 'menunggu' THEN NULL
+            WHEN pr.status_validasi = 'ditolak' THEN NULL
+            ELSE pr.jam_masuk
+          END as jam_masuk,
+          CASE 
+            WHEN pr.status_validasi = 'menunggu' THEN NULL
+            WHEN pr.status_validasi = 'ditolak' THEN NULL
+            ELSE pr.jam_pulang
+          END as jam_pulang,
           pr.lintang_masuk as latitude_masuk,
           pr.bujur_masuk as longitude_masuk,
           CASE 

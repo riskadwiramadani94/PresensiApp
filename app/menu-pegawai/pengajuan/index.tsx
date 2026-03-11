@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Modal, Animated, PanResponder, Platform, TextInput, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader, CustomAlert } from '../../../components';
 import { PegawaiAPI, API_CONFIG, getApiUrl } from '../../../constants/config';
@@ -73,6 +73,15 @@ export default function PengajuanScreen() {
       fetchPengajuan();
     }
   }, [userId]);
+
+  // Auto refresh saat halaman difokuskan
+  useFocusEffect(
+    React.useCallback(() => {
+      if (userId) {
+        fetchPengajuan();
+      }
+    }, [userId])
+  );
 
   useEffect(() => {
     filterPengajuan();

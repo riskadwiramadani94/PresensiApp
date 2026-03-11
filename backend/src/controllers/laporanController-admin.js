@@ -270,20 +270,25 @@ const getLaporan = async (req, res) => {
       `);
       const totalAbsen = totalAbsenRows[0].total;
 
-      // Hitung total dinas
+      // Hitung total dinas (dari jumlah dinas, bukan pegawai)
       const [totalDinasRows] = await db.execute(`
-        SELECT COUNT(DISTINCT dp.id_dinas_pegawai) as total 
-        FROM dinas_pegawai dp
-        INNER JOIN dinas d ON dp.id_dinas = d.id_dinas
-        WHERE dp.status_konfirmasi = 'konfirmasi'
+        SELECT COUNT(DISTINCT d.id_dinas) as total 
+        FROM dinas d
+        WHERE d.status IN ('aktif', 'selesai')
       `);
       const totalDinas = totalDinasRows[0].total;
 
-      // Hitung total izin/cuti yang disetujui
+      // Hitung total izin/cuti yang disetujui (semua jenis kecuali lembur)
       const [totalIzinRows] = await db.execute(`
         SELECT COUNT(*) as total 
         FROM pengajuan 
-        WHERE jenis_pengajuan IN ('izin_pribadi', 'cuti_sakit', 'cuti_tahunan') 
+        WHERE jenis_pengajuan IN (
+          'izin_datang_terlambat',
+          'izin_pulang_cepat', 
+          'cuti_sakit', 
+          'cuti_alasan_penting',
+          'cuti_tahunan'
+        )
         AND status = 'disetujui'
       `);
       const totalIzin = totalIzinRows[0].total;
@@ -356,6 +361,7 @@ const getLaporan = async (req, res) => {
         const gabunganQuery = `
           SELECT 
             CASE 
+              WHEN jenis_presensi = 'dinas' AND status_validasi IN ('menunggu', 'ditolak') THEN 'Tidak Hadir'
               WHEN status IN ('Hadir', 'hadir') THEN 'Hadir'
               WHEN status IN ('Terlambat', 'terlambat') THEN 'Terlambat' 
               WHEN status IN ('Tidak Hadir', 'tidak_hadir') THEN 'Tidak Hadir'
@@ -418,7 +424,11 @@ const getLaporan = async (req, res) => {
           p.foto_profil,
           dp.status_konfirmasi,
           COUNT(DISTINCT pr.id_presensi) as total_absen,
-          SUM(CASE WHEN pr.jam_masuk IS NOT NULL AND pr.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap,
+          SUM(CASE 
+            WHEN pr.jam_masuk IS NOT NULL AND pr.jam_pulang IS NOT NULL AND pr.status_validasi = 'disetujui' 
+            THEN 1 
+            ELSE 0 
+          END) as absen_lengkap,
           GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas
         FROM dinas d
         INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
@@ -471,49 +481,112 @@ const getLaporan = async (req, res) => {
       });
 
     } else if (type === 'izin') {
-      // Get all izin/cuti data with search functionality
-      let query = `
-        SELECT 
-          peng.id_pengajuan as id,
-          p.nama_lengkap,
-          p.nip,
-          p.jabatan,
-          p.foto_profil,
-          peng.jenis_pengajuan,
-          peng.tanggal_mulai,
-          peng.tanggal_selesai,
-          peng.alasan_text,
-          peng.status
-        FROM pengajuan peng
-        INNER JOIN pegawai p ON peng.id_user = p.id_user
-        WHERE peng.jenis_pengajuan IN ('izin_pribadi', 'cuti_sakit', 'cuti_tahunan')
-      `;
+      const { filter_date, start_date, end_date, month, year, search } = req.query;
       
-      const params = [];
+      console.log('=== IZIN/CUTI DEBUG ===');
+      console.log('Filter params:', { filter_date, start_date, end_date, month, year, search });
       
-      // Add search filter if provided
-      if (req.query.search) {
-        query += ` AND (p.nama_lengkap LIKE ? OR p.nip LIKE ? OR peng.alasan_text LIKE ?)`;
-        const searchTerm = `%${req.query.search}%`;
-        params.push(searchTerm, searchTerm, searchTerm);
+      // Build date filter
+      let dateFilter = '';
+      let dateParams = [];
+      
+      if (filter_date === 'mingguan' && start_date && end_date) {
+        dateFilter = 'AND DATE(peng.tanggal_mulai) BETWEEN ? AND ?';
+        dateParams = [start_date, end_date];
+      } else if (filter_date === 'bulanan' && month && year) {
+        dateFilter = 'AND MONTH(peng.tanggal_mulai) = ? AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [month, year];
+      } else if (filter_date === 'tahunan' && year) {
+        dateFilter = 'AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [year];
       }
       
-      query += ` ORDER BY peng.tanggal_mulai DESC`;
+      console.log('Date filter:', dateFilter);
+      console.log('Date params:', dateParams);
       
-      const [results] = await db.execute(query, params);
+      // Get all pegawai with izin/cuti summary
+      const [pegawaiResults] = await db.execute(`
+        SELECT 
+          p.id_pegawai,
+          p.nama_lengkap,
+          p.nip,
+          CASE 
+            WHEN p.foto_profil IS NOT NULL AND p.foto_profil != '' 
+            THEN CONCAT('/uploads/pegawai/', p.foto_profil)
+            ELSE NULL
+          END as foto_profil,
+          p.id_user
+        FROM pegawai p
+        LEFT JOIN users u ON p.id_user = u.id_user
+        WHERE u.role = 'pegawai' AND p.id_user IS NOT NULL
+        ORDER BY p.nama_lengkap
+      `);
       
-      const data = results.map(row => ({
-        id: parseInt(row.id),
-        nama_lengkap: row.nama_lengkap,
-        nip: row.nip,
-        jabatan: row.jabatan,
-        foto_profil: row.foto_profil,
-        jenis_pengajuan: row.jenis_pengajuan,
-        tanggal_mulai: row.tanggal_mulai,
-        tanggal_selesai: row.tanggal_selesai,
-        alasan_text: row.alasan_text,
-        status: row.status
-      }));
+      console.log('Total pegawai:', pegawaiResults.length);
+
+      const data = [];
+      
+      for (const pegawai of pegawaiResults) {
+        // Get izin/cuti summary with date filter
+        const summaryQuery = `
+          SELECT 
+            COUNT(*) as total_pengajuan,
+            SUM(CASE WHEN peng.status = 'disetujui' THEN 1 ELSE 0 END) as disetujui,
+            SUM(CASE WHEN peng.status = 'menunggu' THEN 1 ELSE 0 END) as pending,
+            SUM(CASE WHEN peng.status = 'ditolak' THEN 1 ELSE 0 END) as ditolak,
+            SUM(
+              CASE 
+                WHEN peng.status = 'disetujui' 
+                AND peng.tanggal_selesai IS NOT NULL
+                THEN DATEDIFF(peng.tanggal_selesai, peng.tanggal_mulai) + 1
+                WHEN peng.status = 'disetujui'
+                THEN 1
+                ELSE 0
+              END
+            ) as total_hari
+          FROM pengajuan peng
+          WHERE peng.id_user = ? 
+          AND peng.jenis_pengajuan IN (
+            'izin_datang_terlambat', 
+            'izin_pulang_cepat', 
+            'cuti_sakit', 
+            'cuti_alasan_penting', 
+            'cuti_tahunan'
+          )
+          ${dateFilter}
+        `;
+        
+        const [summaryRows] = await db.execute(summaryQuery, [pegawai.id_user, ...dateParams]);
+        const summary = summaryRows[0];
+        
+        // Only include pegawai with izin/cuti data
+        if (parseInt(summary.total_pengajuan) > 0) {
+          console.log(`Pegawai ${pegawai.nama_lengkap} punya ${summary.total_pengajuan} pengajuan`);
+          
+          // Apply search filter if provided
+          if (search && !pegawai.nama_lengkap.toLowerCase().includes(search.toLowerCase()) && 
+              !pegawai.nip.includes(search)) {
+            continue;
+          }
+          
+          data.push({
+            id_pegawai: parseInt(pegawai.id_pegawai),
+            nama_lengkap: pegawai.nama_lengkap,
+            nip: pegawai.nip,
+            foto_profil: pegawai.foto_profil,
+            summary: {
+              total_pengajuan: parseInt(summary.total_pengajuan || 0),
+              disetujui: parseInt(summary.disetujui || 0),
+              pending: parseInt(summary.pending || 0),
+              ditolak: parseInt(summary.ditolak || 0),
+              total_hari: parseInt(summary.total_hari || 0)
+            }
+          });
+        }
+      }
+      
+      console.log('Total data izin/cuti yang dikembalikan:', data.length);
+      console.log('======================');
       
       res.json({
         success: true,
@@ -702,7 +775,17 @@ const getDetailAbsenPegawai = async (req, res) => {
       
       // Check existing presensi
       const [presensiRows] = await db.execute(`
-        SELECT tanggal, jam_masuk, jam_pulang, status, alasan_luar_lokasi as keterangan
+        SELECT 
+          tanggal, 
+          jam_masuk, 
+          jam_pulang, 
+          CASE 
+            WHEN jenis_presensi = 'dinas' AND status_validasi IN ('menunggu', 'ditolak') THEN 'Tidak Hadir'
+            ELSE status
+          END as status,
+          alasan_luar_lokasi as keterangan,
+          jenis_presensi,
+          status_validasi
         FROM presensi 
         WHERE id_user = ? AND tanggal = ? AND jam_masuk IS NOT NULL
       `, [user_id, dateStr]);
@@ -764,17 +847,32 @@ const getDetailAbsenPegawai = async (req, res) => {
         // Ada presensi - tambah prefix "Dinas-" jika sedang dinas
         let finalStatus = presensi.status;
         let finalKeterangan = presensi.keterangan || 'Absen normal';
+        let finalJamMasuk = presensi.jam_masuk;
+        let finalJamKeluar = presensi.jam_pulang;
         
         if (isDinas) {
-          finalStatus = `Dinas-${presensi.status}`;
-          finalKeterangan = `${dinasRows[0].nama_kegiatan} - ${finalKeterangan}`;
+          // Jika status_validasi masih menunggu atau ditolak, sembunyikan jam
+          if (presensi.status_validasi === 'menunggu') {
+            finalStatus = 'Dinas-Tidak Hadir';
+            finalJamMasuk = null;
+            finalJamKeluar = null;
+            finalKeterangan = `${dinasRows[0].nama_kegiatan} - Menunggu validasi`;
+          } else if (presensi.status_validasi === 'ditolak') {
+            finalStatus = 'Dinas-Tidak Hadir';
+            finalJamMasuk = null;
+            finalJamKeluar = null;
+            finalKeterangan = `${dinasRows[0].nama_kegiatan} - Ditolak`;
+          } else {
+            finalStatus = `Dinas-${presensi.status}`;
+            finalKeterangan = `${dinasRows[0].nama_kegiatan} - ${finalKeterangan}`;
+          }
         }
         
         absenData.push({
           tanggal: presensi.tanggal,
           status: finalStatus,
-          jam_masuk: presensi.jam_masuk,
-          jam_keluar: presensi.jam_pulang,
+          jam_masuk: finalJamMasuk,
+          jam_keluar: finalJamKeluar,
           keterangan: finalKeterangan
         });
       } else {
@@ -932,6 +1030,57 @@ const getDetailLaporan = async (req, res) => {
       return;
     }
     
+    // Detail izin/cuti per pegawai
+    if (type === 'izin' && id_pegawai) {
+      // Build date filter
+      let dateFilter = '';
+      let dateParams = [];
+      
+      if (start_date && end_date) {
+        dateFilter = 'AND DATE(peng.tanggal_mulai) BETWEEN ? AND ?';
+        dateParams = [start_date, end_date];
+      } else if (month && year) {
+        dateFilter = 'AND MONTH(peng.tanggal_mulai) = ? AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [month, year];
+      } else if (year) {
+        dateFilter = 'AND YEAR(peng.tanggal_mulai) = ?';
+        dateParams = [year];
+      }
+      
+      const [rows] = await db.execute(`
+        SELECT 
+          peng.id_pengajuan,
+          peng.tanggal_mulai,
+          peng.tanggal_selesai,
+          peng.jenis_pengajuan,
+          peng.status as status_pengajuan,
+          peng.jam_mulai,
+          peng.jam_selesai,
+          peng.alasan_text as keterangan,
+          peng.dokumen_foto,
+          DATEDIFF(peng.tanggal_selesai, peng.tanggal_mulai) + 1 as jumlah_hari,
+          peng.status as status_final
+        FROM pengajuan peng
+        INNER JOIN pegawai p ON peng.id_user = p.id_user
+        WHERE p.id_pegawai = ?
+        AND peng.jenis_pengajuan IN (
+          'izin_datang_terlambat', 
+          'izin_pulang_cepat', 
+          'cuti_sakit', 
+          'cuti_alasan_penting', 
+          'cuti_tahunan'
+        )
+        ${dateFilter}
+        ORDER BY peng.tanggal_mulai DESC
+      `, [id_pegawai, ...dateParams]);
+      
+      res.json({
+        success: true,
+        data: rows
+      });
+      return;
+    }
+    
     // Detail lembur per tanggal
     if (type === 'lembur' && date && (user_id || id_pegawai)) {
       // Jika ada id_pegawai, convert ke user_id dulu
@@ -1024,7 +1173,11 @@ const getDetailLaporan = async (req, res) => {
           dp.tanggal_konfirmasi,
           GROUP_CONCAT(DISTINCT lk.nama_lokasi SEPARATOR ', ') as lokasi_dinas,
           COUNT(DISTINCT pr.id_presensi) as total_absen,
-          SUM(CASE WHEN pr.jam_masuk IS NOT NULL AND pr.jam_pulang IS NOT NULL THEN 1 ELSE 0 END) as absen_lengkap
+          SUM(CASE 
+            WHEN pr.jam_masuk IS NOT NULL AND pr.jam_pulang IS NOT NULL AND pr.status_validasi = 'disetujui' 
+            THEN 1 
+            ELSE 0 
+          END) as absen_lengkap
         FROM dinas d
         INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
         INNER JOIN pegawai p ON dp.id_user = p.id_user
@@ -1078,8 +1231,12 @@ const getDetailAbsen = async (req, res) => {
         p.bujur_masuk as long_masuk,
         p.lintang_pulang as lat_pulang,
         p.bujur_pulang as long_pulang,
-        p.status,
+        CASE 
+          WHEN p.jenis_presensi = 'dinas' AND p.status_validasi IN ('menunggu', 'ditolak') THEN 'Tidak Hadir'
+          ELSE p.status
+        END as status,
         p.jenis_presensi,
+        p.status_validasi,
         lk.nama_lokasi as lokasi_masuk,
         CASE 
           WHEN p.jam_pulang IS NOT NULL THEN lk.nama_lokasi
@@ -1218,11 +1375,15 @@ const exportLaporan = async (req, res) => {
         pg.nama_lengkap,
         pg.nip,
         p.tanggal,
-        p.status,
+        CASE 
+          WHEN p.jenis_presensi = 'dinas' AND p.status_validasi IN ('menunggu', 'ditolak') THEN 'Tidak Hadir'
+          ELSE p.status
+        END as status,
         p.jam_masuk,
         p.jam_pulang as jam_keluar,
         p.alasan_luar_lokasi as keterangan,
-        p.jenis_presensi
+        p.jenis_presensi,
+        p.status_validasi
       FROM presensi p
       JOIN pegawai pg ON p.id_user = pg.id_user
       WHERE 1=1 ${dateCondition}
@@ -1288,11 +1449,15 @@ const exportPegawai = async (req, res) => {
     const query = `
       SELECT 
         p.tanggal,
-        p.status,
+        CASE 
+          WHEN p.jenis_presensi = 'dinas' AND p.status_validasi IN ('menunggu', 'ditolak') THEN 'Tidak Hadir'
+          ELSE p.status
+        END as status,
         p.jam_masuk,
         p.jam_pulang as jam_keluar,
         p.alasan_luar_lokasi as keterangan,
-        p.jenis_presensi
+        p.jenis_presensi,
+        p.status_validasi
       FROM presensi p
       JOIN pegawai pg ON p.id_user = pg.id_user
       WHERE pg.id_pegawai = ? ${dateCondition}

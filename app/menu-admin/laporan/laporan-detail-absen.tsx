@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    
+    Alert,
     Animated,
     FlatList,
     Image,
@@ -142,7 +142,7 @@ export default function LaporanDetailAbsenScreen() {
     closeExportModal();
     
     try {
-      toast.showToast(`Sedang mengunduh laporan ${format.toUpperCase()}...`, 'loading');
+      toast.showToast(`Sedang menyiapkan laporan ${format.toUpperCase()}...`, 'loading');
       
       // Build export parameters
       let params: any = {
@@ -170,10 +170,24 @@ export default function LaporanDetailAbsenScreen() {
 
       const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_LAPORAN)}?${new URLSearchParams(params).toString()}`;
       
-      // Simulasi download tanpa buka browser
-      setTimeout(() => {
-        toast.showToast(`Laporan ${format.toUpperCase()} berhasil diunduh!`, 'success');
-      }, 2000);
+      console.log('Export URL:', url);
+      
+      // Buka URL langsung untuk trigger download browser
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+        
+        // Generate filename untuk notifikasi
+        const fileExtension = format === 'excel' ? 'xlsx' : 'pdf';
+        const fileName = `Laporan_Absen_${jenisLaporan}_${selectedPeriode.replace(/\s+/g, '_')}.${fileExtension}`;
+        
+        // Tampilkan notifikasi download
+        setTimeout(() => {
+          toast.showToast(`📥 ${fileName} berhasil diunduh`, 'success');
+        }, 1000);
+      } else {
+        toast.showToast('Tidak dapat membuka URL download', 'error');
+      }
       
     } catch (error: any) {
       console.error('Export error:', error);
