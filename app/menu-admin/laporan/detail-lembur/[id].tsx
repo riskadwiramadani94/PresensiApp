@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, FlatList, Modal, Animated, PanResponder, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, FlatList, Modal, Animated, PanResponder, Dimensions, Image, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AppHeader, CustomAlert } from '../../../../components';
 import { useCustomAlert } from '../../../../hooks/useCustomAlert';
 import { API_CONFIG, getApiUrl } from '../../../../constants/config';
+import Toast from '../../../../components/Toast';
+import { useToast } from '../../../../hooks/useToast';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -57,6 +59,7 @@ interface PegawaiData {
  */
 export default function DetailLemburPegawaiScreen() {
   const alert = useCustomAlert();
+  const toast = useToast();
   const router = useRouter();
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
@@ -64,8 +67,10 @@ export default function DetailLemburPegawaiScreen() {
   const [lemburData, setLemburData] = useState<LemburDetail[]>([]);
   const [periodInfo, setPeriodInfo] = useState('');
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [detailLembur, setDetailLembur] = useState<any>(null);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const exportTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [summary, setSummary] = useState({
     total_pengajuan: 0,
     disetujui: 0,
@@ -74,6 +79,77 @@ export default function DetailLemburPegawaiScreen() {
     total_jam: 0,
     total_hari: 0,
     total_hadir: 0
+  });
+
+  const handleExportLembur = async () => {
+    setShowExportModal(true);
+    Animated.timing(exportTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeExportModal = () => {
+    Animated.timing(exportTranslateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowExportModal(false);
+    });
+  };
+
+  const handleExportFormat = async (format: 'excel' | 'pdf') => {
+    closeExportModal();
+    
+    try {
+      toast.showToast(`Sedang menyiapkan laporan lembur ${format.toUpperCase()}...`, 'loading');
+      
+      let params: any = {
+        type: 'export_pegawai',
+        pegawai_id: params.id,
+        filter_date: params.filter,
+        format: format
+      };
+
+      if (params.start_date) params.start_date = params.start_date;
+      if (params.end_date) params.end_date = params.end_date;
+      if (params.month) params.month = params.month;
+      if (params.year) params.year = params.year;
+
+      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_PEGAWAI)}?${new URLSearchParams(params).toString()}`;
+      
+      await Linking.openURL(url);
+      
+      setTimeout(() => {
+        toast.showToast(`Laporan lembur ${format.toUpperCase()} berhasil diunduh!`, 'success');
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Export lembur error:', error);
+      toast.showToast('Gagal mengunduh laporan lembur', 'error');
+    }
+  };
+
+  const exportPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        exportTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeExportModal();
+      } else {
+        Animated.spring(exportTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
   });
 
   useEffect(() => {
@@ -252,15 +328,13 @@ export default function DetailLemburPegawaiScreen() {
         
         <View style={styles.contentSection}>
           <View style={styles.statusRow}>
-            <Text style={styles.dayFull}>{dateInfo.day}</Text>
+            <Text style={styles.keteranganText} numberOfLines={2}>
+              {item.keterangan || 'Tidak ada keterangan'}
+            </Text>
             <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>
               {statusInfo.label}
             </Text>
           </View>
-          
-          <Text style={styles.keteranganText} numberOfLines={2}>
-            {item.keterangan || 'Tidak ada keterangan'}
-          </Text>
 
           <View style={styles.timeInfo}>
             {item.jam_rencana_mulai && (
@@ -701,7 +775,12 @@ export default function DetailLemburPegawaiScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
-      <AppHeader title="Detail Lembur Pegawai" showBack={true} />
+      <AppHeader 
+        title="Detail Lembur Pegawai" 
+        showBack={true}
+        rightIcon="download-outline"
+        onRightPress={handleExportLembur}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Premium Header Section - Ringkasan Lembur */}
@@ -790,6 +869,63 @@ export default function DetailLemburPegawaiScreen() {
 
       {/* Detail Modal */}
       {renderDetailModal()}
+
+      {/* Modal Export Format */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeExportModal}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeExportModal} />
+          <Animated.View style={[styles.bottomSheetExport, { transform: [{ translateY: exportTranslateY }] }]}>
+            <View {...exportPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Format Export</Text>
+            </View>
+            
+            <View style={styles.bottomSheetContent}>
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('excel')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export Excel (.xlsx)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('pdf')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-text-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export PDF (.pdf)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      <Toast
+        visible={toast.visible}
+        message={toast.config.message}
+        type={toast.config.type}
+        onHide={toast.hideToast}
+      />
     </View>
   );
 }
@@ -931,7 +1067,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
     minWidth: 70,
   },
   dayText: {
@@ -1134,5 +1269,51 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 8,
     fontWeight: '500',
+  },
+  
+  // Export Modal Styles
+  bottomSheetExport: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '40%',
+  },
+  bottomSheetHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  bottomSheetTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
+  bottomSheetContent: { maxHeight: 400 },
+  bottomSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  bottomSheetItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bottomSheetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E6F0EF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bottomSheetItemText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+    flex: 1,
   },
 });
