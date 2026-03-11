@@ -7,6 +7,7 @@ import {
   Animated,
   FlatList,
   Image,
+  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -92,12 +93,71 @@ export default function LaporanDetailDinasScreen() {
   const [showJenisModal, setShowJenisModal] = useState(false);
   const [showPeriodeModal, setShowPeriodeModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const jenisTranslateY = useRef(new Animated.Value(500)).current;
   const periodeTranslateY = useRef(new Animated.Value(500)).current;
   const calendarTranslateY = useRef(new Animated.Value(500)).current;
+  const exportTranslateY = useRef(new Animated.Value(500)).current;
   const [datePickerMode, setDatePickerMode] = useState<
     "single" | "start" | "end"
   >("single");
+
+  const handleExportAll = async () => {
+    setShowExportModal(true);
+    Animated.timing(exportTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeExportModal = () => {
+    Animated.timing(exportTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowExportModal(false);
+    });
+  };
+
+  const handleExportFormat = async (format: 'excel' | 'pdf') => {
+    closeExportModal();
+    
+    try {
+      toast.showToast(`Sedang menyiapkan laporan dinas ${format.toUpperCase()}...`, 'loading');
+      
+      let params: any = {
+        type: 'dinas',
+        filter_date: jenisLaporan,
+        format: format
+      };
+
+      if (jenisLaporan === "bulanan") {
+        const months = [
+          "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+          "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+        ];
+        const [monthName, yearStr] = selectedPeriode.split(" ");
+        params.month = String(months.indexOf(monthName) + 1).padStart(2, "0");
+        params.year = yearStr;
+      } else if (jenisLaporan === "tahunan") {
+        params.year = selectedPeriode;
+      }
+
+      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_LAPORAN)}?${new URLSearchParams(params).toString()}`;
+      
+      await Linking.openURL(url);
+      
+      setTimeout(() => {
+        toast.showToast(`Laporan dinas ${format.toUpperCase()} berhasil diunduh!`, 'success');
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Export dinas error:', error);
+      toast.showToast('Gagal mengunduh laporan dinas', 'error');
+    }
+  };
 
   const jenisLaporanOptions = [
     { value: "bulanan", label: "Laporan Bulanan", icon: "calendar-number" },
@@ -195,6 +255,26 @@ export default function LaporanDetailDinasScreen() {
         closeCalendarModal();
       } else {
         Animated.spring(calendarTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
+  const exportPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        exportTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeExportModal();
+      } else {
+        Animated.spring(exportTranslateY, {
           toValue: 0,
           useNativeDriver: true,
         }).start();
@@ -571,6 +651,8 @@ export default function LaporanDetailDinasScreen() {
         title="Laporan Dinas"
         showBack={true}
         fallbackRoute="/laporan/laporan-admin"
+        rightIcon="download-outline"
+        onRightPress={handleExportAll}
       />
 
       {loading ? (
@@ -974,6 +1056,68 @@ export default function LaporanDetailDinasScreen() {
         confirmText={alert.config.confirmText}
         cancelText={alert.config.cancelText}
       />
+
+      {/* Modal Export Format */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeExportModal}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity
+            style={styles.bottomSheetBackdrop}
+            activeOpacity={1}
+            onPress={closeExportModal}
+          />
+          <Animated.View
+            style={[
+              styles.bottomSheet,
+              { transform: [{ translateY: exportTranslateY }] },
+            ]}
+          >
+            <View
+              {...exportPanResponder.panHandlers}
+              style={styles.handleContainer}
+            >
+              <View style={styles.handleBar} />
+            </View>
+
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Format Export</Text>
+            </View>
+
+            <View style={styles.bottomSheetContent}>
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('excel')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export Excel (.xlsx)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('pdf')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-text-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export PDF (.pdf)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
 
       <Toast
         visible={toast.visible}

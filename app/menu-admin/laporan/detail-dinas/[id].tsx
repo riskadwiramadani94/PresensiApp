@@ -6,7 +6,9 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Linking,
   Modal,
+  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -16,6 +18,8 @@ import {
   View,
 } from "react-native";
 import { AppHeader, CustomAlert } from "../../../../components";
+import Toast from "../../../../components/Toast";
+import { useToast } from "../../../../hooks/useToast";
 import { API_CONFIG, getApiUrl } from "../../../../constants/config";
 import { useCustomAlert } from "../../../../hooks/useCustomAlert";
 
@@ -53,17 +57,86 @@ export default function DetailLaporanDinasScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const alert = useCustomAlert();
+  const toast = useToast();
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dinasDetail, setDinasDetail] = useState<DinasDetail | null>(null);
   const [pegawaiList, setPegawaiList] = useState<PegawaiAbsen[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showExportModal, setShowExportModal] = useState(false);
+  const exportTranslateY = useRef(new Animated.Value(500)).current;
   const [stats, setStats] = useState({
     total: 0,
     hadir: 0,
     terlambat: 0,
     belumAbsen: 0,
+  });
+
+  const handleExportDinas = async () => {
+    setShowExportModal(true);
+    Animated.timing(exportTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeExportModal = () => {
+    Animated.timing(exportTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowExportModal(false);
+    });
+  };
+
+  const handleExportFormat = async (format: 'excel' | 'pdf') => {
+    closeExportModal();
+    
+    try {
+      toast.showToast(`Sedang menyiapkan laporan dinas ${format.toUpperCase()}...`, 'loading');
+      
+      const params: any = {
+        type: 'export_dinas',
+        dinas_id: id,
+        tanggal: formatDateForAPI(selectedDate),
+        format: format
+      };
+
+      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_PEGAWAI)}?${new URLSearchParams(params).toString()}`;
+      
+      await Linking.openURL(url);
+      
+      setTimeout(() => {
+        toast.showToast(`Laporan dinas ${format.toUpperCase()} berhasil diunduh!`, 'success');
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Export dinas error:', error);
+      toast.showToast('Gagal mengunduh laporan dinas', 'error');
+    }
+  };
+
+  const exportPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        exportTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeExportModal();
+      } else {
+        Animated.spring(exportTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
   });
 
   useEffect(() => {
@@ -266,7 +339,7 @@ export default function DetailLaporanDinasScreen() {
           </View>
           <View style={styles.pegawaiInfo}>
             <Text style={styles.pegawaiName}>{item.nama_lengkap}</Text>
-            <View style={styles.nipContainer}>
+            <View style={styles.pegawaiNipContainer}>
               <Ionicons name="card-outline" size={12} color="#64748B" />
               <Text style={styles.pegawaiNip}>{item.nip}</Text>
             </View>
@@ -365,7 +438,7 @@ export default function DetailLaporanDinasScreen() {
     return (
       <View style={styles.container}>
         <StatusBar style="light" translucent backgroundColor="transparent" />
-        <AppHeader title="Detail Laporan Dinas" showBack />
+        <AppHeader title="Detail Laporan Dinas" showBack rightIcon="download-outline" onRightPress={handleExportDinas} />
         <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={60} color="#ccc" />
           <Text style={styles.emptyText}>Data dinas tidak ditemukan</Text>
@@ -380,7 +453,7 @@ export default function DetailLaporanDinasScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent backgroundColor="transparent" />
-      <AppHeader title="Detail Laporan Dinas" showBack />
+      <AppHeader title="Detail Laporan Dinas" showBack rightIcon="download-outline" onRightPress={handleExportDinas} />
 
       <ScrollView 
         showsVerticalScrollIndicator={false} 
@@ -541,6 +614,63 @@ export default function DetailLaporanDinasScreen() {
         onConfirm={alert.handleConfirm}
         confirmText={alert.config.confirmText}
         cancelText={alert.config.cancelText}
+      />
+
+      {/* Modal Export Format */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeExportModal}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeExportModal} />
+          <Animated.View style={[styles.bottomSheetExport, { transform: [{ translateY: exportTranslateY }] }]}>
+            <View {...exportPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Format Export</Text>
+            </View>
+            
+            <View style={styles.bottomSheetContent}>
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('excel')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export Excel (.xlsx)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('pdf')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-text-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export PDF (.pdf)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      <Toast
+        visible={toast.visible}
+        message={toast.config.message}
+        type={toast.config.type}
+        onHide={toast.hideToast}
       />
     </View>
   );
@@ -827,7 +957,7 @@ const styles = StyleSheet.create({
     color: "#1E293B",
     marginBottom: 4,
   },
-  nipContainer: { flexDirection: "row", alignItems: "center", gap: 4 },
+  pegawaiNipContainer: { flexDirection: "row", alignItems: "center", gap: 4 },
   pegawaiNip: { fontSize: 11, color: "#64748B", fontWeight: "500" },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   statusBadge: {
@@ -933,5 +1063,67 @@ const styles = StyleSheet.create({
     height: 14,
     backgroundColor: "#F0F0F0",
     borderRadius: 4,
+  },
+  
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalBackdrop: { flex: 1 },
+  bottomSheetExport: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === "ios" ? 34 : 20,
+    maxHeight: "40%",
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#DDD",
+    borderRadius: 2,
+  },
+  bottomSheetHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  bottomSheetTitle: { fontSize: 18, fontWeight: "600", color: "#333" },
+  bottomSheetContent: { maxHeight: 400 },
+  bottomSheetItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F5F5F5",
+  },
+  bottomSheetItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  bottomSheetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E6F0EF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bottomSheetItemText: {
+    fontSize: 15,
+    color: "#333",
+    fontWeight: "500",
+    flex: 1,
   },
 });

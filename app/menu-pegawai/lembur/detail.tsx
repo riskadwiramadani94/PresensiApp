@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Modal, Image, Dimensions, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Modal, Image, Dimensions, Animated, PanResponder, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -39,6 +39,7 @@ export default function DetailLemburScreen() {
   const [distanceToLocation, setDistanceToLocation] = useState<number>(0);
 
   const [userId, setUserId] = useState<string>('');
+  const detailTranslateY = useRef(new Animated.Value(1000)).current;
   // Update lokasi dan radius setiap 10 detik
   useEffect(() => {
     const interval = setInterval(() => {
@@ -60,6 +61,26 @@ export default function DetailLemburScreen() {
   }, []);
 
   const calendarRef = useRef<ScrollView>(null);
+
+  const detailPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        detailTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeDetailModal();
+      } else {
+        Animated.spring(detailTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
 
   useEffect(() => {
     if (params.id) {
@@ -361,82 +382,109 @@ export default function DetailLemburScreen() {
     return currentTime >= startTime && currentTime <= endTime;
   };
 
-  const openCamera = async () => {
+  const takePhotoAndSubmit = async (jenis: 'masuk' | 'pulang') => {
     try {
+      console.log('=== TAKE PHOTO START ===');
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      console.log('Camera permission:', status);
+      
       if (status !== 'granted') {
         alert.showAlert({ type: 'error', message: 'Izin kamera diperlukan' });
         return;
       }
-      
+
+      console.log('Launching camera...');
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.6,
       });
-      
+
+      console.log('Camera result:', { canceled: result.canceled, hasAssets: !!result.assets });
+
       if (!result.canceled) {
-        // Langsung submit tanpa konfirmasi
-        await handleSubmitDirect(result.assets[0].uri);
+        console.log('Photo taken, submitting...');
+        await submitAbsenLembur(jenis, result.assets[0].uri);
+      } else {
+        console.log('Photo cancelled');
       }
     } catch (error) {
-      console.error('Error opening camera:', error);
-      alert.showAlert({ type: 'error', message: 'Gagal membuka kamera' });
+      console.error('Error taking photo:', error);
+      alert.showAlert({ type: 'error', message: 'Gagal mengambil foto' });
     }
   };
 
-  const handleSubmitDirect = async (photoUriParam: string) => {
-    if (!selectedAbsen || !photoUriParam || !userLocation) return;
-    
+  const submitAbsenLembur = async (jenis: 'masuk' | 'pulang', photoUri: string) => {
     setIsProcessing(true);
+    console.log('=== SUBMIT ABSEN LEMBUR ===');
+    console.log('Jenis:', jenis);
+    console.log('Photo URI:', photoUri);
     
     try {
       const formData = new FormData();
       
-      if (selectedAbsen.jenis === 'masuk') {
+      if (jenis === 'masuk') {
         formData.append('id_pengajuan', params.id.toString());
         formData.append('user_id', userId);
         formData.append('tanggal', selectedDate);
+        console.log('Absen Masuk Data:', { id_pengajuan: params.id, user_id: userId, tanggal: selectedDate });
       } else {
-        formData.append('id_absen_lembur', selectedAbsen.id_absen_lembur.toString());
+        if (!absenData?.id_absen_lembur) {
+          alert.showAlert({ type: 'error', message: 'Data absen masuk tidak ditemukan' });
+          setIsProcessing(false);
+          return;
+        }
+        formData.append('id_absen_lembur', absenData.id_absen_lembur.toString());
+        console.log('Absen Pulang Data:', { id_absen_lembur: absenData.id_absen_lembur });
       }
       
       formData.append('latitude', userLocation.latitude.toString());
       formData.append('longitude', userLocation.longitude.toString());
       
-      const filename = photoUriParam.split('/').pop();
-      const match = /\.(\\w+)$/.exec(filename || '');
+      const filename = photoUri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename || '');
       const fileType = match ? `image/${match[1]}` : 'image/jpeg';
       
       formData.append('foto', {
-        uri: photoUriParam,
-        name: filename || `lembur_${selectedAbsen.jenis}_${Date.now()}.jpg`,
+        uri: photoUri,
+        name: filename || `lembur_${jenis}_${Date.now()}.jpg`,
         type: fileType,
       } as any);
       
-      const endpoint = selectedAbsen.jenis === 'masuk' 
+      const endpoint = jenis === 'masuk' 
         ? '/pegawai/lembur/api/absen-masuk'
         : '/pegawai/lembur/api/absen-pulang';
+      
+      console.log('Submitting to:', getApiUrl(endpoint));
+      console.log('Location:', { lat: userLocation.latitude, lng: userLocation.longitude });
       
       const response = await fetch(getApiUrl(endpoint), {
         method: 'POST',
         body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
       });
       
+      console.log('Response status:', response.status);
       const result = await response.json();
+      console.log('Response data:', result);
       
       if (result.success) {
-        alert.showAlert({ type: 'success', message: result.message });
+        console.log('SUCCESS: Absen berhasil');
+        alert.showAlert({ type: 'success', message: result.message || 'Absen berhasil disimpan' });
         await fetchAbsenData();
+        await fetchDetailLembur();
       } else {
-        alert.showAlert({ type: 'error', message: result.message });
+        console.log('FAILED:', result.message);
+        alert.showAlert({ type: 'error', message: result.message || 'Gagal menyimpan absen' });
       }
     } catch (error) {
       console.error('Error submitting:', error);
       alert.showAlert({ type: 'error', message: 'Terjadi kesalahan saat mengirim data' });
     } finally {
+      console.log('=== SUBMIT END ===');
       setIsProcessing(false);
-      setSelectedAbsen(null);
     }
   };
 
@@ -528,20 +576,50 @@ export default function DetailLemburScreen() {
         return { canAbsen: false, message: `Sudah absen pulang pada ${absenData.jam_pulang}`, radiusInfo };
       }
       
+      // Validasi waktu minimal lembur untuk hari ini
+      if (selectedDate === today) {
+        const now = new Date();
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        const [endHour, endMin] = lembur.jam_selesai.split(':').map(Number);
+        const endTime = endHour * 60 + endMin;
+        
+        // Belum sampai jam selesai lembur
+        if (currentTime < endTime) {
+          const remainingMinutes = endTime - currentTime;
+          const remainingHours = Math.floor(remainingMinutes / 60);
+          const remainingMins = remainingMinutes % 60;
+          
+          let timeRemaining = '';
+          if (remainingHours > 0) {
+            timeRemaining = `${remainingHours} jam ${remainingMins} menit`;
+          } else {
+            timeRemaining = `${remainingMins} menit`;
+          }
+          
+          return { 
+            canAbsen: false, 
+            message: `Belum bisa absen pulang. Waktu lembur selesai pada ${lembur.jam_selesai} (${timeRemaining} lagi)`, 
+            radiusInfo 
+          };
+        }
+      }
+      
       return { canAbsen: isWithinRadius(), message: isWithinRadius() ? 'Silahkan lakukan absen pulang lembur' : 'Anda berada di luar radius lokasi', radiusInfo };
     }
   };
 
   const calculateTotalJam = () => {
-    if (!lembur) return '0.00';
+    if (!lembur) return '0 Jam 0 Menit';
+    
+    let totalMinutes = 0;
     
     // Jika sudah absen pulang, tampilkan total jam dari database
     if (absenData?.total_jam && absenData?.jam_pulang) {
-      return parseFloat(absenData.total_jam).toFixed(2);
+      const totalJamDecimal = parseFloat(absenData.total_jam);
+      totalMinutes = Math.round(totalJamDecimal * 60);
     }
-    
     // Jika sudah absen masuk tapi belum pulang, hitung realtime
-    if (absenData?.jam_masuk && !absenData?.jam_pulang) {
+    else if (absenData?.jam_masuk && !absenData?.jam_pulang) {
       const jamMasukAbsen = absenData.jam_masuk;
       const [masukHour, masukMin] = jamMasukAbsen.split(':').map(Number);
       
@@ -552,38 +630,45 @@ export default function DetailLemburScreen() {
       const masukMinutes = masukHour * 60 + masukMin;
       const currentMinutes = currentHour * 60 + currentMin;
       
-      let diffMinutes = currentMinutes - masukMinutes;
+      totalMinutes = currentMinutes - masukMinutes;
       
       // Jika melewati tengah malam
-      if (diffMinutes < 0) {
-        diffMinutes += 24 * 60;
+      if (totalMinutes < 0) {
+        totalMinutes += 24 * 60;
       }
-      
-      const totalHours = diffMinutes / 60;
-      return totalHours.toFixed(2);
     }
     
-    // Jika belum absen masuk, return 0
-    return '0.00';
+    // Konversi menit ke jam dan menit
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    return `${hours} Jam ${minutes} Menit`;
   };
 
   const handleAbsen = async (jenis: 'masuk' | 'pulang') => {
-    if (!lembur || !userLocation) return;
+    console.log('=== HANDLE ABSEN START ===');
+    console.log('Jenis:', jenis);
+    
+    if (!lembur || !userLocation) {
+      console.log('ERROR: Lokasi tidak tersedia');
+      alert.showAlert({ type: 'error', message: 'Lokasi tidak tersedia' });
+      return;
+    }
 
-    // Hanya validasi periode lembur, tidak validasi jam
     if (!canAbsenMasuk() && jenis === 'masuk') {
+      console.log('ERROR: Tanggal di luar periode lembur');
       alert.showAlert({ type: 'warning', message: 'Tanggal di luar periode lembur yang disetujui' });
       return;
     }
     
     if (!canAbsenPulang() && jenis === 'pulang') {
+      console.log('ERROR: Tanggal di luar periode lembur');
       alert.showAlert({ type: 'warning', message: 'Tanggal di luar periode lembur yang disetujui' });
       return;
     }
 
-    // Otomatis deteksi lokasi terdekat (tidak perlu validasi radius di frontend)
-    setSelectedAbsen({ jenis, id_absen_lembur: absenData?.id_absen_lembur });
-    openCamera();
+    // Langsung ambil foto dan submit (seperti presensi biasa)
+    await takePhotoAndSubmit(jenis);
   };
 
   const handleDetailAbsen = (jenis: 'masuk' | 'pulang') => {
@@ -601,6 +686,23 @@ export default function DetailLemburScreen() {
     
     setDetailAbsenData(detailData);
     setShowDetailModal(true);
+    Animated.spring(detailTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11
+    }).start();
+  };
+
+  const closeDetailModal = () => {
+    Animated.timing(detailTranslateY, {
+      toValue: 1000,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowDetailModal(false);
+      setDetailAbsenData(null);
+    });
   };
 
   if (loading) {
@@ -846,11 +948,19 @@ export default function DetailLemburScreen() {
             </View>
             <View style={styles.absenActions}>
               <TouchableOpacity 
-                style={[styles.absenBtn, (getAbsenInfo('masuk').canAbsen && styles.absenBtnActive)]}
+                style={[
+                  styles.absenBtn, 
+                  getAbsenInfo('masuk').canAbsen && !isProcessing && styles.absenBtnActive,
+                  isProcessing && selectedAbsen?.jenis === 'masuk' && styles.absenBtnProcessing
+                ]}
                 onPress={() => handleAbsen('masuk')}
                 disabled={!getAbsenInfo('masuk').canAbsen || isProcessing}
               >
-                <Ionicons name="camera" size={18} color={getAbsenInfo('masuk').canAbsen ? '#fff' : '#999'} />
+                <Ionicons 
+                  name={isProcessing && selectedAbsen?.jenis === 'masuk' ? 'hourglass-outline' : 'camera'} 
+                  size={18} 
+                  color={getAbsenInfo('masuk').canAbsen && !isProcessing ? '#fff' : '#999'} 
+                />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.detailBtn, absenData?.jam_masuk && styles.detailBtnActive]}
@@ -892,11 +1002,19 @@ export default function DetailLemburScreen() {
             </View>
             <View style={styles.absenActions}>
               <TouchableOpacity 
-                style={[styles.absenBtn, (getAbsenInfo('pulang').canAbsen && styles.absenBtnActive)]}
+                style={[
+                  styles.absenBtn, 
+                  getAbsenInfo('pulang').canAbsen && !isProcessing && styles.absenBtnActive,
+                  isProcessing && selectedAbsen?.jenis === 'pulang' && styles.absenBtnProcessing
+                ]}
                 onPress={() => handleAbsen('pulang')}
                 disabled={!getAbsenInfo('pulang').canAbsen || isProcessing}
               >
-                <Ionicons name="camera" size={18} color={getAbsenInfo('pulang').canAbsen ? '#fff' : '#999'} />
+                <Ionicons 
+                  name={isProcessing && selectedAbsen?.jenis === 'pulang' ? 'hourglass-outline' : 'camera'} 
+                  size={18} 
+                  color={getAbsenInfo('pulang').canAbsen && !isProcessing ? '#fff' : '#999'} 
+                />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.detailBtn, absenData?.jam_pulang && styles.detailBtnActive]}
@@ -915,7 +1033,7 @@ export default function DetailLemburScreen() {
                 <Ionicons name="time" size={16} color="#004643" />
                 <Text style={styles.totalJamLabel}>Jam Berjalan</Text>
               </View>
-              <Text style={styles.totalJamValue}>{calculateTotalJam()} Jam</Text>
+              <Text style={styles.totalJamValue}>{calculateTotalJam()}</Text>
               <Text style={styles.realtimeIndicator}>• Realtime</Text>
             </View>
           )}
@@ -927,7 +1045,7 @@ export default function DetailLemburScreen() {
                 <Ionicons name="time" size={16} color="#004643" />
                 <Text style={styles.totalJamLabel}>Total Jam Lembur</Text>
               </View>
-              <Text style={styles.totalJamValue}>{calculateTotalJam()} Jam</Text>
+              <Text style={styles.totalJamValue}>{calculateTotalJam()}</Text>
             </View>
           )}
         </View>
@@ -935,23 +1053,80 @@ export default function DetailLemburScreen() {
         {/* Lokasi Lembur - Dihapus karena otomatis deteksi */}
       </ScrollView>
 
-      {/* Detail Absen Modal */}
-      <Modal visible={showDetailModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setShowDetailModal(false)}>
+      {/* Detail Absen Modal - Bottom Sheet */}
+      <Modal visible={showDetailModal} transparent animationType="none" statusBarTranslucent onRequestClose={closeDetailModal}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowDetailModal(false)} />
-          <View style={styles.detailModalContainer}>
-            <View style={styles.detailModalHeader}>
-              <Text style={styles.detailModalTitle}>Detail Absen {detailAbsenData?.jenis === 'masuk' ? 'Masuk' : 'Pulang'}</Text>
-              <TouchableOpacity onPress={() => setShowDetailModal(false)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeDetailModal} />
+          <Animated.View style={[styles.detailModalContainer, { transform: [{ translateY: detailTranslateY }] }]}>
+            <View {...detailPanResponder.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
             </View>
             
-            <ScrollView style={styles.detailModalContent}>
-              {/* Foto Absen */}
+            <View style={styles.detailModalHeader}>
+              <Text style={styles.detailModalTitle}>Detail Absen {detailAbsenData?.jenis === 'masuk' ? 'Masuk' : 'Pulang'}</Text>
+            </View>
+            
+            <ScrollView style={styles.detailModalContent} showsVerticalScrollIndicator={false}>
+              {/* Info Waktu */}
+              <View style={styles.detailSection}>
+                <View style={styles.sectionHeaderConfirm}>
+                  <Ionicons name="time-outline" size={20} color="#004643" />
+                  <Text style={styles.sectionTitleConfirm}>Waktu Absensi</Text>
+                </View>
+                
+                <View style={styles.cardRow}>
+                  <View style={styles.infoCardBox}>
+                    <Text style={styles.cardBoxLabel}>JAM {detailAbsenData?.jenis === 'masuk' ? 'MASUK' : 'PULANG'}</Text>
+                    <Text style={styles.cardBoxValue}>{detailAbsenData?.jam || '-'}</Text>
+                  </View>
+                  <View style={styles.infoCardBox}>
+                    <Text style={styles.cardBoxLabel}>TANGGAL</Text>
+                    <Text style={styles.cardBoxValue}>{formatDate(detailAbsenData?.tanggal || '')}</Text>
+                  </View>
+                </View>
+              </View>
+              
+              {/* Info Lokasi */}
+              {(detailAbsenData?.lintang && detailAbsenData?.bujur) && (
+                <View style={styles.detailSection}>
+                  <View style={styles.sectionHeaderConfirm}>
+                    <Ionicons name="location-outline" size={20} color="#004643" />
+                    <Text style={styles.sectionTitleConfirm}>Lokasi Absensi</Text>
+                  </View>
+                  
+                  <View style={styles.cardRow}>
+                    <View style={styles.infoCardBox}>
+                      <Text style={styles.cardBoxLabel}>KOORDINAT {detailAbsenData?.jenis === 'masuk' ? 'MASUK' : 'PULANG'}</Text>
+                      <Text style={styles.cardBoxValue}>{detailAbsenData.lintang?.toFixed(6)}, {detailAbsenData.bujur?.toFixed(6)}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              
+              {/* Face Confidence */}
+              {detailAbsenData?.face_confidence && (
+                <View style={styles.detailSection}>
+                  <View style={styles.sectionHeaderConfirm}>
+                    <Ionicons name="person-outline" size={20} color="#004643" />
+                    <Text style={styles.sectionTitleConfirm}>Verifikasi Wajah</Text>
+                  </View>
+                  
+                  <View style={styles.cardRow}>
+                    <View style={styles.infoCardBox}>
+                      <Text style={styles.cardBoxLabel}>TINGKAT KEMIRIPAN</Text>
+                      <Text style={styles.cardBoxValue}>{detailAbsenData.face_confidence}%</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              
+              {/* Foto Absen - Dipindah ke bawah */}
               {detailAbsenData?.foto && (
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>Foto Absen</Text>
+                  <View style={styles.sectionHeaderConfirm}>
+                    <Ionicons name="camera-outline" size={20} color="#004643" />
+                    <Text style={styles.sectionTitleConfirm}>Foto Absen</Text>
+                  </View>
                   <View style={styles.fotoContainer}>
                     <Image 
                       source={{ uri: `${getApiUrl('')}/uploads/lembur/${detailAbsenData.foto}` }} 
@@ -961,53 +1136,8 @@ export default function DetailLemburScreen() {
                   </View>
                 </View>
               )}
-              
-              {/* Info Waktu */}
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>Informasi Waktu</Text>
-                <View style={styles.detailInfoCard}>
-                  <View style={styles.detailInfoRow}>
-                    <Ionicons name="calendar-outline" size={16} color="#004643" />
-                    <Text style={styles.detailInfoLabel}>Tanggal</Text>
-                    <Text style={styles.detailInfoValue}>{formatDate(detailAbsenData?.tanggal || '')}</Text>
-                  </View>
-                  <View style={styles.detailInfoRow}>
-                    <Ionicons name="time-outline" size={16} color="#004643" />
-                    <Text style={styles.detailInfoLabel}>Waktu</Text>
-                    <Text style={styles.detailInfoValue}>{detailAbsenData?.jam || '-'}</Text>
-                  </View>
-                </View>
-              </View>
-              
-              {/* Info Lokasi */}
-              {(detailAbsenData?.lintang && detailAbsenData?.bujur) && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>Lokasi Absen</Text>
-                  <View style={styles.detailInfoCard}>
-                    <View style={styles.detailInfoRow}>
-                      <Ionicons name="location-outline" size={16} color="#004643" />
-                      <Text style={styles.detailInfoLabel}>Koordinat</Text>
-                      <Text style={styles.detailInfoValue}>{detailAbsenData.lintang?.toFixed(6)}, {detailAbsenData.bujur?.toFixed(6)}</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-              
-              {/* Face Confidence */}
-              {detailAbsenData?.face_confidence && (
-                <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>Verifikasi Wajah</Text>
-                  <View style={styles.detailInfoCard}>
-                    <View style={styles.detailInfoRow}>
-                      <Ionicons name="person-outline" size={16} color="#004643" />
-                      <Text style={styles.detailInfoLabel}>Tingkat Kemiripan</Text>
-                      <Text style={styles.detailInfoValue}>{detailAbsenData.face_confidence}%</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
       
@@ -1139,6 +1269,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   absenBtnActive: { backgroundColor: '#004643' },
+  absenBtnProcessing: { backgroundColor: '#FF9800' },
   detailBtn: {
     width: 44,
     height: 44,
@@ -1238,31 +1369,30 @@ const styles = StyleSheet.create({
   // Skeleton Styles
   skeletonText: { backgroundColor: '#E0E0E0', borderRadius: 4 },
 
-  // Detail Modal Styles
+  // Detail Modal Styles - Bottom Sheet
   detailModalContainer: {
     backgroundColor: '#fff',
-    marginHorizontal: 20,
-    marginVertical: 60,
-    borderRadius: 20,
-    maxHeight: SCREEN_HEIGHT * 0.8,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: SCREEN_HEIGHT * 0.85,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 20,
   },
   detailModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F0F0F0',
   },
   detailModalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#333',
+    textAlign: 'center',
   },
   closeButton: {
     width: 32,
@@ -1273,16 +1403,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailModalContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    maxHeight: SCREEN_HEIGHT * 0.65,
   },
   detailSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  detailSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1A1A1A',
+  sectionHeaderConfirm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
+  },
+  sectionTitleConfirm: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#004643',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  infoCardBox: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  cardBoxLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  cardBoxValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
   },
   fotoContainer: {
     alignItems: 'center',

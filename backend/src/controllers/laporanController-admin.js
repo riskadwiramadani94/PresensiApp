@@ -527,6 +527,8 @@ const getLaporan = async (req, res) => {
       const data = [];
       
       for (const pegawai of pegawaiResults) {
+        console.log(`Checking pegawai: ${pegawai.nama_lengkap} (ID: ${pegawai.id_pegawai})`);
+        
         // Get izin/cuti summary with date filter
         const summaryQuery = `
           SELECT 
@@ -1030,8 +1032,56 @@ const getDetailLaporan = async (req, res) => {
       return;
     }
     
+    // Detail single izin/cuti berdasarkan ID
+    if (type === 'izin' && id) {
+      console.log('=== DETAIL IZIN DEBUG ===');
+      console.log('ID yang dicari:', id);
+      
+      const [rows] = await db.execute(`
+        SELECT 
+          peng.id_pengajuan,
+          DATE_FORMAT(peng.tanggal_mulai, '%Y-%m-%d') as tanggal_mulai,
+          DATE_FORMAT(peng.tanggal_selesai, '%Y-%m-%d') as tanggal_selesai,
+          peng.jenis_pengajuan,
+          peng.status,
+          peng.jam_mulai,
+          peng.jam_selesai,
+          peng.alasan_text,
+          peng.dokumen_foto,
+          DATE_FORMAT(peng.tanggal_pengajuan, '%Y-%m-%d %H:%i:%s') as tanggal_pengajuan,
+          DATE_FORMAT(peng.waktu_persetujuan, '%Y-%m-%d %H:%i:%s') as waktu_persetujuan,
+          peng.catatan_persetujuan,
+          p.nama_lengkap,
+          p.nip,
+          p.foto_profil,
+          p.jabatan
+        FROM pengajuan peng
+        INNER JOIN pegawai p ON peng.id_user = p.id_user
+        WHERE peng.id_pengajuan = ?
+      `, [id]);
+      
+      console.log('Rows found:', rows.length);
+      if (rows.length > 0) {
+        console.log('Data:', rows[0]);
+      }
+      console.log('======================');
+      
+      if (rows.length === 0) {
+        return res.json({ success: false, message: 'Data tidak ditemukan' });
+      }
+      
+      res.json({
+        success: true,
+        data: rows[0]
+      });
+      return;
+    }
+    
     // Detail izin/cuti per pegawai
     if (type === 'izin' && id_pegawai) {
+      console.log('=== DETAIL IZIN PER PEGAWAI DEBUG ===');
+      console.log('ID Pegawai:', id_pegawai);
+      
       // Build date filter
       let dateFilter = '';
       let dateParams = [];
@@ -1047,19 +1097,27 @@ const getDetailLaporan = async (req, res) => {
         dateParams = [year];
       }
       
+      console.log('Date filter:', dateFilter);
+      console.log('Date params:', dateParams);
+      
       const [rows] = await db.execute(`
         SELECT 
           peng.id_pengajuan,
-          peng.tanggal_mulai,
-          peng.tanggal_selesai,
+          DATE_FORMAT(peng.tanggal_mulai, '%Y-%m-%d') as tanggal_mulai,
+          DATE_FORMAT(peng.tanggal_selesai, '%Y-%m-%d') as tanggal_selesai,
           peng.jenis_pengajuan,
           peng.status as status_pengajuan,
           peng.jam_mulai,
           peng.jam_selesai,
           peng.alasan_text as keterangan,
           peng.dokumen_foto,
+          DATE_FORMAT(peng.tanggal_pengajuan, '%Y-%m-%d') as tanggal_pengajuan,
           DATEDIFF(peng.tanggal_selesai, peng.tanggal_mulai) + 1 as jumlah_hari,
-          peng.status as status_final
+          peng.status as status_final,
+          p.nama_lengkap,
+          p.nip,
+          p.foto_profil,
+          p.jabatan
         FROM pengajuan peng
         INNER JOIN pegawai p ON peng.id_user = p.id_user
         WHERE p.id_pegawai = ?
@@ -1073,6 +1131,12 @@ const getDetailLaporan = async (req, res) => {
         ${dateFilter}
         ORDER BY peng.tanggal_mulai DESC
       `, [id_pegawai, ...dateParams]);
+      
+      console.log('Rows found:', rows.length);
+      if (rows.length > 0) {
+        console.log('First row:', rows[0]);
+      }
+      console.log('======================');
       
       res.json({
         success: true,

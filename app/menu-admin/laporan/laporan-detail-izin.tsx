@@ -8,6 +8,7 @@ import {
     Animated,
     FlatList,
     Image,
+    Linking,
     Modal,
     PanResponder,
     Platform,
@@ -18,6 +19,8 @@ import {
     View
 } from "react-native";
 import { AppHeader } from "../../../components";
+import Toast from "../../../components/Toast";
+import { useToast } from "../../../hooks/useToast";
 import { API_CONFIG, getApiUrl } from "../../../constants/config";
 
 interface PegawaiIzin {
@@ -36,6 +39,7 @@ interface PegawaiIzin {
 
 export default function LaporanDetailIzinScreen() {
   const router = useRouter();
+  const toast = useToast();
   const [data, setData] = useState<PegawaiIzin[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,8 +60,10 @@ export default function LaporanDetailIzinScreen() {
   const [jenisLaporan, setJenisLaporan] = useState("bulanan");
   const [showJenisModal, setShowJenisModal] = useState(false);
   const [showPeriodeModal, setShowPeriodeModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const jenisTranslateY = useRef(new Animated.Value(500)).current;
   const periodeTranslateY = useRef(new Animated.Value(500)).current;
+  const exportTranslateY = useRef(new Animated.Value(500)).current;
   const [selectedStartDate, setSelectedStartDate] = useState(() => {
     const start = new Date();
     start.setDate(start.getDate() - start.getDay() + 1);
@@ -68,6 +74,66 @@ export default function LaporanDetailIzinScreen() {
     end.setDate(end.getDate() - end.getDay() + 7);
     return end;
   });
+
+  const handleExportAll = async () => {
+    setShowExportModal(true);
+    Animated.timing(exportTranslateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeExportModal = () => {
+    Animated.timing(exportTranslateY, {
+      toValue: 500,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowExportModal(false);
+    });
+  };
+
+  const handleExportFormat = async (format: 'excel' | 'pdf') => {
+    closeExportModal();
+    
+    try {
+      toast.showToast(`Sedang menyiapkan laporan izin/cuti ${format.toUpperCase()}...`, 'loading');
+      
+      let params: any = {
+        type: 'izin',
+        filter_date: jenisLaporan,
+        format: format
+      };
+
+      if (jenisLaporan === "mingguan") {
+        params.start_date = formatDateForAPI(selectedStartDate);
+        params.end_date = formatDateForAPI(selectedEndDate);
+      } else if (jenisLaporan === "bulanan") {
+        const months = [
+          "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+          "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+        ];
+        const [monthName, yearStr] = selectedPeriode.split(" ");
+        params.month = String(months.indexOf(monthName) + 1).padStart(2, "0");
+        params.year = yearStr;
+      } else if (jenisLaporan === "tahunan") {
+        params.year = selectedPeriode;
+      }
+
+      const url = `${getApiUrl(API_CONFIG.ENDPOINTS.EXPORT_LAPORAN)}?${new URLSearchParams(params).toString()}`;
+      
+      await Linking.openURL(url);
+      
+      setTimeout(() => {
+        toast.showToast(`Laporan izin/cuti ${format.toUpperCase()} berhasil diunduh!`, 'success');
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error('Export izin error:', error);
+      toast.showToast('Gagal mengunduh laporan izin/cuti', 'error');
+    }
+  };
 
   const jenisLaporanOptions = [
     { value: "mingguan", label: "Laporan Mingguan", icon: "calendar-outline" },
@@ -146,6 +212,26 @@ export default function LaporanDetailIzinScreen() {
         closePeriodeModal();
       } else {
         Animated.spring(periodeTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
+
+  const exportPanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        exportTranslateY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        closeExportModal();
+      } else {
+        Animated.spring(exportTranslateY, {
           toValue: 0,
           useNativeDriver: true,
         }).start();
@@ -411,6 +497,8 @@ export default function LaporanDetailIzinScreen() {
         title="Laporan Izin/Cuti"
         showBack={true}
         fallbackRoute="/admin/dashboard-admin"
+        rightIcon="download-outline"
+        onRightPress={handleExportAll}
       />
 
       {loading ? (
@@ -714,6 +802,75 @@ export default function LaporanDetailIzinScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      {/* Modal Export Format */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={closeExportModal}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity
+            style={styles.bottomSheetBackdrop}
+            activeOpacity={1}
+            onPress={closeExportModal}
+          />
+          <Animated.View
+            style={[
+              styles.bottomSheet,
+              { transform: [{ translateY: exportTranslateY }] },
+            ]}
+          >
+            <View
+              {...exportPanResponder.panHandlers}
+              style={styles.handleContainer}
+            >
+              <View style={styles.handleBar} />
+            </View>
+
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Format Export</Text>
+            </View>
+
+            <View style={styles.bottomSheetContent}>
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('excel')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export Excel (.xlsx)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.bottomSheetItem}
+                onPress={() => handleExportFormat('pdf')}
+              >
+                <View style={styles.bottomSheetItemLeft}>
+                  <View style={styles.bottomSheetIcon}>
+                    <Ionicons name="document-text-outline" size={20} color="#004643" />
+                  </View>
+                  <Text style={styles.bottomSheetItemText}>Export PDF (.pdf)</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      <Toast
+        visible={toast.visible}
+        message={toast.config.message}
+        type={toast.config.type}
+        onHide={toast.hideToast}
+      />
     </View>
   );
 }

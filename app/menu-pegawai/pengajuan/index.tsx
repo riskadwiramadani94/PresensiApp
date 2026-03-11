@@ -545,30 +545,30 @@ export default function PengajuanScreen() {
                   <>
                     {/* Info Section */}
                     <View style={styles.infoSection}>
-                      <View style={styles.infoItem}>
+                      <View style={styles.infoItemRow}>
                         <Ionicons name="calendar" size={22} color="#004643" />
-                        <View style={styles.infoText}>
-                          <Text style={styles.infoLabel}>Tanggal</Text>
-                          <Text style={styles.infoValue}>
-                            {formatDate(selectedPengajuan.tanggal_mulai)}
-                            {selectedPengajuan.tanggal_selesai && `\n${formatDate(selectedPengajuan.tanggal_selesai)}`}
-                          </Text>
+                        <View style={styles.dateRangeRow}>
+                          <Text style={styles.infoValue}>{formatDate(selectedPengajuan.tanggal_mulai)}</Text>
+                          {selectedPengajuan.tanggal_selesai && (
+                            <>
+                              <Text style={styles.dateRangeSeparator}>-</Text>
+                              <Text style={styles.infoValue}>{formatDate(selectedPengajuan.tanggal_selesai)}</Text>
+                            </>
+                          )}
                         </View>
                       </View>
 
                       {(selectedPengajuan.jam_mulai || selectedPengajuan.jam_selesai) && (
-                        <View style={[styles.infoItem, { borderLeftWidth: 1, borderLeftColor: '#E5E7EB' }]}>
+                        <View style={styles.infoItemRow}>
                           <Ionicons name="time" size={22} color="#004643" />
-                          <View style={styles.infoText}>
-                            <Text style={styles.infoLabel}>
-                              {selectedPengajuan.jenis_pengajuan === 'izin_datang_terlambat' ? 'Datang' :
-                               selectedPengajuan.jenis_pengajuan === 'izin_pulang_cepat' ? 'Pulang' :
-                               selectedPengajuan.jenis_pengajuan === 'lembur' ? 'Lembur' : 'Waktu'}
-                            </Text>
-                            <Text style={styles.infoValue}>
-                              {selectedPengajuan.jam_mulai && formatTime(selectedPengajuan.jam_mulai)}
-                              {selectedPengajuan.jam_selesai && `\n${formatTime(selectedPengajuan.jam_selesai)}`}
-                            </Text>
+                          <View style={styles.dateRangeRow}>
+                            {selectedPengajuan.jam_mulai && <Text style={styles.infoValue}>{formatTime(selectedPengajuan.jam_mulai)}</Text>}
+                            {selectedPengajuan.jam_selesai && (
+                              <>
+                                <Text style={styles.dateRangeSeparator}>-</Text>
+                                <Text style={styles.infoValue}>{formatTime(selectedPengajuan.jam_selesai)}</Text>
+                              </>
+                            )}
                           </View>
                         </View>
                       )}
@@ -977,18 +977,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   infoSection: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    gap: 12,
   },
   infoItem: {
     flex: 1,
     alignItems: 'center',
     gap: 8,
+  },
+  infoItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   infoLabel: {
     fontSize: 11,
@@ -1001,8 +1007,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#111827',
     fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 2,
+  },
+  dateRangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateRangeSeparator: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '700',
+    marginHorizontal: 6,
   },
   section: {
     marginBottom: 20,

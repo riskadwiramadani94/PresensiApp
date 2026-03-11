@@ -198,7 +198,7 @@ exports.getLokasiLembur = async (req, res) => {
       SELECT 
         d.id_dinas,
         d.nama_kegiatan,
-        lk.id,
+        lk.id_lokasi_kantor,
         lk.nama_lokasi,
         lk.lintang,
         lk.bujur,
@@ -207,7 +207,7 @@ exports.getLokasiLembur = async (req, res) => {
       FROM dinas_pegawai dp
       JOIN dinas d ON dp.id_dinas = d.id_dinas
       JOIN dinas_lokasi dl ON d.id_dinas = dl.id_dinas AND dl.is_lokasi_utama = 1
-      JOIN lokasi_kantor lk ON dl.id_lokasi = lk.id
+      JOIN lokasi_kantor lk ON dl.id_lokasi_kantor = lk.id_lokasi_kantor
       WHERE dp.id_user = ?
         AND ? BETWEEN d.tanggal_mulai AND d.tanggal_selesai
         AND dp.status_konfirmasi = 'konfirmasi'
@@ -222,7 +222,7 @@ exports.getLokasiLembur = async (req, res) => {
       return res.json({
         success: true,
         data: {
-          lokasi_id: dinasResults[0].id,
+          lokasi_id: dinasResults[0].id_lokasi_kantor,
           nama_lokasi: dinasResults[0].nama_lokasi,
           latitude: parseFloat(dinasResults[0].lintang),
           longitude: parseFloat(dinasResults[0].bujur),
@@ -236,7 +236,7 @@ exports.getLokasiLembur = async (req, res) => {
     // Tidak sedang dinas, ambil lokasi kantor utama
     const kantorQuery = `
       SELECT 
-        id,
+        id_lokasi_kantor,
         nama_lokasi,
         lintang,
         bujur,
@@ -245,7 +245,7 @@ exports.getLokasiLembur = async (req, res) => {
       FROM lokasi_kantor
       WHERE jenis_lokasi = 'tetap' 
         AND is_active = 1
-      ORDER BY id ASC
+      ORDER BY id_lokasi_kantor ASC
       LIMIT 1
     `;
 
@@ -258,7 +258,7 @@ exports.getLokasiLembur = async (req, res) => {
     res.json({
       success: true,
       data: {
-        lokasi_id: kantorResults[0].id,
+        lokasi_id: kantorResults[0].id_lokasi_kantor,
         nama_lokasi: kantorResults[0].nama_lokasi,
         latitude: parseFloat(kantorResults[0].lintang),
         longitude: parseFloat(kantorResults[0].bujur),
