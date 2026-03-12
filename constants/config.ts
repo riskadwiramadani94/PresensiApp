@@ -4,12 +4,12 @@ const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
 
 // Untuk APK production, gunakan IP yang bisa diakses dari luar
 // Atau deploy backend ke cloud service
-const PRODUCTION_URL = "http://192.168.1.8:3000";
-const DEVELOPMENT_URL = "http://192.168.1.8:3000";
+const PRODUCTION_URL = "http://10.251.102.191:3000";
+const DEVELOPMENT_URL = "http://10.251.102.191:3000";
 
 // Multiple server options untuk APK
 const SERVER_OPTIONS = [
-  'http://192.168.1.8:3000',     // WiFi IP - PASTIKAN INI BENAR!
+  'http://10.251.102.191:3000',   // WiFi IP - SYNCED WITH ENV!
   'http://10.0.2.2:3000',        // Android Emulator
   'http://localhost:3000',       // Localhost
   'http://127.0.0.1:3000'        // Loopback
@@ -92,12 +92,34 @@ export const API_CONFIG = {
     PEGAWAI_PROFILE: '/pegawai/profil/api/profile',
     PEGAWAI_KEGIATAN: '/pegawai/kegiatan/api/kegiatan',
     PEGAWAI_INBOX: '/pegawai/inbox/api/notifications',
+    
+    /* ================= INBOX ================= */
+    INBOX_NOTIFICATIONS: '/api/inbox/notifications',
+    INBOX_UNREAD_COUNT: '/api/inbox/unread-count',
   }
 };
 
 export const getApiUrl = (endpoint: string) => {
   return `${API_CONFIG.BASE_URL}${endpoint}`;
 };
+
+// Export BASE_URL untuk digunakan di komponen lain
+export const getBaseUrl = () => {
+  return API_CONFIG.BASE_URL;
+};
+
+// Helper function untuk generate URL upload files
+export const getUploadUrl = (folder: string, filename: string | null): string | null => {
+  if (!filename) return null;
+  return `${API_CONFIG.BASE_URL}/uploads/${folder}/${filename}`;
+};
+
+// Helper functions untuk berbagai jenis upload
+export const getPresensiPhotoUrl = (filename: string | null): string | null => getUploadUrl('presensi', filename);
+export const getPegawaiPhotoUrl = (filename: string | null): string | null => getUploadUrl('pegawai', filename);
+export const getAdminPhotoUrl = (filename: string | null): string | null => getUploadUrl('admin', filename);
+export const getLemburPhotoUrl = (filename: string | null): string | null => getUploadUrl('lembur', filename);
+export const getSptDocumentUrl = (filename: string | null): string | null => getUploadUrl('spt', filename);
 
 export const fetchWithRetry = async (url: string, options: any = {}): Promise<Response> => {
   console.log('[API DEBUG] Request URL:', url);
@@ -715,6 +737,37 @@ export const PusatValidasiAPI = {
       return response.json();
     } catch (error) {
       return { success: false, message: 'Tidak dapat terhubung ke server' };
+    }
+  },
+};
+
+/* ========================================
+   INBOX API
+======================================== */
+export const InboxAPI = {
+  getNotifications: async (user_id: string, role: string) => {
+    try {
+      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.INBOX_NOTIFICATIONS)}?user_id=${user_id}&role=${role}`);
+      return response.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Tidak dapat terhubung ke server',
+        data: []
+      };
+    }
+  },
+  
+  getUnreadCount: async (user_id: string, role: string) => {
+    try {
+      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.INBOX_UNREAD_COUNT)}?user_id=${user_id}&role=${role}`);
+      return response.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Tidak dapat terhubung ke server',
+        unread_count: 0
+      };
     }
   },
 };

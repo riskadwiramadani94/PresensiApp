@@ -1349,7 +1349,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
+    paddingTop: 50,
+    paddingBottom: 50,
   },
   loadingText: {
     marginTop: 12,
@@ -1360,7 +1361,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
+    paddingTop: 50,
+    paddingBottom: 50,
   },
   emptyText: {
     marginTop: 16,

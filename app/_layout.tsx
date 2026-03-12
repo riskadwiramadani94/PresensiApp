@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
 import { useEffect } from "react";
+import * as Notifications from "expo-notifications";
 import { PushNotificationManager } from "../utils/PushNotificationManager";
 import { AuthStorage } from "../utils/AuthStorage";
 import { useRouter } from "expo-router";

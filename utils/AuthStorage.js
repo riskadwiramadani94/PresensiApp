@@ -5,6 +5,7 @@ export const AuthStorage = {
   async getUser() {
     try {
       const userData = await AsyncStorage.getItem('userData');
+      console.log('[AUTH DEBUG] Getting user data:', userData);
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
       console.error('Error mengambil data user:', error);
@@ -15,7 +16,13 @@ export const AuthStorage = {
   // Simpan data user ke penyimpanan lokal
   async setUser(userData) {
     try {
+      console.log('[AUTH DEBUG] Saving user data:', userData);
       await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      
+      // Verify data tersimpan
+      const saved = await AsyncStorage.getItem('userData');
+      console.log('[AUTH DEBUG] Verified saved data:', saved);
+      
       return true;
     } catch (error) {
       console.error('Error menyimpan data user:', error);

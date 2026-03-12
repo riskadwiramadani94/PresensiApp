@@ -20,11 +20,11 @@ export class PushNotificationManager {
   static async registerForPushNotifications() {
     try {
       if (!Device.isDevice) {
-        console.log('Push notifications only work on physical devices');
+        console.log('[DEBUG] Push notifications only work on physical devices');
         return null;
       }
 
-      // Request permission
+      // Request permission untuk notifications
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
       
@@ -34,23 +34,17 @@ export class PushNotificationManager {
       }
       
       if (finalStatus !== 'granted') {
-        console.log('Push notification permission denied');
+        console.log('[DEBUG] Notification permission denied');
         return null;
       }
 
-      // Get push token
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: '7d62012c-6a1c-4f4b-a851-927be2b5c332', // Project ID dari app.config.js
-      });
-
-      console.log('Push token:', token.data);
-
-      // Save token to backend
-      await this.savePushToken(token.data);
+      console.log('[LOGIN] Notification permission granted');
+      console.log('[DEBUG] Using bell notification system + local notifications');
       
-      return token.data;
-    } catch (error) {
-      console.error('Error registering push notifications:', error);
+      // Return success untuk bell notification
+      return 'bell-notifications-enabled';
+    } catch (error: any) {
+      console.log('[PUSH ERROR]', error.message);
       return null;
     }
   }
@@ -96,9 +90,7 @@ export class PushNotificationManager {
    */
   static async removePushToken() {
     try {
-      const token = await Notifications.getExpoPushTokenAsync({
-        projectId: '7d62012c-6a1c-4f4b-a851-927be2b5c332',
-      });
+      const token = await Notifications.getExpoPushTokenAsync();
 
       const response = await fetch(`${getApiUrl('/api/push-token/remove')}`, {
         method: 'POST',

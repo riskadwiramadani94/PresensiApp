@@ -3,19 +3,21 @@ import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '@/components/AppHeader';
-import { getApiUrl, API_CONFIG } from '@/constants/config';
+import { InboxAPI } from '@/constants/config';
 import { AuthStorage } from '@/utils/AuthStorage';
 
 interface Notification {
   id: string;
-  type: 'lupa_absen_pulang' | 'reminder_absen_masuk' | 'reminder_absen_pulang' | 'terlambat_absen_masuk';
+  type: string;
   title: string;
-  desc: string;
+  message: string;
   time: string;
-  isCompleted: boolean;
+  reference_type: string;
+  reference_id: string | number;
   icon: string;
-  color: string;
-  tanggal?: string;
+  priority: 'urgent' | 'high' | 'medium' | 'low';
+  is_read: boolean;
+  created_at: string;
 }
 
 export default function InboxScreen() {
@@ -23,7 +25,7 @@ export default function InboxScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [uncompletedCount, setUncompletedCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update waktu setiap 1 menit untuk realtime
@@ -48,28 +50,20 @@ export default function InboxScreen() {
       
       if (!user) return;
 
-      /* ========================================
-         API ENDPOINTS CONFIGURATION
-         Endpoint: /pegawai/inbox/api/notifications
-         Method: GET
-         Params: user_id
-      ======================================== */
-      const response = await fetch(
-        `${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_INBOX)}?user_id=${user.id_user || user.id}`
-      );
-      const data = await response.json();
+      // Menggunakan InboxAPI yang baru
+      const data = await InboxAPI.getNotifications(user.id_user || user.id, 'pegawai');
 
       if (data.success && data.data) {
         setNotifications(data.data);
-        setUncompletedCount(data.data.filter((n: Notification) => !n.isCompleted).length);
+        setUnreadCount(data.unread_count || 0);
       } else {
         setNotifications([]);
-        setUncompletedCount(0);
+        setUnreadCount(0);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotifications([]);
-      setUncompletedCount(0);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
@@ -82,13 +76,39 @@ export default function InboxScreen() {
   };
 
   const handleNotifPress = (notif: Notification) => {
-    if (notif.type === 'reminder_absen_masuk' || 
-        notif.type === 'terlambat_absen_masuk' || 
-        notif.type === 'reminder_absen_pulang') {
+    // Navigate berdasarkan reference_type
+    if (notif.reference_type === 'pengajuan') {
+      router.push('/(pegawai)/pengajuan');
+    } else if (notif.reference_type === 'presensi') {
       router.push('/(pegawai)/presensi');
-    } else if (notif.type === 'lupa_absen_pulang') {
-      router.push('/(pegawai)/bantuan');
+    } else if (notif.reference_type === 'dinas') {
+      router.push('/(pegawai)/kegiatan');
     }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return '#FF4444';
+      case 'high': return '#FF8800';
+      case 'medium': return '#2196F3';
+      case 'low': return '#4CAF50';
+      default: return '#6B7280';
+    }
+  };
+
+  const getPriorityIcon = (type: string, icon: string) => {
+    // Map icon names to Ionicons
+    const iconMap: { [key: string]: string } = {
+      'checkmark-circle': 'checkmark-circle',
+      'close-circle': 'close-circle',
+      'airplane': 'airplane',
+      'time': 'time',
+      'document-text': 'document-text',
+      'warning': 'warning',
+      'people': 'people',
+      'stats-chart': 'stats-chart'
+    };
+    return iconMap[icon] || 'notifications';
   };
 
   /* ========================================
@@ -135,41 +155,49 @@ export default function InboxScreen() {
   };
 
   const renderNotifItem = ({ item }: { item: Notification }) => {
-    const statusText = item.isCompleted ? 'Selesai' : '';
+    const priorityColor = getPriorityColor(item.priority);
+    const iconName = getPriorityIcon(item.type, item.icon);
     const relativeTime = getRelativeTime(item.time);
+    const isUrgent = item.priority === 'urgent';
 
     return (
       <TouchableOpacity
-        style={[styles.notifCard, item.isCompleted && styles.completedCard]}
+        style={[styles.notifCard, item.is_read && styles.readCard]}
         onPress={() => handleNotifPress(item)}
         activeOpacity={0.7}
       >
         <View style={[
           styles.iconWrapper,
-          { backgroundColor: item.color + '20' },
-          item.isCompleted && styles.iconCompleted
+          { backgroundColor: priorityColor + '20' },
+          item.is_read && styles.iconRead
         ]}>
-          <Ionicons name={item.icon as any} size={24} color={item.color} />
+          <Ionicons name={iconName as any} size={24} color={priorityColor} />
         </View>
 
         <View style={styles.notifContent}>
-          <Text style={styles.notifTitle}>{item.title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.notifTitle, isUrgent && styles.urgentTitle]}>
+              {item.title}
+            </Text>
+            {isUrgent && (
+              <View style={styles.urgentBadge}>
+                <Text style={styles.urgentText}>URGENT</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.notifDesc} numberOfLines={2}>
-            {item.desc}
+            {item.message}
           </Text>
           <View style={styles.timeRow}>
             <Ionicons name="time-outline" size={14} color="#9CA3AF" />
             <Text style={styles.timeText}>{relativeTime}</Text>
+            <Text style={[styles.priorityText, { color: priorityColor }]}>
+              • {item.priority.toUpperCase()}
+            </Text>
           </View>
-          {item.isCompleted && (
-            <View style={styles.statusBadge}>
-              <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-              <Text style={styles.statusText}>{statusText}</Text>
-            </View>
-          )}
         </View>
 
-        {!item.isCompleted && <View style={styles.dotIndicator} />}
+        {!item.is_read && <View style={[styles.dotIndicator, { backgroundColor: priorityColor }]} />}
         <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
       </TouchableOpacity>
     );
@@ -251,6 +279,39 @@ const styles = StyleSheet.create({
   },
   completedCard: {
     backgroundColor: '#F9FAFB',
+  },
+  readCard: {
+    backgroundColor: '#F9FAFB',
+    opacity: 0.8,
+  },
+  iconRead: {
+    opacity: 0.6,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  urgentTitle: {
+    color: '#FF4444',
+    fontWeight: '700',
+  },
+  urgentBadge: {
+    backgroundColor: '#FF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  urgentText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   statusBadge: {
     flexDirection: 'row',

@@ -1,9 +1,68 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Platform } from 'react-native';
+import { View, Platform, Text } from 'react-native';
+import { InboxAPI } from '@/constants/config';
+import { AuthStorage } from '@/utils/AuthStorage';
 
 export default function PegawaiTabLayout() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    
+    // Update unread count setiap 30 detik
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const user = await AuthStorage.getUser();
+      if (!user) return;
+      
+      const data = await InboxAPI.getUnreadCount(user.id_user || user.id, 'pegawai');
+      if (data.success) {
+        setUnreadCount(data.unread_count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const InboxIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <View style={{ position: 'relative' }}>
+      <Ionicons 
+        name={focused ? "mail" : "mail-outline"} 
+        size={24} 
+        color={color} 
+      />
+      {unreadCount > 0 && (
+        <View style={{
+          position: 'absolute',
+          top: -8,
+          right: -8,
+          backgroundColor: '#FF4444',
+          borderRadius: 10,
+          minWidth: 20,
+          height: 20,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 2,
+          borderColor: '#004643',
+        }}>
+          <Text style={{
+            color: '#fff',
+            fontSize: 11,
+            fontWeight: 'bold',
+            textAlign: 'center',
+          }}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
   return (
     <Tabs 
       screenOptions={{ 
@@ -47,11 +106,7 @@ export default function PegawaiTabLayout() {
         options={{ 
           title: 'Kotak Masuk',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons 
-              name={focused ? "mail" : "mail-outline"} 
-              size={24} 
-              color={color} 
-            />
+            <InboxIcon color={color} focused={focused} />
           )
         }} 
       />

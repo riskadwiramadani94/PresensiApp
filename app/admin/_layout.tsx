@@ -1,16 +1,76 @@
 import React, { useEffect, useState } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Platform, Text } from 'react-native';
 import { AuthStorage } from '../../utils/AuthStorage';
+import { InboxAPI } from '../../constants/config';
 
 export default function AdminTabLayout() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     checkAdminRole();
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      fetchUnreadCount();
+      
+      // Update unread count setiap 30 detik
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [loading]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const user = await AuthStorage.getUser();
+      if (!user) return;
+      
+      const data = await InboxAPI.getUnreadCount(user.id_user || user.id, 'admin');
+      if (data.success) {
+        setUnreadCount(data.unread_count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const InboxIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <View style={{ position: 'relative' }}>
+      <Ionicons 
+        name={focused ? "mail" : "mail-outline"} 
+        size={24} 
+        color={color} 
+      />
+      {unreadCount > 0 && (
+        <View style={{
+          position: 'absolute',
+          top: -8,
+          right: -8,
+          backgroundColor: '#FF4444',
+          borderRadius: 10,
+          minWidth: 20,
+          height: 20,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 2,
+          borderColor: '#004643',
+        }}>
+          <Text style={{
+            color: '#fff',
+            fontSize: 11,
+            fontWeight: 'bold',
+            textAlign: 'center',
+          }}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 
   const checkAdminRole = async () => {
     try {
@@ -85,7 +145,7 @@ export default function AdminTabLayout() {
         options={{
           title: 'Kotak Masuk',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "mail" : "mail-outline"} size={24} color={color} />
+            <InboxIcon color={color} focused={focused} />
           ),
         }}
       />

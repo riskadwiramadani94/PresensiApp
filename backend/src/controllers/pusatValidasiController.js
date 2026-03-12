@@ -27,12 +27,12 @@ const pusatValidasiController = {
           pr.bujur_masuk as longitude_masuk,
           CASE 
             WHEN pr.foto_masuk IS NOT NULL AND pr.foto_masuk != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_masuk)
+            THEN CONCAT('http://10.251.102.191:3000/uploads/presensi/', pr.foto_masuk)
             ELSE NULL
           END as foto_masuk,
           CASE 
             WHEN pr.foto_pulang IS NOT NULL AND pr.foto_pulang != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_pulang)
+            THEN CONCAT('http://10.251.102.191:3000/uploads/presensi/', pr.foto_pulang)
             ELSE NULL
           END as foto_pulang,
           pr.status,
@@ -90,12 +90,12 @@ const pusatValidasiController = {
           pr.bujur_masuk as longitude_masuk,
           CASE 
             WHEN pr.foto_masuk IS NOT NULL AND pr.foto_masuk != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_masuk)
+            THEN CONCAT('http://10.251.102.191:3000/uploads/presensi/', pr.foto_masuk)
             ELSE NULL
           END as foto_masuk,
           CASE 
             WHEN pr.foto_pulang IS NOT NULL AND pr.foto_pulang != '' 
-            THEN CONCAT('http://192.168.1.8:3000/uploads/presensi/', pr.foto_pulang)
+            THEN CONCAT('http://10.251.102.191:3000/uploads/presensi/', pr.foto_pulang)
             ELSE NULL
           END as foto_pulang,
           pr.status,
@@ -380,7 +380,7 @@ const pusatValidasiController = {
           
           if (pengajuanData.length > 0) {
             userId = pengajuanData[0].id_user;
-            itemType = this.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
+            itemType = pusatValidasiController.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
           }
           
           query = `
@@ -484,7 +484,7 @@ const pusatValidasiController = {
           
           if (pengajuanData.length > 0) {
             userId = pengajuanData[0].id_user;
-            itemType = this.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
+            itemType = pusatValidasiController.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
           }
           
           query = `

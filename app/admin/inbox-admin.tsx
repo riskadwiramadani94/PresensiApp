@@ -11,21 +11,24 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { AppHeader } from '../../components';
-import { PusatValidasiAPI } from '../../constants/config';
+import { InboxAPI } from '../../constants/config';
+import { AuthStorage } from '../../utils/AuthStorage';
 
 /* ========================================
    TYPES & INTERFACES
 ======================================== */
 interface InboxItem {
   id: string;
-  type: 'absen_dinas' | 'pengajuan';
+  type: string;
   title: string;
-  nama_pegawai: string;
-  nip: string;
-  waktu: string;
-  tanggal: string;
-  data: any;
-  isProcessed: boolean;
+  message: string;
+  time: string;
+  reference_type: string;
+  reference_id: string | number;
+  icon: string;
+  priority: 'urgent' | 'high' | 'medium' | 'low';
+  is_read: boolean;
+  created_at: string;
 }
 
 /* ========================================
@@ -36,8 +39,7 @@ export default function InboxAdmin() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [inboxData, setInboxData] = useState<InboxItem[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [unprocessedCount, setUnprocessedCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   /* ========================================
      DATA FETCHING
@@ -51,57 +53,24 @@ export default function InboxAdmin() {
   const fetchInboxData = async () => {
     try {
       setLoading(true);
-      const items: InboxItem[] = [];
+      const user = await AuthStorage.getUser();
+      
+      if (!user) return;
 
-      // 1. Fetch Absen Dinas (semua, termasuk yang sudah diproses)
-      const absenResult = await PusatValidasiAPI.getAllAbsenDinas();
-      if (absenResult.success && absenResult.data) {
-        absenResult.data.forEach((absen: any) => {
-          items.push({
-            id: `absen-${absen.id}`,
-            type: 'absen_dinas',
-            title: `Absen Dinas - ${absen.nama_kegiatan || 'Dinas'}`,
-            nama_pegawai: absen.nama_lengkap || '-',
-            nip: absen.nip || '-',
-            waktu: absen.jam_masuk || '-',
-            tanggal: formatTanggal(absen.tanggal_absen),
-            data: absen,
-            isProcessed: absen.status_validasi !== 'menunggu'
-          });
-        });
+      // Menggunakan InboxAPI yang baru
+      const data = await InboxAPI.getNotifications(user.id_user || user.id, 'admin');
+
+      if (data.success && data.data) {
+        setInboxData(data.data);
+        setUnreadCount(data.unread_count || 0);
+      } else {
+        setInboxData([]);
+        setUnreadCount(0);
       }
-
-      // 2. Fetch Pengajuan (semua, termasuk yang sudah diproses)
-      const pengajuanResult = await PusatValidasiAPI.getAllPengajuan();
-      if (pengajuanResult.success && pengajuanResult.data) {
-        pengajuanResult.data.forEach((pengajuan: any) => {
-          const jenisPengajuan = formatJenisPengajuan(pengajuan.jenis_pengajuan);
-          items.push({
-            id: `pengajuan-${pengajuan.id_pengajuan}`,
-            type: 'pengajuan',
-            title: `Pengajuan ${jenisPengajuan}`,
-            nama_pegawai: pengajuan.nama_lengkap || '-',
-            nip: pengajuan.nip || '-',
-            waktu: formatWaktu(pengajuan.tanggal_pengajuan),
-            tanggal: formatTanggal(pengajuan.tanggal_pengajuan),
-            data: pengajuan,
-            isProcessed: pengajuan.status !== 'menunggu'
-          });
-        });
-      }
-
-      // Sort by waktu (terbaru di atas)
-      items.sort((a, b) => {
-        const dateA = new Date(a.data.tanggal_pengajuan || a.data.tanggal_absen);
-        const dateB = new Date(b.data.tanggal_pengajuan || b.data.tanggal_absen);
-        return dateB.getTime() - dateA.getTime();
-      });
-
-      setInboxData(items);
-      setTotalCount(items.length);
-      setUnprocessedCount(items.filter(item => !item.isProcessed).length);
     } catch (error) {
       console.error('Error fetching inbox:', error);
+      setInboxData([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
@@ -110,56 +79,28 @@ export default function InboxAdmin() {
   /* ========================================
      UTILITY FUNCTIONS
   ======================================== */
-  const getJenisPengajuanColor = (jenis: string) => {
-    const colorMap: { [key: string]: string } = {
-      'izin_datang_terlambat': '#FF9800', // Orange
-      'izin_pulang_cepat': '#2196F3', // Blue
-      'cuti_sakit': '#9C27B0', // Purple
-      'cuti_tahunan': '#4CAF50', // Green
-      'cuti_alasan_penting': '#FF5722', // Deep Orange
-      'lembur': '#795548', // Brown
-    };
-    
-    return colorMap[jenis] || '#004643'; // Default hijau
-  };
-  const formatJenisPengajuan = (jenis: string) => {
-    const jenisMap: { [key: string]: string } = {
-      'cuti_sakit': 'Cuti Sakit',
-      'cuti_tahunan': 'Cuti Tahunan',
-      'izin_pribadi': 'Izin Pribadi',
-      'izin_datang_terlambat': 'Izin Datang Terlambat',
-      'pulang_cepat_terencana': 'Pulang Cepat Terencana',
-      'pulang_cepat_mendadak': 'Pulang Cepat Mendadak',
-      'koreksi_presensi': 'Koreksi Presensi',
-      'lembur_hari_kerja': 'Lembur Hari Kerja',
-      'lembur_akhir_pekan': 'Lembur Akhir Pekan',
-      'lembur_hari_libur': 'Lembur Hari Libur',
-    };
-    
-    // Jika tidak ada di mapping, format otomatis dari underscore
-    if (jenisMap[jenis]) {
-      return jenisMap[jenis];
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return '#FF4444';
+      case 'high': return '#FF8800';
+      case 'medium': return '#2196F3';
+      case 'low': return '#4CAF50';
+      default: return '#6B7280';
     }
-    
-    // Format otomatis: ubah underscore jadi spasi dan capitalize setiap kata
-    return jenis
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
   };
 
-  const formatWaktu = (dateString: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '-';
-    return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatTanggal = (dateString: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  const getPriorityIcon = (type: string, icon: string) => {
+    const iconMap: { [key: string]: string } = {
+      'checkmark-circle': 'checkmark-circle',
+      'close-circle': 'close-circle',
+      'airplane': 'airplane',
+      'time': 'time',
+      'document-text': 'document-text',
+      'warning': 'warning',
+      'people': 'people',
+      'stats-chart': 'stats-chart'
+    };
+    return iconMap[icon] || 'notifications';
   };
 
   /* ========================================
@@ -172,64 +113,73 @@ export default function InboxAdmin() {
   };
 
   const handleItemPress = (item: InboxItem) => {
-    // Redirect ke halaman pengajuan dengan tab yang sesuai
-    router.push('/menu-admin/pengajuan' as any);
+    // Navigate berdasarkan reference_type
+    if (item.reference_type === 'pengajuan') {
+      router.push('/menu-admin/pengajuan' as any);
+    } else if (item.reference_type === 'presensi') {
+      router.push('/admin/tracking-pegawai' as any);
+    } else if (item.reference_type === 'dinas') {
+      router.push('/menu-admin/kelola-dinas' as any);
+    }
   };
 
   /* ========================================
      RENDER FUNCTIONS
   ======================================== */
   const renderInboxItem = ({ item }: { item: InboxItem }) => {
-    const isAbsenDinas = item.type === 'absen_dinas';
-    const statusText = item.isProcessed ? 
-      (item.data.status === 'disetujui' || item.data.status_validasi === 'disetujui' ? 'Disetujui' : 'Ditolak') : 
-      'Menunggu';
+    const priorityColor = getPriorityColor(item.priority);
+    const iconName = getPriorityIcon(item.type, item.icon);
+    const isUrgent = item.priority === 'urgent';
 
     return (
       <TouchableOpacity
-        style={[styles.inboxCard, item.isProcessed && styles.processedCard]}
+        style={[styles.inboxCard, item.is_read && styles.readCard]}
         onPress={() => handleItemPress(item)}
         activeOpacity={0.7}
       >
-        {/* Icon */}
         <View style={[
           styles.iconCircle,
-          isAbsenDinas ? 
-            { backgroundColor: '#ffc400' } : 
-            { backgroundColor: getJenisPengajuanColor(item.data.jenis_pengajuan) },
-          item.isProcessed && styles.iconProcessed
+          { backgroundColor: priorityColor },
+          item.is_read && styles.iconRead
         ]}>
           <Ionicons 
-            name={isAbsenDinas ? 'clipboard' : 'document-text'} 
+            name={iconName as any} 
             size={24} 
             color="#fff" 
           />
         </View>
 
-        {/* Content */}
         <View style={styles.content}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.subtitle}>{item.nama_pegawai} • {item.nip}</Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, isUrgent && styles.urgentTitle]}>
+              {item.title}
+            </Text>
+            {isUrgent && (
+              <View style={styles.urgentBadge}>
+                <Text style={styles.urgentText}>URGENT</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.subtitle} numberOfLines={2}>
+            {item.message}
+          </Text>
           <View style={styles.timeRow}>
             <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-            <Text style={styles.timeText}>{item.waktu} • {item.tanggal}</Text>
+            <Text style={styles.timeText}>
+              {new Date(item.time).toLocaleString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </Text>
+            <Text style={[styles.priorityText, { color: priorityColor }]}>
+              • {item.priority.toUpperCase()}
+            </Text>
           </View>
-          {item.isProcessed && (
-            <View style={styles.statusBadge}>
-              <Ionicons 
-                name="checkmark-circle" 
-                size={14} 
-                color={statusText === 'Disetujui' ? '#4CAF50' : '#F44336'} 
-              />
-              <Text style={[styles.statusText, { color: statusText === 'Disetujui' ? '#4CAF50' : '#F44336' }]}>
-                {statusText}
-              </Text>
-            </View>
-          )}
         </View>
 
-        {/* Indicator */}
-        {!item.isProcessed && <View style={styles.dotIndicator} />}
+        {!item.is_read && <View style={[styles.dotIndicator, { backgroundColor: priorityColor }]} />}
         <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
       </TouchableOpacity>
     );
@@ -243,7 +193,7 @@ export default function InboxAdmin() {
       <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       
       <AppHeader 
-        title={unprocessedCount > 0 ? `Kotak Masuk (${unprocessedCount})` : 'Kotak Masuk'}
+        title={unreadCount > 0 ? `Kotak Masuk (${unreadCount})` : 'Kotak Masuk'}
         showBack={false}
       />
       
@@ -346,6 +296,39 @@ const styles = StyleSheet.create({
   processedCard: {
     backgroundColor: '#F9FAFB',
   },
+  readCard: {
+    backgroundColor: '#F9FAFB',
+    opacity: 0.8,
+  },
+  iconRead: {
+    opacity: 0.6,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  urgentTitle: {
+    color: '#FF4444',
+    fontWeight: '700',
+  },
+  urgentBadge: {
+    backgroundColor: '#FF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  urgentText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  priorityText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -360,7 +343,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#004643',
     marginRight: 8,
   },
   content: {
