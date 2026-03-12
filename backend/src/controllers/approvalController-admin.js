@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/database');
+const PushNotificationService = require('../services/pushNotificationService');
 
 const getApproval = async (req, res) => {
   try {
@@ -50,6 +51,25 @@ const updateApproval = async (req, res) => {
 
     const db = await getConnection();
 
+    // Ambil data pengajuan sebelum update
+    const [pengajuanData] = await db.execute(`
+      SELECT 
+        pg.id_pengajuan,
+        pg.id_user,
+        pg.jenis_pengajuan,
+        u.nama_lengkap
+      FROM pengajuan pg
+      JOIN users u ON pg.id_user = u.id_user
+      WHERE pg.id_pengajuan = ?
+    `, [id]);
+
+    if (pengajuanData.length === 0) {
+      return res.json({ success: false, message: 'Pengajuan tidak ditemukan' });
+    }
+
+    const pengajuan = pengajuanData[0];
+
+    // Update status pengajuan
     const [result] = await db.execute(`
       UPDATE pengajuan 
       SET status = ?, keterangan_admin = ?, tanggal_approval = NOW()
@@ -57,6 +77,26 @@ const updateApproval = async (req, res) => {
     `, [status, keterangan_admin || null, id]);
 
     if (result.affectedRows > 0) {
+      // Kirim push notification ke pegawai
+      const isApproved = status === 'approved';
+      const title = isApproved ? 'Pengajuan Disetujui ✅' : 'Pengajuan Ditolak ❌';
+      const message = `Pengajuan ${pengajuan.jenis_pengajuan} Anda ${isApproved ? 'disetujui' : 'ditolak'}${keterangan_admin ? '. ' + keterangan_admin : ''}`;
+      
+      // Kirim push notification (async, tidak perlu tunggu)
+      PushNotificationService.send(
+        pengajuan.id_user,
+        title,
+        message,
+        {
+          type: isApproved ? 'pengajuan_approved' : 'pengajuan_rejected',
+          reference_type: 'pengajuan',
+          reference_id: parseInt(id),
+          jenis_pengajuan: pengajuan.jenis_pengajuan
+        }
+      ).catch(error => {
+        console.error('[PUSH] Failed to send notification:', error);
+      });
+
       res.json({
         success: true,
         message: `Pengajuan berhasil ${status === 'approved' ? 'disetujui' : 'ditolak'}`

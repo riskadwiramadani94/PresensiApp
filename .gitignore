@@ -31,7 +31,9 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+backend/.env
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +43,22 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Build files
+package-lock.json
+backend/package-lock.json
+
+# Test files
+*.bat
+test-*.js
+
+# Uploads and media
+backend/uploads/
+*.jpeg
+*.jpg
+*.png
+!assets/**/*.png
+!assets/**/*.jpg
+
+# EAS Build (optional)
+eas.json

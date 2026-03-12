@@ -9,6 +9,7 @@ import {
   View,
   SafeAreaView,
 } from "react-native";
+import NotificationBell from "./NotificationBell";
 
 interface AppHeaderProps {
   title?: string;
@@ -29,6 +30,8 @@ interface AppHeaderProps {
   backgroundColor?: string;
   variant?: string;
   children?: React.ReactNode;
+  showNotificationBell?: boolean;
+  userRole?: string;
 }
 
 export default function AppHeader({
@@ -50,6 +53,8 @@ export default function AppHeader({
   backgroundColor = "#004643",
   variant,
   children,
+  showNotificationBell = false,
+  userRole,
 }: AppHeaderProps) {
   const router = useRouter();
 
@@ -115,6 +120,12 @@ export default function AppHeader({
             </TouchableOpacity>
           )}
 
+          {showNotificationBell && (
+            <View style={styles.notificationBell}>
+              <NotificationBell userRole={userRole} />
+            </View>
+          )}
+
           {rightComponent}
         </View>
       </View>
@@ -174,6 +185,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 28,
     top: Platform.OS === "ios" ? 4 : 15
+  },
+  notificationBell: {
+    position: "absolute",
+    right: 0,
+    top: Platform.OS === "ios" ? 0 : 11,
   },
   addButtonText: {
     display: "none",

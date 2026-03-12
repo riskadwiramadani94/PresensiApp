@@ -19,6 +19,7 @@ import * as Location from 'expo-location';
 import { PegawaiAPI, getApiUrl, API_CONFIG } from '../../constants/config';
 import { CustomAlert } from '../../components/CustomAlert';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
+import NotificationBell from '../../components/NotificationBell';
 
 interface UserData {
   nama: string;
@@ -635,6 +636,9 @@ export default function BerandaScreen() {
                       })} WIB
                     </Text>
                   </View>
+                  <View style={styles.notificationContainer}>
+                    <NotificationBell userRole="pegawai" />
+                  </View>
                 </View>
 
                 <View style={styles.summarySection}>
@@ -793,6 +797,10 @@ const styles = StyleSheet.create({
   greetingText: { fontSize: 14, color: '#E8F5E9' },
   userName: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
   dateTimeContainer: {
+    alignItems: 'flex-end',
+    marginRight: 10,
+  },
+  notificationContainer: {
     alignItems: 'flex-end',
   },
   dateTimeText: {

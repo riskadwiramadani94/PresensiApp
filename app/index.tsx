@@ -9,8 +9,10 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthAPI } from '../constants/config';
 import { AuthStorage } from '../utils/AuthStorage';
+import { PushNotificationManager } from '../utils/PushNotificationManager';
 import { CustomAlert } from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
+import { NetworkTest } from '../utils/NetworkTest';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +27,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -68,6 +72,16 @@ export default function LoginScreen() {
       const result = await AuthAPI.login(email, password);
       if (result.success) {
         await AuthStorage.setUser({ ...result.data, id_user: result.data.id });
+        
+        // Register push notification setelah login berhasil
+        try {
+          await PushNotificationManager.registerForPushNotifications();
+          console.log('[LOGIN] Push notification registered successfully');
+        } catch (pushError) {
+          console.error('[LOGIN] Push notification registration failed:', pushError);
+          // Tidak perlu gagalkan login jika push notification gagal
+        }
+        
         result.data.role === 'admin' 
           ? router.replace('/admin/dashboard-admin' as any) 
           : router.replace('/(pegawai)/dashboard-pegawai');
@@ -78,6 +92,17 @@ export default function LoginScreen() {
       alert.showAlert({ type: 'error', message: 'Masalah koneksi server' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runDiagnostic = async () => {
+    setShowDiagnostic(true);
+    try {
+      const result = await NetworkTest.testConnection();
+      setDiagnosticResult(result);
+      console.log('Network Diagnostic:', JSON.stringify(result, null, 2));
+    } catch (error) {
+      console.error('Diagnostic error:', error);
     }
   };
 
@@ -124,7 +149,7 @@ export default function LoginScreen() {
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={[styles.inputContainer, emailFocused && styles.inputContainerFocused]}>
-                <Ionicons name="mail-outline" size={20} color={emailFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={16} color={emailFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
                 <TextInput 
                   placeholder="Contoh: user@example.com" 
                   style={styles.textInput}
@@ -142,7 +167,7 @@ export default function LoginScreen() {
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Password</Text>
               <View style={[styles.inputContainer, passwordFocused && styles.inputContainerFocused]}>
-                <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={16} color={passwordFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
                 <TextInput 
                   placeholder="Masukkan password" 
                   style={styles.textInput}
@@ -159,7 +184,7 @@ export default function LoginScreen() {
                 >
                   <Ionicons 
                     name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                    size={20} 
+                    size={16} 
                     color="#94A3B8" 
                   />
                 </TouchableOpacity>
@@ -193,13 +218,37 @@ export default function LoginScreen() {
                     <>
                       <Text style={styles.buttonText}>Masuk Sekarang</Text>
                       <View style={styles.buttonIconCircle}>
-                        <Ionicons name="arrow-forward" size={16} color="#004643" />
+                        <Ionicons name="arrow-forward" size={14} color="#004643" />
                       </View>
                     </>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
+
+            {/* Network Diagnostic Button */}
+            <TouchableOpacity 
+              style={styles.diagnosticButton}
+              onPress={runDiagnostic}
+            >
+              <Text style={styles.diagnosticText}>🔧 Test Koneksi</Text>
+            </TouchableOpacity>
+
+            {/* Diagnostic Results */}
+            {showDiagnostic && diagnosticResult && (
+              <View style={styles.diagnosticContainer}>
+                <Text style={styles.diagnosticTitle}>Hasil Test Koneksi:</Text>
+                <Text style={styles.diagnosticInfo}>Server: {diagnosticResult.baseUrl}</Text>
+                {diagnosticResult.tests.map((test: any, index: number) => (
+                  <View key={index} style={styles.testResult}>
+                    <Text style={[styles.testStatus, { color: test.status === 'SUCCESS' ? '#10B981' : '#EF4444' }]}>
+                      {test.status === 'SUCCESS' ? '✅' : '❌'} {test.name}
+                    </Text>
+                    <Text style={styles.testMessage}>{test.message}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </Animated.ScrollView>
       </KeyboardAvoidingView>
@@ -329,4 +378,49 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   disabled: { opacity: 0.7 },
+  
+  // Diagnostic Styles
+  diagnosticButton: {
+    marginTop: 20,
+    padding: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    alignItems: 'center'
+  },
+  diagnosticText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500'
+  },
+  diagnosticContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
+  },
+  diagnosticTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8
+  },
+  diagnosticInfo: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8
+  },
+  testResult: {
+    marginBottom: 8
+  },
+  testStatus: {
+    fontSize: 13,
+    fontWeight: '600'
+  },
+  testMessage: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginLeft: 16
+  },
 });

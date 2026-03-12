@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/database');
+const PushNotificationService = require('../services/pushNotificationService');
 
 const pusatValidasiController = {
 
@@ -343,9 +344,22 @@ const pusatValidasiController = {
       
       let query = '';
       let params = [];
+      let userId = null;
+      let itemType = '';
 
       switch (type) {
         case 'absen_dinas':
+          // Get user data first
+          const [presensiData] = await db.execute(
+            'SELECT id_user FROM presensi WHERE id_presensi = ?',
+            [id]
+          );
+          
+          if (presensiData.length > 0) {
+            userId = presensiData[0].id_user;
+            itemType = 'presensi dinas';
+          }
+          
           query = `
             UPDATE presensi 
             SET status_validasi = 'disetujui',
@@ -358,6 +372,17 @@ const pusatValidasiController = {
           break;
 
         case 'pengajuan':
+          // Get user data first
+          const [pengajuanData] = await db.execute(
+            'SELECT id_user, jenis_pengajuan FROM pengajuan WHERE id_pengajuan = ?',
+            [id]
+          );
+          
+          if (pengajuanData.length > 0) {
+            userId = pengajuanData[0].id_user;
+            itemType = this.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
+          }
+          
           query = `
             UPDATE pengajuan 
             SET status = 'disetujui',
@@ -376,7 +401,23 @@ const pusatValidasiController = {
           });
       }
 
-      await db.execute(query, params);
+      const [result] = await db.execute(query, params);
+      
+      if (result.affectedRows > 0 && userId) {
+        // Kirim push notification ke user
+        PushNotificationService.send(
+          userId,
+          '✅ Disetujui',
+          `${itemType} Anda telah disetujui${catatan ? '. ' + catatan : ''}`,
+          {
+            type: type === 'absen_dinas' ? 'presensi_approved' : 'pengajuan_approved',
+            reference_type: type,
+            reference_id: parseInt(id)
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send approval notification:', error);
+        });
+      }
 
       res.json({
         success: true,
@@ -407,9 +448,22 @@ const pusatValidasiController = {
 
       let query = '';
       let params = [];
+      let userId = null;
+      let itemType = '';
 
       switch (type) {
         case 'absen_dinas':
+          // Get user data first
+          const [presensiData] = await db.execute(
+            'SELECT id_user FROM presensi WHERE id_presensi = ?',
+            [id]
+          );
+          
+          if (presensiData.length > 0) {
+            userId = presensiData[0].id_user;
+            itemType = 'presensi dinas';
+          }
+          
           query = `
             UPDATE presensi 
             SET status_validasi = 'ditolak',
@@ -422,6 +476,17 @@ const pusatValidasiController = {
           break;
 
         case 'pengajuan':
+          // Get user data first
+          const [pengajuanData] = await db.execute(
+            'SELECT id_user, jenis_pengajuan FROM pengajuan WHERE id_pengajuan = ?',
+            [id]
+          );
+          
+          if (pengajuanData.length > 0) {
+            userId = pengajuanData[0].id_user;
+            itemType = this.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
+          }
+          
           query = `
             UPDATE pengajuan 
             SET status = 'ditolak',
@@ -440,7 +505,23 @@ const pusatValidasiController = {
           });
       }
 
-      await db.execute(query, params);
+      const [result] = await db.execute(query, params);
+      
+      if (result.affectedRows > 0 && userId) {
+        // Kirim push notification ke user
+        PushNotificationService.send(
+          userId,
+          '❌ Ditolak',
+          `${itemType} Anda ditolak. Alasan: ${catatan}`,
+          {
+            type: type === 'absen_dinas' ? 'presensi_rejected' : 'pengajuan_rejected',
+            reference_type: type,
+            reference_id: parseInt(id)
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send rejection notification:', error);
+        });
+      }
 
       res.json({
         success: true,
@@ -453,6 +534,20 @@ const pusatValidasiController = {
         message: 'Gagal menolak'
       });
     }
+  },
+  
+  // Helper function untuk format jenis pengajuan
+  formatJenisPengajuan: function(jenis) {
+    const jenisMap = {
+      'cuti_sakit': 'Cuti Sakit',
+      'cuti_tahunan': 'Cuti Tahunan',
+      'cuti_alasan_penting': 'Cuti Alasan Penting',
+      'izin_datang_terlambat': 'Izin Datang Terlambat',
+      'izin_pulang_cepat': 'Izin Pulang Cepat',
+      'lembur': 'Lembur'
+    };
+    
+    return jenisMap[jenis] || jenis.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 };
 

@@ -29,6 +29,14 @@ const calendarRoutes = require('./src/routes/calendar');
 const lupaPasswordRoutes = require('./src/routes/lupa-password');
 const realtimeRoutes = require('./src/routes/realtime');
 
+// Push notification routes
+const pushTokenRoutes = require('./src/routes/push-token');
+const inboxRoutes = require('./src/routes/inbox');
+const testPushRoutes = require('./src/routes/test-push');
+
+// Initialize notification scheduler
+const NotificationScheduler = require('./src/services/notificationScheduler');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -64,6 +72,11 @@ app.use('/api/faq', faqRoutes);
 app.use('/api', calendarRoutes);
 app.use('/api/lupa-password', lupaPasswordRoutes);
 app.use('/api/realtime', realtimeRoutes);
+
+// Push notification routes
+app.use('/api/push-token', pushTokenRoutes);
+app.use('/api/inbox', inboxRoutes);
+app.use('/api/test-push', testPushRoutes);
 
 // Health check
 app.get('/', (req, res) => {
@@ -109,9 +122,15 @@ const startServer = async () => {
     
     app.listen(PORT, '0.0.0.0', () => {
       const HOST_IP = process.env.HOST || 'localhost';
+      
+      // Initialize notification scheduler
+      NotificationScheduler.init();
+      
       console.log(`\n✅ Server running successfully!`);
       console.log(`🌐 Local: http://localhost:${PORT}`);
       console.log(`📱 Mobile: http://${HOST_IP}:${PORT}`);
+      console.log(`🔔 Push notifications: Enabled`);
+      console.log(`⏰ Notification scheduler: Active`);
       console.log(`\n📄 Available endpoints:`);
       console.log(`   POST /auth/api/login`);
       console.log(`   GET  /auth/api/profile`);

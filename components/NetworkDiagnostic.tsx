@@ -14,57 +14,69 @@ export const NetworkDiagnostic = () => {
     const results: string[] = [];
 
     try {
-      // Test 1: Basic connectivity
-      results.push('🔍 Testing network connectivity...');
+      results.push('🔍 Testing Node.js Backend...');
+      results.push(`Base URL: ${API_CONFIG.BASE_URL}`);
       
-      // Test localhost
+      // Test 1: Node.js server health
       try {
-        const response = await fetch('http://localhost/hadirinapp/test-connection.php', {
-          method: 'GET',
-          signal: AbortSignal.timeout(5000)
-        });
-        results.push(`✅ Localhost: ${response.ok ? 'OK' : 'Failed'}`);
-      } catch (error) {
-        results.push(`❌ Localhost: Failed - ${(error as Error).message}`);
-      }
-
-      // Test current IP
-      try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/test-connection.php`, {
-          method: 'GET',
-          signal: AbortSignal.timeout(5000)
-        });
-        results.push(`✅ IP 192.168.1.8: ${response.ok ? 'OK' : 'Failed'}`);
-      } catch (error) {
-        results.push(`❌ IP 192.168.1.8: Failed - ${(error as Error).message}`);
-      }
-
-      // Test API endpoint
-      try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/lokasi-kantor.php`, {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/admin/api/admin`, {
           method: 'GET',
           signal: AbortSignal.timeout(10000)
         });
-        results.push(`✅ API Endpoint: ${response.ok ? 'OK' : `Failed (${response.status})`}`);
-      } catch (error) {
-        results.push(`❌ API Endpoint: Failed - ${(error as Error).message}`);
+        const data = await response.json();
+        results.push(`✅ Node.js Server: OK (Status ${response.status})`);
+        results.push(`   Response: ${JSON.stringify(data).substring(0, 50)}...`);
+      } catch (error: any) {
+        results.push(`❌ Node.js Server: Failed`);
+        results.push(`   Error: ${error.message}`);
+      }
+
+      // Test 2: Login endpoint
+      try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/auth/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'test@test.com', password: 'test' }),
+          signal: AbortSignal.timeout(10000)
+        });
+        const data = await response.json();
+        results.push(`✅ Login Endpoint: OK (Status ${response.status})`);
+        results.push(`   Response: ${data.message || 'OK'}`);
+      } catch (error: any) {
+        results.push(`❌ Login Endpoint: Failed`);
+        results.push(`   Error: ${error.message}`);
+      }
+
+      // Test 3: Alternative servers
+      const servers = ['http://192.168.1.8:3000', 'http://10.0.2.2:3000', 'http://localhost:3000'];
+      for (const server of servers) {
+        try {
+          const response = await fetch(`${server}/admin/api/admin`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(5000)
+          });
+          results.push(`✅ ${server}: OK`);
+        } catch (error: any) {
+          results.push(`❌ ${server}: ${error.message}`);
+        }
       }
 
       // Show results
-      const resultText = results.join('\\n\\n');
+      const resultText = results.join('\n');
       const suggestions = [
-        '💡 Troubleshooting Tips:',
-        '1. Pastikan HP dan komputer di WiFi yang sama',
-        '2. Periksa XAMPP/server backend sudah berjalan',
-        '3. Coba akses http://192.168.1.8/hadirinapp di browser HP',
-        '4. Restart router WiFi jika perlu',
-        '5. Periksa firewall tidak memblokir port 80'
-      ].join('\\n');
+        '',
+        '💡 Troubleshooting:',
+        '1. HP & PC harus di WiFi yang sama',
+        '2. Backend harus running (npm start)',
+        '3. Test di browser HP: http://192.168.1.8:3000',
+        '4. Cek firewall Windows (allow port 3000)',
+        '5. Rebuild app: expo start --clear'
+      ].join('\n');
 
       showAlert({ 
         type: 'info', 
         title: 'Network Test Results', 
-        message: `${resultText}\n\n${suggestions}` 
+        message: `${resultText}\n${suggestions}` 
       });
 
     } catch (error) {

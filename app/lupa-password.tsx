@@ -207,7 +207,7 @@ export default function ForgotPasswordScreen() {
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Alamat Email</Text>
               <View style={[styles.inputContainer, emailFocused && styles.inputContainerFocused]}>
-                <Ionicons name="mail-outline" size={20} color={emailFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={16} color={emailFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
                 <TextInput 
                   placeholder="user@example.com" 
                   style={styles.textInput}
@@ -237,7 +237,7 @@ export default function ForgotPasswordScreen() {
             </Text>
             
             <View style={styles.timerContainer}>
-              <Ionicons name="time-outline" size={18} color={timer > 0 ? "#004643" : "#EF4444"} />
+              <Ionicons name="time-outline" size={14} color={timer > 0 ? "#004643" : "#EF4444"} />
               <Text style={[styles.timerText, timer === 0 && styles.timerExpired]}>
                 {timer > 0 ? `Kode berlaku ${formatTime(timer)}` : 'Kode OTP telah expired'}
               </Text>
@@ -290,7 +290,7 @@ export default function ForgotPasswordScreen() {
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Password Baru</Text>
               <View style={[styles.inputContainer, passwordFocused && styles.inputContainerFocused]}>
-                <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={16} color={passwordFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
                 <TextInput 
                   placeholder="Masukkan password baru" 
                   style={styles.textInput}
@@ -302,14 +302,14 @@ export default function ForgotPasswordScreen() {
                   secureTextEntry={!showPassword}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#94A3B8" />
+                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={16} color="#94A3B8" />
                 </TouchableOpacity>
               </View>
             </View>
             <View style={styles.inputWrapper}>
               <Text style={styles.inputLabel}>Konfirmasi Password</Text>
               <View style={[styles.inputContainer, confirmPasswordFocused && styles.inputContainerFocused]}>
-                <Ionicons name="lock-closed-outline" size={20} color={confirmPasswordFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={16} color={confirmPasswordFocused ? "#004643" : "#94A3B8"} style={styles.inputIcon} />
                 <TextInput 
                   placeholder="Ulangi password baru" 
                   style={styles.textInput}
@@ -321,7 +321,7 @@ export default function ForgotPasswordScreen() {
                   secureTextEntry={!showConfirmPassword}
                 />
                 <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#94A3B8" />
+                  <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={16} color="#94A3B8" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -343,7 +343,7 @@ export default function ForgotPasswordScreen() {
         style={styles.backButton} 
         onPress={() => router.back()}
       >
-        <Ionicons name="chevron-back" size={28} color="#0F172A" />
+        <Ionicons name="chevron-back" size={20} color="#0F172A" />
       </TouchableOpacity>
 
       <KeyboardAvoidingView 

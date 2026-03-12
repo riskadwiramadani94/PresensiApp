@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/database');
+const PushNotificationService = require('../services/pushNotificationService');
 
 const getPengajuan = async (req, res) => {
   try {
@@ -216,6 +217,40 @@ const submitPengajuan = async (req, res) => {
     ]);
 
     if (result.affectedRows > 0) {
+      // Ambil data user untuk notifikasi
+      const [userData] = await db.execute(
+        'SELECT nama_lengkap FROM users WHERE id_user = ?',
+        [user_id]
+      );
+      
+      const namaUser = userData[0]?.nama_lengkap || 'Pegawai';
+      const jenisLabel = getJenisPengajuanLabel(jenis_pengajuan);
+      
+      // Kirim push notification ke semua admin
+      const [adminData] = await db.execute(
+        'SELECT id_user FROM users WHERE role = "admin"'
+      );
+      
+      if (adminData.length > 0) {
+        const adminIds = adminData.map(admin => admin.id_user);
+        
+        // Kirim push notification (async, tidak perlu tunggu)
+        PushNotificationService.sendToMultiple(
+          adminIds,
+          'Pengajuan Baru 📝',
+          `${namaUser} mengajukan ${jenisLabel}`,
+          {
+            type: 'pengajuan_baru',
+            reference_type: 'pengajuan',
+            reference_id: result.insertId,
+            jenis_pengajuan: jenis_pengajuan,
+            nama_pegawai: namaUser
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send notification to admins:', error);
+        });
+      }
+      
       res.json({ success: true, message: 'Pengajuan berhasil dikirim' });
     } else {
       res.json({ success: false, message: 'Gagal mengirim pengajuan' });

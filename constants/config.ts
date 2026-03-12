@@ -1,7 +1,21 @@
 // Konfigurasi API untuk HadirinApp - Node.js Backend
 
 const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
-const BASE_URL = __DEV__ ? 'http://10.251.102.191:3000' : 'http://10.251.102.191:3000';
+
+// Untuk APK production, gunakan IP yang bisa diakses dari luar
+// Atau deploy backend ke cloud service
+const PRODUCTION_URL = "http://192.168.1.8:3000";
+const DEVELOPMENT_URL = "http://192.168.1.8:3000";
+
+// Multiple server options untuk APK
+const SERVER_OPTIONS = [
+  'http://192.168.1.8:3000',     // WiFi IP - PASTIKAN INI BENAR!
+  'http://10.0.2.2:3000',        // Android Emulator
+  'http://localhost:3000',       // Localhost
+  'http://127.0.0.1:3000'        // Loopback
+];
+
+const BASE_URL = isDevelopment ? DEVELOPMENT_URL : PRODUCTION_URL;
 
 const debugLog = (message: string, data?: any) => {
   if (isDevelopment) {
@@ -86,40 +100,61 @@ export const getApiUrl = (endpoint: string) => {
 };
 
 export const fetchWithRetry = async (url: string, options: any = {}): Promise<Response> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  console.log('[API DEBUG] Request URL:', url);
+  console.log('[API DEBUG] Request options:', JSON.stringify(options, null, 2));
   
-  debugLog('API Request', { url, method: options.method || 'GET' });
+  // Try multiple server options if first fails
+  let lastError: Error | null = null;
   
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...options.headers
+  for (let i = 0; i < SERVER_OPTIONS.length; i++) {
+    const serverUrl = url.replace(BASE_URL, SERVER_OPTIONS[i]);
+    console.log(`[API DEBUG] Trying server ${i + 1}/${SERVER_OPTIONS.length}:`, serverUrl);
+    
+    // Create new AbortController for each attempt
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds per attempt
+    
+    try {
+      const response = await fetch(serverUrl, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...options.headers
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      console.log('[API DEBUG] Response status:', response.status);
+      console.log('[API DEBUG] Response headers:', JSON.stringify([...response.headers.entries()]));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('[API DEBUG] Error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    });
-    
-    clearTimeout(timeoutId);
-    debugLog('API Response', { url, status: response.status });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      
+      console.log(`[API DEBUG] Success with server: ${serverUrl}`);
+      return response;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.log(`[API DEBUG] Server ${i + 1} failed:`, error.message);
+      lastError = error;
+      
+      // If timeout or network error, try next server
+      if (i < SERVER_OPTIONS.length - 1) {
+        console.log('[API DEBUG] Trying next server...');
+        continue;
+      }
     }
-    
-    return response;
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    debugLog('API Error', { url, error: error.message });
-    
-    if (error.name === 'AbortError') {
-      throw new Error('Request timeout - Server tidak merespons');
-    }
-    
-    throw new Error(error.message || 'Tidak dapat terhubung ke server');
   }
+  
+  if (lastError?.name === 'AbortError') {
+    throw new Error('Request timeout - Server tidak merespons');
+  }
+  
+  throw new Error(lastError?.message || 'Tidak dapat terhubung ke server');
 };
 
 /* ========================================
@@ -224,7 +259,6 @@ export const PegawaiAPI = {
     try {
       const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_PRESENSI), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return response.json();
@@ -253,7 +287,6 @@ export const PegawaiAPI = {
     try {
       const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_PENGAJUAN), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       return response.json();

@@ -15,6 +15,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { API_CONFIG, getApiUrl } from "../../constants/config";
+import NotificationBell from "../../components/NotificationBell";
 
 interface RecentActivity {
   id: string;
@@ -403,6 +404,9 @@ export default function AdminDashboard() {
                       WIB
                     </Text>
                   </View>
+                  <View style={styles.notificationContainer}>
+                    <NotificationBell userRole="admin" />
+                  </View>
                 </View>
 
                 <View style={styles.summarySection}>
@@ -611,6 +615,10 @@ const styles = StyleSheet.create({
   greetingText: { fontSize: 13, color: "#E8F5E9", fontWeight: "500" },
   userName: { fontSize: 22, fontWeight: "800", color: "#fff", letterSpacing: -0.5 },
   dateTimeContainer: {
+    alignItems: "flex-end",
+    marginRight: 10,
+  },
+  notificationContainer: {
     alignItems: "flex-end",
   },
   dateTimeText: {
