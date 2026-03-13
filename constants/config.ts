@@ -4,15 +4,17 @@ const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
 
 // Untuk APK production, gunakan IP yang bisa diakses dari luar
 // Atau deploy backend ke cloud service
-const PRODUCTION_URL = "http://10.251.102.191:3000";
-const DEVELOPMENT_URL = "http://10.251.102.191:3000";
+const PRODUCTION_URL = "http://10.251.102.188:3000"; // IP yang benar
+const DEVELOPMENT_URL = "http://10.251.102.188:3000"; // IP yang benar
 
 // Multiple server options untuk APK
 const SERVER_OPTIONS = [
-  'http://10.251.102.191:3000',   // WiFi IP - SYNCED WITH ENV!
-  'http://10.0.2.2:3000',        // Android Emulator
-  'http://localhost:3000',       // Localhost
-  'http://127.0.0.1:3000'        // Loopback
+  'http://10.251.102.188:3000',   // WiFi IP - IP yang benar
+  'http://10.251.102.191:3000',   // IP lama sebagai backup
+  'http://192.168.1.100:3000',    // IP alternatif
+  'http://10.0.2.2:3000',         // Android Emulator
+  'http://localhost:3000',        // Localhost
+  'http://127.0.0.1:3000'         // Loopback
 ];
 
 const BASE_URL = isDevelopment ? DEVELOPMENT_URL : PRODUCTION_URL;

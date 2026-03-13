@@ -6,6 +6,7 @@ export default {
     orientation: "portrait",
     icon: "./assets/images/presensi-logo.png",
     userInterfaceStyle: "light",
+    scheme: "presensi", // Fix linking scheme warning
     splash: {
       image: "./assets/images/presensi-logo.png",
       resizeMode: "contain",
@@ -32,7 +33,9 @@ export default {
         "NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ],
       package: "com.c9586313.presensi",
       usesCleartextTraffic: true,

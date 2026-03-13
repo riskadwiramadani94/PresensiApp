@@ -206,7 +206,7 @@ export default function InboxScreen() {
   return (
     <View style={styles.container}>
       <AppHeader 
-        title={uncompletedCount > 0 ? `Kotak Masuk (${uncompletedCount})` : 'Kotak Masuk'}
+        title={unreadCount > 0 ? `Kotak Masuk (${unreadCount})` : 'Kotak Masuk'}
         showBack={false}
       />
 

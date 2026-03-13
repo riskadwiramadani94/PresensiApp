@@ -60,7 +60,7 @@ export default function TambahDinasScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const [jamKerjaDefault, setJamKerjaDefault] = useState<any>(null);
 
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
 
   const totalSteps = 5;
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -262,17 +262,7 @@ export default function TambahDinasScreen() {
     loadDraftData();
     fetchJamKerja();
 
-    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
 
-    return () => {
-      keyboardShow.remove();
-      keyboardHide.remove();
-    };
   }, []);
 
   // Auto-save draft every 30 seconds
@@ -885,11 +875,7 @@ export default function TambahDinasScreen() {
         fallbackRoute="/menu-admin/kelola-dinas"
       />
 
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           
           {/* Informasi Dasar */}
           <View style={styles.sectionHeader}>
@@ -1619,8 +1605,8 @@ export default function TambahDinasScreen() {
         </View>
       </Modal>
 
-      {/* Button Footer - Fixed di bawah seperti header */}
-     <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
+      {/* Button Footer - Fixed di bawah */}
+      <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
           onPress={handleSubmit}
@@ -1639,7 +1625,6 @@ export default function TambahDinasScreen() {
           )}
         </TouchableOpacity>
       </View>
-      </KeyboardAvoidingView>
 
       {/* Confirmation Modal - Bottom Sheet */}
       <Modal 
@@ -1859,13 +1844,13 @@ export default function TambahDinasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  keyboardView: { flex: 1 },
+
 
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -2189,9 +2174,14 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: 'white',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     shadowColor: '#000',

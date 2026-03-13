@@ -47,24 +47,13 @@ export default function EditProfilAdminScreen() {
   });
   const [newPhoto, setNewPhoto] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
 
   useEffect(() => {
     fetchProfile();
   }, []);
 
-  useEffect(() => {
-    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      keyboardShow.remove();
-      keyboardHide.remove();
-    };
-  }, []);
+
 
   const fetchProfile = async () => {
     try {
@@ -306,15 +295,11 @@ export default function EditProfilAdminScreen() {
         fallbackRoute="/admin/profil-admin"
       />
       
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <ScrollView 
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
           {/* FOTO PROFIL SECTION */}
           <View style={styles.sectionHeader}>
             <Ionicons name="camera-outline" size={20} color="#004643" />
@@ -425,26 +410,25 @@ export default function EditProfilAdminScreen() {
         </ScrollView>
 
         {/* Button Footer - Fixed di bawah */}
-      <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
-        <TouchableOpacity 
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <>
-              <Ionicons name="hourglass-outline" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Menyimpan...</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <>
+                <Ionicons name="hourglass-outline" size={20} color="#fff" />
+                <Text style={styles.saveButtonText}>Menyimpan...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
 
       <CustomAlert
         visible={alert.visible}
@@ -476,7 +460,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -589,11 +573,21 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   buttonFooter: {
     backgroundColor: '#fff',

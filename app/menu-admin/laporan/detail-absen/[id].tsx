@@ -1,5 +1,4 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, ScrollView, Animated, PanResponder, Dimensions, Platform, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -43,6 +42,47 @@ const statusConfig = {
 
 import { API_CONFIG, getApiUrl } from '../../../../constants/config';
 
+// Helper function untuk membersihkan dan memformat URL foto
+const formatFotoUrl = (fotoPath: string, baseUrl: string): string => {
+  if (!fotoPath) return '';
+  
+  let cleanPath = fotoPath;
+  
+  // Hapus duplikasi path yang umum terjadi
+  const duplicatePatterns = [
+    '/uploads/pegawai/uploads/pegawai/',
+    '/uploads/uploads/',
+    '//uploads/',
+  ];
+  
+  duplicatePatterns.forEach(pattern => {
+    if (cleanPath.includes(pattern)) {
+      cleanPath = cleanPath.replace(pattern, '/uploads/pegawai/');
+    }
+  });
+  
+  // Pastikan path dimulai dengan /
+  if (!cleanPath.startsWith('/')) {
+    cleanPath = '/' + cleanPath;
+  }
+  
+  // Pastikan menggunakan folder yang benar
+  if (!cleanPath.startsWith('/uploads/')) {
+    cleanPath = '/uploads/pegawai/' + cleanPath.replace(/^\/*/, '');
+  }
+  
+  // Gabungkan dengan base URL
+  const fullUrl = baseUrl + cleanPath;
+  
+  console.log('🔧 Format foto URL:', {
+    original: fotoPath,
+    cleaned: cleanPath,
+    final: fullUrl
+  });
+  
+  return fullUrl;
+};
+
 
 export default function DetailAbsenPegawai() {
   const alert = useCustomAlert();
@@ -71,6 +111,7 @@ export default function DetailAbsenPegawai() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [periodInfo, setPeriodInfo] = useState('');
+  const [fotoProfileError, setFotoProfileError] = useState(false);
   
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const exportTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -273,7 +314,15 @@ export default function DetailAbsenPegawai() {
       console.log('Pegawai response:', pegawaiData);
       
       if (pegawaiData.success && pegawaiData.data) {
+        console.log('📸 Debug pegawai foto data:', {
+          foto_profil: pegawaiData.data.foto_profil,
+          nama_lengkap: pegawaiData.data.nama_lengkap,
+          id_user: pegawaiData.data.id_user,
+          id_pegawai: pegawaiData.data.id_pegawai
+        });
+        
         setPegawaiData(pegawaiData.data);
+        setFotoProfileError(false); // Reset error state saat data baru dimuat
         setPegawai({ 
           nama: pegawaiData.data.nama_lengkap || 'Nama tidak ditemukan', 
           nip: pegawaiData.data.nip || '-',
@@ -1482,16 +1531,59 @@ export default function DetailAbsenPegawai() {
                 <Text style={styles.nipText}>NIP: {pegawai.nip || 'Belum diisi'}</Text>
               </View>
             </View>
-            {pegawaiData?.foto_profil ? (
-              <Image 
-                source={{ uri: `${API_CONFIG.BASE_URL}${pegawaiData.foto_profil.replace('/uploads/pegawai/uploads/pegawai/', '/uploads/pegawai/')}` }} 
-                style={styles.avatarImageHeader}
-              />
-            ) : (
-              <View style={styles.avatarContainerHeader}>
-                <Text style={styles.avatarTextHeader}>{pegawai.nama.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
+            {(() => {
+              // Debug logging untuk foto profile
+              console.log('🔍 Debug foto profile render:', {
+                foto_profil: pegawaiData?.foto_profil,
+                base_url: API_CONFIG.BASE_URL,
+                pegawai_nama: pegawai.nama,
+                fotoProfileError,
+                hasPegawaiData: !!pegawaiData
+              });
+              
+              // Jika ada error sebelumnya atau tidak ada data foto, tampilkan avatar
+              if (fotoProfileError || !pegawaiData?.foto_profil) {
+                console.log('⚠️ Showing avatar placeholder - Error:', fotoProfileError, 'No foto:', !pegawaiData?.foto_profil);
+                return (
+                  <View style={styles.avatarContainerHeader}>
+                    <Text style={styles.avatarTextHeader}>{pegawai.nama.charAt(0).toUpperCase()}</Text>
+                  </View>
+                );
+              }
+              
+              // Format URL foto dengan helper function
+              const fotoUrl = formatFotoUrl(pegawaiData.foto_profil, API_CONFIG.BASE_URL);
+              
+              if (!fotoUrl) {
+                console.log('⚠️ Invalid foto URL, showing avatar placeholder');
+                return (
+                  <View style={styles.avatarContainerHeader}>
+                    <Text style={styles.avatarTextHeader}>{pegawai.nama.charAt(0).toUpperCase()}</Text>
+                  </View>
+                );
+              }
+              
+              return (
+                <Image 
+                  source={{ uri: fotoUrl }} 
+                  style={styles.avatarImageHeader}
+                  onError={(e) => {
+                    console.log('❌ Error loading foto profile:', {
+                      error: e.nativeEvent.error,
+                      url: fotoUrl,
+                      originalPath: pegawaiData.foto_profil
+                    });
+                    setFotoProfileError(true); // Set error state untuk fallback ke avatar
+                  }}
+                  onLoad={() => {
+                    console.log('✅ Foto profile loaded successfully:', fotoUrl);
+                    setFotoProfileError(false); // Reset error state jika berhasil
+                  }}
+                  onLoadStart={() => console.log('🔄 Starting to load foto profile:', fotoUrl)}
+                  onLoadEnd={() => console.log('🏁 Finished loading foto profile (success or error)')}
+                />
+              );
+            })()}
           </View>
           
           {/* Periode Info dalam Header */}

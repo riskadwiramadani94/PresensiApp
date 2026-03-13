@@ -136,6 +136,12 @@ export class PushNotificationManager {
   static handleNotificationNavigation(data: any, router: any) {
     const { type, reference_id } = data;
 
+    // Cek jika type undefined atau null
+    if (!type) {
+      console.log('Notification data missing type:', data);
+      return;
+    }
+
     switch (type) {
       case 'presensi_reminder':
         router.push('/(pegawai)/presensi');

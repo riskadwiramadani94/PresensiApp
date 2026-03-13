@@ -31,7 +31,7 @@ export default function AddDataPegawaiForm() {
   const [loading, setLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [existingEmails, setExistingEmails] = useState<string[]>([]);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   
   // New states for improvements
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
@@ -101,17 +101,7 @@ export default function AddDataPegawaiForm() {
     fetchExistingEmails();
     loadDraftData();
 
-    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
 
-    return () => {
-      keyboardShow.remove();
-      keyboardHide.remove();
-    };
   }, []);
 
   // Auto-save draft every 30 seconds
@@ -502,11 +492,7 @@ export default function AddDataPegawaiForm() {
         fallbackRoute="/pegawai-akun/data-pegawai-admin"
       />
 
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             
             {/* Informasi Pribadi */}
             <View style={styles.sectionHeader}>
@@ -713,7 +699,8 @@ export default function AddDataPegawaiForm() {
 
         </ScrollView>
 
-        <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
+        {/* Button Footer - Fixed di bawah */}
+        <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
             onPress={handleSubmit}
@@ -732,7 +719,6 @@ export default function AddDataPegawaiForm() {
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
 
         {/* Calendar Modal - Bottom Sheet */}
         <Modal 
@@ -938,13 +924,13 @@ export default function AddDataPegawaiForm() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  keyboardView: { flex: 1 },
+
 
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1045,11 +1031,21 @@ const styles = StyleSheet.create({
   },
 
   buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   submitBtn: {
     backgroundColor: '#004643',

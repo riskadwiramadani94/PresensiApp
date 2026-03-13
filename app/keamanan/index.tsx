@@ -33,7 +33,7 @@ export default function PengaturanKeamananScreen() {
   const [showKonfirmasiPassword, setShowKonfirmasiPassword] = useState(false);
   const [currentEmail, setCurrentEmail] = useState("");
   const [userRole, setUserRole] = useState<string>('pegawai');
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   const [formData, setFormData] = useState({
     email: "",
     passwordLama: "",
@@ -45,18 +45,7 @@ export default function PengaturanKeamananScreen() {
     loadCurrentData();
   }, []);
 
-  useEffect(() => {
-    const keyboardShow = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const keyboardHide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      keyboardShow.remove();
-      keyboardHide.remove();
-    };
-  }, []);
+
 
   const loadCurrentData = async () => {
     try {
@@ -193,11 +182,7 @@ export default function PengaturanKeamananScreen() {
         showBack={true}
         fallbackRoute={userRole === 'admin' ? '/admin/profil-admin' : '/(pegawai)/profil'}
       />
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
 
         {/* FORM UBAH EMAIL & PASSWORD */}
         <View style={styles.content}>
@@ -283,16 +268,15 @@ export default function PengaturanKeamananScreen() {
         </ScrollView>
 
         {/* Button Footer - Fixed di bawah */}
-        <View style={[styles.buttonContainer, Platform.OS === 'android' ? { marginBottom: keyboardHeight } : {}]}>
-        <TouchableOpacity 
-          style={styles.saveButton}
-          onPress={handleUpdateProfile}
-        >
-          <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-          <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.saveButton}
+            onPress={handleUpdateProfile}
+          >
+            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+            <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
 
       <CustomAlert
         visible={alert.visible}
@@ -309,6 +293,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   content: {
     paddingHorizontal: 20,
@@ -381,11 +368,21 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
 
 });
