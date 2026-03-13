@@ -145,7 +145,7 @@ export default function PengajuanScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Set initial tab dari params jika ada, default ke 'absen_dinas'
+      // Set initial tab dari params jika ada, default ke 'pengajuan' untuk notifikasi pengajuan
       if (params.initialTab) {
         setActiveTab(params.initialTab as string);
       } else {

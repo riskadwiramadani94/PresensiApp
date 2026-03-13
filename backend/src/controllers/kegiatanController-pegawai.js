@@ -28,6 +28,7 @@ const getKegiatanPegawai = async (req, res) => {
         d.jam_selesai,
         d.deskripsi,
         d.dokumen_spt,
+        d.status,
         d.created_at
       FROM dinas d
       INNER JOIN dinas_pegawai dp ON d.id_dinas = dp.id_dinas
@@ -90,6 +91,7 @@ const getDetailKegiatan = async (req, res) => {
         jam_selesai,
         deskripsi,
         dokumen_spt,
+        status,
         created_at
       FROM dinas
       WHERE id_dinas = ?`,

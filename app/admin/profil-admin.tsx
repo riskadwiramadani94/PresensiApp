@@ -132,7 +132,7 @@ export default function ProfilAdminScreen() {
       await AsyncStorage.removeItem('userData');
       await AsyncStorage.removeItem('userToken');
       setLogoutModal(false);
-      router.replace('/');
+      router.replace('/login'); // Langsung ke login, bukan splash screen
     } catch (error) {
       console.error('Error during logout:', error);
       alert.showAlert({ type: 'error', message: 'Gagal keluar dari akun' });

@@ -58,7 +58,7 @@ const checkWorkDay = async (req, res) => {
       });
     }
     
-    // PRIORITAS 2: Cek apakah pegawai sedang dinas
+    // PRIORITAS 2: Cek apakah pegawai sedang dinas (HANYA yang aktif, bukan dibatalkan)
     const [dinasRows] = await db.execute(`
       SELECT d.id_dinas, d.tipe_jam_kerja
       FROM dinas d
@@ -130,7 +130,7 @@ const checkDinasStatus = async (req, res) => {
     
     const db = await getConnection();
     
-    // Query 1: Cek apakah pegawai sedang dinas hari ini
+    // Query 1: Cek apakah pegawai sedang dinas hari ini (HANYA yang aktif, bukan dibatalkan)
     const [dinasRows] = await db.execute(`
       SELECT 
         d.id_dinas,
@@ -428,13 +428,14 @@ const getPresensi = async (req, res) => {
           const presensiData = presensiMap.get(dateStr);
           console.log(`✅ Found presensi for ${dateStr}:`, presensiData);
           
-          // Check if on dinas for this date
+          // Check if on dinas for this date (HANYA yang aktif, bukan dibatalkan)
           const [dinasRows] = await db.execute(`
             SELECT d.id_dinas, d.nama_kegiatan
             FROM dinas_pegawai dp
             JOIN dinas d ON dp.id_dinas = d.id_dinas
             WHERE dp.id_user = ?
             AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+            AND d.status = 'aktif'
             AND dp.status_konfirmasi = 'konfirmasi'
             LIMIT 1
           `, [user_id, dateStr]);
@@ -500,13 +501,14 @@ const getPresensi = async (req, res) => {
             );
             const batasAbsen = jamKerjaHariRows.length > 0 ? jamKerjaHariRows[0].batas_absen : '08:30:00';
             
-            // Check if on dinas for today
+            // Check if on dinas for today (HANYA yang aktif, bukan dibatalkan)
             const [dinasRows] = await db.execute(`
               SELECT d.id_dinas, d.nama_kegiatan
               FROM dinas_pegawai dp
               JOIN dinas d ON dp.id_dinas = d.id_dinas
               WHERE dp.id_user = ?
               AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+              AND d.status = 'aktif'
               AND dp.status_konfirmasi = 'konfirmasi'
               LIMIT 1
             `, [user_id, dateStr]);
@@ -550,13 +552,14 @@ const getPresensi = async (req, res) => {
             }
           } else {
             // Hari yang sudah lewat - Tidak Hadir
-            // Check if on dinas for past dates
+            // Check if on dinas for past dates (HANYA yang aktif, bukan dibatalkan)
             const [dinasRows] = await db.execute(`
               SELECT d.id_dinas, d.nama_kegiatan
               FROM dinas_pegawai dp
               JOIN dinas d ON dp.id_dinas = d.id_dinas
               WHERE dp.id_user = ?
               AND ? BETWEEN DATE(d.tanggal_mulai) AND DATE(d.tanggal_selesai)
+              AND d.status = 'aktif'
               AND dp.status_konfirmasi = 'konfirmasi'
               LIMIT 1
             `, [user_id, dateStr]);
@@ -666,7 +669,7 @@ const submitPresensi = async (req, res) => {
     
     console.log('Waktu Indonesia:', `${tanggal_only} ${jam_sekarang}`, '| Tanggal:', tanggal_only);
 
-    // Cek apakah pegawai sedang terdaftar dinas hari ini
+    // Cek apakah pegawai sedang terdaftar dinas hari ini (HANYA yang aktif, bukan dibatalkan)
     const [dinasCheckRows] = await db.execute(`
       SELECT d.id_dinas
       FROM dinas d

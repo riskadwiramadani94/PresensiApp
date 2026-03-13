@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader } from '../../../components';
 import { PegawaiAPI } from '../../../constants/config';
 
-type StatusType = 'semua' | 'akan_datang' | 'berlangsung' | 'selesai';
+type StatusType = 'semua' | 'akan_datang' | 'berlangsung' | 'selesai' | 'dibatalkan';
 
 export default function KegiatanScreen() {
   const router = useRouter();
@@ -141,6 +141,15 @@ export default function KegiatanScreen() {
       today.setHours(0, 0, 0, 0);
 
       filtered = filtered.filter((item) => {
+        // Cek status dari database terlebih dahulu
+        if (item.status === 'dibatalkan') {
+          return activeTab === 'dibatalkan';
+        }
+        if (item.status === 'selesai') {
+          return activeTab === 'selesai';
+        }
+        
+        // Jika status aktif, filter berdasarkan tanggal
         const mulai = new Date(item.tanggal_mulai);
         const selesai = new Date(item.tanggal_selesai);
         mulai.setHours(0, 0, 0, 0);
@@ -171,6 +180,15 @@ export default function KegiatanScreen() {
   };
 
   const getStatusInfo = (item: any) => {
+    // Cek status dari database terlebih dahulu
+    if (item.status === 'dibatalkan') {
+      return { label: 'Dibatalkan', color: '#F44336', icon: 'close-circle' };
+    }
+    if (item.status === 'selesai') {
+      return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
+    }
+    
+    // Jika status aktif, hitung berdasarkan tanggal
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const mulai = new Date(item.tanggal_mulai);
@@ -335,7 +353,9 @@ export default function KegiatanScreen() {
               <Text style={styles.emptySubtitle}>
                 {activeTab === 'semua'
                   ? 'Anda belum memiliki jadwal kegiatan dinas'
-                  : `Tidak ada kegiatan dengan status "${activeTab.replace('_', ' ')}"`}
+                  : activeTab === 'dibatalkan'
+                    ? 'Tidak ada kegiatan yang dibatalkan'
+                    : `Tidak ada kegiatan dengan status "${activeTab.replace('_', ' ')}"`}
               </Text>
             </View>
           )}
@@ -363,7 +383,8 @@ export default function KegiatanScreen() {
                   { value: 'semua', label: 'Semua Status', icon: 'apps' },
                   { value: 'akan_datang', label: 'Akan Datang', icon: 'time' },
                   { value: 'berlangsung', label: 'Sedang Berlangsung', icon: 'play-circle' },
-                  { value: 'selesai', label: 'Selesai', icon: 'checkmark-circle' }
+                  { value: 'selesai', label: 'Selesai', icon: 'checkmark-circle' },
+                  { value: 'dibatalkan', label: 'Dibatalkan', icon: 'close-circle' }
                 ].map((option, index, array) => (
                   <TouchableOpacity
                     key={option.value}

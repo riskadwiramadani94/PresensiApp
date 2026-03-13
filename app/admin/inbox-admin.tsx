@@ -115,7 +115,7 @@ export default function InboxAdmin() {
   const handleItemPress = (item: InboxItem) => {
     // Navigate berdasarkan reference_type
     if (item.reference_type === 'pengajuan') {
-      router.push('/menu-admin/pengajuan' as any);
+      router.push('/menu-admin/pengajuan?initialTab=pengajuan' as any);
     } else if (item.reference_type === 'presensi') {
       router.push('/admin/tracking-pegawai' as any);
     } else if (item.reference_type === 'dinas') {

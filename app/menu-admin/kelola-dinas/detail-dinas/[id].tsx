@@ -9,7 +9,7 @@ import { KelolaDinasAPI, PegawaiAkunAPI } from '../../../../constants/config';
 
 const { width } = Dimensions.get('window');
 
-// Interface DetailDinas tetap sama
+// Interface DetailDinas dengan status
 interface DetailDinas {
   id: number;
   namaKegiatan: string;
@@ -26,6 +26,7 @@ interface DetailDinas {
   koordinat_lng?: number;
   created_at?: string;
   dokumen_spt?: string;
+  status?: string; // Tambahkan status dari database
   pegawai: Array<{
     nama: string;
     nip: string;
@@ -95,6 +96,16 @@ export default function DetailDinasScreen() {
 
   const getDinasStatus = () => {
     if (!detailDinas) return { status: 'Unknown', color: '#7F8C8D' };
+    
+    // Cek status dari database terlebih dahulu
+    if (detailDinas.status === 'dibatalkan') {
+      return { status: 'Dibatalkan', color: '#E74C3C' }; // Merah untuk dibatalkan
+    }
+    if (detailDinas.status === 'selesai') {
+      return { status: 'Selesai', color: '#34495E' }; // Navy untuk selesai
+    }
+    
+    // Jika status aktif, hitung berdasarkan tanggal
     const today = new Date();
     const mulai = new Date(detailDinas.tanggal_mulai);
     const selesai = new Date(detailDinas.tanggal_selesai);

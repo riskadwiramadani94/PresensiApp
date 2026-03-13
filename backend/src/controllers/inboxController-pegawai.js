@@ -156,11 +156,16 @@ const getInboxNotifications = async (req, res) => {
     });
 
     console.log('Total notifikasi:', notifications.length);
+    
+    // Hitung unread count (notifikasi yang belum selesai)
+    const unreadCount = notifications.filter(n => !n.isCompleted).length;
+    console.log('Unread count:', unreadCount);
     console.log('===================');
 
     res.json({
       success: true,
-      data: notifications
+      data: notifications,
+      unread_count: unreadCount
     });
 
   } catch (error) {
@@ -172,4 +177,64 @@ const getInboxNotifications = async (req, res) => {
   }
 };
 
-module.exports = { getInboxNotifications };
+// Fungsi untuk menandai notifikasi sebagai sudah dibaca
+const markNotificationAsRead = async (req, res) => {
+  try {
+    const { user_id, notification_id } = req.body;
+    
+    if (!user_id || !notification_id) {
+      return res.json({ success: false, message: 'User ID dan Notification ID diperlukan' });
+    }
+
+    const db = await getConnection();
+    
+    await db.execute(
+      'UPDATE notifications SET is_read = 1, updated_at = NOW() WHERE id_notification = ? AND id_user = ?',
+      [notification_id, user_id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Notifikasi ditandai sebagai sudah dibaca'
+    });
+
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.json({ 
+      success: false, 
+      message: 'Database error: ' + error.message 
+    });
+  }
+};
+
+// Fungsi untuk mendapatkan jumlah notifikasi yang belum dibaca
+const getUnreadCount = async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    
+    if (!user_id) {
+      return res.json({ success: false, unread_count: 0 });
+    }
+
+    const db = await getConnection();
+    
+    const [countRows] = await db.execute(
+      'SELECT COUNT(*) as unread_count FROM notifications WHERE id_user = ? AND is_read = 0',
+      [user_id]
+    );
+
+    res.json({
+      success: true,
+      unread_count: countRows[0].unread_count || 0
+    });
+
+  } catch (error) {
+    console.error('Get unread count error:', error);
+    res.json({ 
+      success: false, 
+      unread_count: 0
+    });
+  }
+};
+
+module.exports = { getInboxNotifications, markNotificationAsRead, getUnreadCount };

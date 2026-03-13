@@ -1,6 +1,7 @@
 const { getConnection } = require('../config/database');
 const multer = require('multer');
 const path = require('path');
+const { sendDinasNotification, sendDinasUpdateNotification } = require('../utils/notificationHelper');
 
 // Setup multer untuk upload file
 const storage = multer.diskStorage({
@@ -58,7 +59,7 @@ const getDinasAktifAdmin = async (req, res) => {
           break;
       }
     } else {
-      whereClause = `WHERE d.status != 'dibatalkan'`;
+      whereClause = ``;
     }
 
     const [rows] = await db.execute(`
@@ -354,6 +355,10 @@ const createDinasAdmin = async (req, res) => {
       }
 
       await connection.commit();
+
+      // Kirim notifikasi ke pegawai yang ditugaskan
+      const pegawaiIds = validUsers.map(user => user.id_user);
+      await sendDinasNotification(dinas_id, pegawaiIds, 'dinas_baru');
 
       res.status(201).json({
         success: true,
@@ -704,6 +709,19 @@ const cancelDinas = async (req, res) => {
       [id]
     );
 
+    // Ambil daftar pegawai yang ditugaskan untuk notifikasi
+    const [pegawaiRows] = await db.execute(
+      'SELECT id_user FROM dinas_pegawai WHERE id_dinas = ?',
+      [id]
+    );
+    
+    const pegawaiIds = pegawaiRows.map(row => row.id_user);
+    
+    // Kirim notifikasi pembatalan ke pegawai
+    if (pegawaiIds.length > 0) {
+      await sendDinasNotification(id, pegawaiIds, 'dinas_dibatalkan');
+    }
+
     res.json({
       success: true,
       message: 'Dinas berhasil dibatalkan'
@@ -810,6 +828,10 @@ const updateDinas = async (req, res) => {
       }
 
       await connection.commit();
+
+      // Kirim notifikasi update ke pegawai yang ditugaskan
+      const pegawaiIds = validUsers.map(user => user.id_user);
+      await sendDinasUpdateNotification(id, pegawaiIds);
 
       res.json({
         success: true,

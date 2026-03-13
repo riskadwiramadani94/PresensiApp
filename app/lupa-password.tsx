@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CustomAlert } from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import { API_CONFIG } from '../constants/config';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -336,7 +337,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       <TouchableOpacity 
@@ -380,7 +381,7 @@ export default function ForgotPasswordScreen() {
         message={alert.config.message} 
         onClose={alert.hideAlert} 
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

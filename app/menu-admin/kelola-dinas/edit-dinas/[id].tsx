@@ -16,7 +16,8 @@ import {
     View,
     Animated,
     PanResponder,
-    Dimensions
+    Dimensions,
+    Platform
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { AppHeader, CustomCalendar, AnalogTimePicker, CustomAlert } from "../../../../components";
@@ -66,6 +67,7 @@ export default function EditDinasScreen() {
   const [selectedFile, setSelectedFile] = useState<any>(null);
 
   const [showJenisDinasDropdown, setShowJenisDinasDropdown] = useState(false);
+  const translateYJenisDinas = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [showDateMulaiPicker, setShowDateMulaiPicker] = useState(false);
   const [showDateSelesaiPicker, setShowDateSelesaiPicker] = useState(false);
   const translateYDateMulai = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -106,6 +108,30 @@ export default function EditDinasScreen() {
       useNativeDriver: true
     }).start(() => setShowDateSelesaiPicker(false));
   };
+
+  const panResponderJenisDinas = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        translateYJenisDinas.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        Animated.timing(translateYJenisDinas, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: true
+        }).start(() => setShowJenisDinasDropdown(false));
+      } else {
+        Animated.spring(translateYJenisDinas, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
 
   const panResponderDateMulai = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -153,7 +179,7 @@ export default function EditDinasScreen() {
     [key: string]: string;
   }>({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [jamKerjaDefault, setJamKerjaDefault] = useState<any>(null);
 
   const totalSteps = 5;
 
@@ -374,7 +400,31 @@ export default function EditDinasScreen() {
     fetchPegawai();
     fetchAvailableLokasi();
     fetchDinasData();
+    fetchJamKerja();
   }, []);
+
+  const fetchJamKerja = async () => {
+    try {
+      const response = await PengaturanAPI.getJamKerja();
+      if (response.success && response.data) {
+        setJamKerjaDefault(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching jam kerja:', error);
+    }
+  };
+
+  const getJamKerjaForDate = (dateStr: string) => {
+    if (!dateStr || !jamKerjaDefault) return null;
+    
+    const [day, month, year] = dateStr.split('/');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const dayName = dayNames[date.getDay()];
+    
+    const jamKerja = jamKerjaDefault.find((jk: any) => jk.hari === dayName);
+    return jamKerja ? { ...jamKerja, dayName } : null;
+  };
 
   const fetchDinasData = async () => {
     try {
@@ -405,6 +455,15 @@ export default function EditDinasScreen() {
 
           if (dinasData.jam_mulai && dinasData.jam_selesai) {
             setUseDefaultJam(false);
+          }
+
+          // Set existing file if available
+          if (dinasData.dokumen_spt) {
+            setSelectedFile({
+              name: dinasData.dokumen_spt,
+              uri: `http://10.251.102.188:3000/uploads/spt/${dinasData.dokumen_spt}`,
+              isExisting: true
+            });
           }
 
           if (dinasData.lokasi_list) {
@@ -1023,6 +1082,12 @@ export default function EditDinasScreen() {
                   style={styles.dropdownBtn}
                   onPress={() => {
                     setShowJenisDinasDropdown(true);
+                    Animated.spring(translateYJenisDinas, {
+                      toValue: 0,
+                      useNativeDriver: true,
+                      tension: 65,
+                      friction: 11
+                    }).start();
                   }}
                 >
                   <Text style={styles.dropdownBtnText}>
@@ -1094,46 +1159,53 @@ export default function EditDinasScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Pengaturan Jam Kerja</Text>
-              <View style={styles.radioGroup}>
-                <TouchableOpacity
-                  style={styles.radioOption}
+              <View style={styles.jamKerjaContainer}>
+                <TouchableOpacity 
+                  style={[styles.jamKerjaBtn, useDefaultJam && styles.jamKerjaBtnActive]}
                   onPress={() => {
                     setUseDefaultJam(true);
-                    setFormData({ ...formData, jamMulai: "", jamSelesai: "" });
+                    setFormData({...formData, jamMulai: '', jamSelesai: ''});
                   }}
                 >
-                  <Ionicons
-                    name={
-                      useDefaultJam ? "radio-button-on" : "radio-button-off"
-                    }
-                    size={20}
-                    color="#004643"
-                  />
-                  <Text style={styles.radioText}>
-                    Gunakan Jam Kantor Default
+                  <Text style={[styles.jamKerjaText, useDefaultJam && styles.jamKerjaTextActive]}>
+                    Jam Kantor Default
                   </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.radioOption}
+                
+                <TouchableOpacity 
+                  style={[styles.jamKerjaBtn, !useDefaultJam && styles.jamKerjaBtnActive]}
                   onPress={() => setUseDefaultJam(false)}
                 >
-                  <Ionicons
-                    name={
-                      !useDefaultJam ? "radio-button-on" : "radio-button-off"
-                    }
-                    size={20}
-                    color="#004643"
-                  />
-                  <Text style={styles.radioText}>Atur Jam Khusus</Text>
+                  <Text style={[styles.jamKerjaText, !useDefaultJam && styles.jamKerjaTextActive]}>
+                    Atur Jam Khusus
+                  </Text>
                 </TouchableOpacity>
               </View>
-
+              
+              {useDefaultJam && formData.tanggalMulai && (() => {
+                const jamKerja = getJamKerjaForDate(formData.tanggalMulai);
+                return jamKerja ? (
+                  <View style={styles.jamDefaultBox}>
+                    <View style={styles.jamDefaultHeader}>
+                      <Ionicons name="calendar-outline" size={16} color="#004643" />
+                      <Text style={styles.jamDefaultTitle}>Jam Kantor Default</Text>
+                    </View>
+                    <Text style={styles.jamDefaultDay}>{jamKerja.dayName}: {jamKerja.jam_masuk?.substring(0, 5)} - {jamKerja.jam_pulang?.substring(0, 5)}</Text>
+                    <View style={styles.infoBox}>
+                      <Ionicons name="information-circle" size={14} color="#004643" />
+                      <Text style={styles.infoText}>
+                        Hari lainnya otomatis mengikuti jam kantor default masing-masing
+                      </Text>
+                    </View>
+                  </View>
+                ) : null;
+              })()}
+              
               {!useDefaultJam && (
                 <View style={styles.jamKhususContainer}>
                   <View style={styles.jamRow}>
                     <View style={styles.jamInputGroup}>
-                      <Text style={styles.jamLabel}>Jam Masuk</Text>
+                      <Text style={styles.jamLabel}>Jam Mulai</Text>
                       <TouchableOpacity onPress={() => setShowJamMulaiPicker(true)} style={styles.jamPickerButton}>
                         <Text style={[styles.jamPickerText, !formData.jamMulai && styles.jamPickerPlaceholder]}>
                           {formData.jamMulai || '08:00'}
@@ -1141,9 +1213,9 @@ export default function EditDinasScreen() {
                         <Ionicons name="time" size={18} color="#004643" />
                       </TouchableOpacity>
                     </View>
-
+                    
                     <View style={styles.jamInputGroup}>
-                      <Text style={styles.jamLabel}>Jam Pulang</Text>
+                      <Text style={styles.jamLabel}>Jam Selesai</Text>
                       <TouchableOpacity onPress={() => setShowJamSelesaiPicker(true)} style={styles.jamPickerButton}>
                         <Text style={[styles.jamPickerText, !formData.jamSelesai && styles.jamPickerPlaceholder]}>
                           {formData.jamSelesai || '17:00'}
@@ -1152,16 +1224,10 @@ export default function EditDinasScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-
+                  
                   <View style={styles.infoBox}>
-                    <Ionicons
-                      name="information-circle"
-                      size={16}
-                      color="#004643"
-                    />
-                    <Text style={styles.infoText}>
-                      Jam ini berlaku untuk semua hari dinas
-                    </Text>
+                    <Ionicons name="information-circle" size={14} color="#004643" />
+                    <Text style={styles.infoText}>Jam ini berlaku untuk semua hari dinas</Text>
                   </View>
                 </View>
               )}
@@ -1382,29 +1448,49 @@ export default function EditDinasScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Upload Dokumen SPT</Text>
-              <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
-                <Ionicons
-                  name="document-attach-outline"
-                  size={20}
-                  color="#004643"
-                />
-                <View style={styles.uploadContent}>
-                  <Text style={styles.uploadText}>
-                    {selectedFile ? selectedFile.name : "Pilih File SPT"}
-                  </Text>
-                  <Text style={styles.uploadSubtext}>
-                    PDF, DOC, JPG (Max 5MB)
-                  </Text>
-                </View>
-                {selectedFile && (
-                  <TouchableOpacity
+              {selectedFile && selectedFile.isExisting ? (
+                // Tampilkan file yang sudah ada
+                <View style={styles.existingFileContainer}>
+                  <View style={styles.existingFileInfo}>
+                    <Ionicons name="document-text" size={20} color="#004643" />
+                    <View style={styles.existingFileContent}>
+                      <Text style={styles.existingFileName}>{selectedFile.name}</Text>
+                      <Text style={styles.existingFileSubtext}>File SPT yang sudah diupload</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
                     onPress={() => setSelectedFile(null)}
-                    style={styles.removeFileBtn}
+                    style={styles.removeExistingFileBtn}
                   >
-                    <Ionicons name="close-circle" size={20} color="#F44336" />
+                    <Ionicons name="close-circle" size={24} color="#F44336" />
                   </TouchableOpacity>
-                )}
-              </TouchableOpacity>
+                </View>
+              ) : (
+                // Tampilkan upload button
+                <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
+                  <Ionicons
+                    name="document-attach-outline"
+                    size={20}
+                    color="#004643"
+                  />
+                  <View style={styles.uploadContent}>
+                    <Text style={styles.uploadText}>
+                      {selectedFile ? selectedFile.name : "Pilih File SPT"}
+                    </Text>
+                    <Text style={styles.uploadSubtext}>
+                      PDF, DOC, JPG (Max 5MB)
+                    </Text>
+                  </View>
+                  {selectedFile && !selectedFile.isExisting && (
+                    <TouchableOpacity
+                      onPress={() => setSelectedFile(null)}
+                      style={styles.removeFileBtn}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#F44336" />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -1465,6 +1551,90 @@ export default function EditDinasScreen() {
         onTimeSelect={handleJamSelesaiSelect}
         onClose={() => setShowJamSelesaiPicker(false)}
       />
+
+      {/* Jenis Dinas Modal - Bottom Sheet */}
+      <Modal
+        visible={showJenisDinasDropdown}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => {
+          Animated.timing(translateYJenisDinas, {
+            toValue: SCREEN_HEIGHT,
+            duration: 250,
+            useNativeDriver: true
+          }).start(() => setShowJenisDinasDropdown(false));
+        }}
+      >
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableOpacity 
+            style={styles.bottomSheetBackdrop} 
+            activeOpacity={1}
+            onPress={() => {
+              Animated.timing(translateYJenisDinas, {
+                toValue: SCREEN_HEIGHT,
+                duration: 250,
+                useNativeDriver: true
+              }).start(() => setShowJenisDinasDropdown(false));
+            }}
+          />
+          <Animated.View style={[styles.bottomSheet, { transform: [{ translateY: translateYJenisDinas }] }]}>
+            <View {...panResponderJenisDinas.panHandlers} style={styles.handleContainer}>
+              <View style={styles.handleBar} />
+            </View>
+            
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Pilih Jenis Dinas</Text>
+            </View>
+            
+            <ScrollView style={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
+              {[
+                { key: 'lokal', label: 'Dinas Lokal', icon: 'business' },
+                { key: 'luar_kota', label: 'Dinas Luar Kota', icon: 'car' },
+                { key: 'luar_negeri', label: 'Dinas Luar Negeri', icon: 'airplane' }
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.bottomSheetItem,
+                    formData.jenisDinas === item.key && styles.bottomSheetItemActive
+                  ]}
+                  onPress={() => {
+                    setFormData({...formData, jenisDinas: item.key});
+                    Animated.timing(translateYJenisDinas, {
+                      toValue: SCREEN_HEIGHT,
+                      duration: 250,
+                      useNativeDriver: true
+                    }).start(() => setShowJenisDinasDropdown(false));
+                  }}
+                >
+                  <View style={styles.bottomSheetItemLeft}>
+                    <View style={[
+                      styles.bottomSheetIcon,
+                      formData.jenisDinas === item.key && styles.bottomSheetIconActive
+                    ]}>
+                      <Ionicons 
+                        name={item.icon as any} 
+                        size={20} 
+                        color={formData.jenisDinas === item.key ? '#fff' : '#004643'} 
+                      />
+                    </View>
+                    <Text style={[
+                      styles.bottomSheetItemText,
+                      formData.jenisDinas === item.key && styles.bottomSheetItemTextActive
+                    ]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  {formData.jenisDinas === item.key && (
+                    <Ionicons name="checkmark-circle" size={24} color="#004643" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Button Footer - Fixed di bawah seperti header */}
       <View style={styles.buttonFooter}>
@@ -1859,6 +2029,38 @@ const styles = StyleSheet.create({
   removeFileBtn: {
     padding: 4,
   },
+  existingFileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#F0F8F7'
+  },
+  existingFileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1
+  },
+  existingFileContent: {
+    flex: 1,
+    marginLeft: 12
+  },
+  existingFileName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#004643',
+    marginBottom: 2
+  },
+  existingFileSubtext: {
+    fontSize: 12,
+    color: '#2E7D32'
+  },
+  removeExistingFileBtn: {
+    padding: 4
+  },
   submitBtn: {
     backgroundColor: "#004643",
     flexDirection: "row",
@@ -2067,6 +2269,128 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
     borderRadius: 8,
     gap: 12,
+  },
+  jamKerjaContainer: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  jamKerjaBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0'
+  },
+  jamKerjaBtnActive: {
+    backgroundColor: '#004643'
+  },
+  jamKerjaText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666'
+  },
+  jamKerjaTextActive: {
+    color: '#fff'
+  },
+  jamDefaultBox: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F0F8F7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#C8E6C9'
+  },
+  jamDefaultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8
+  },
+  jamDefaultTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#004643'
+  },
+  jamDefaultDay: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8
+  },
+  bottomSheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  bottomSheetBackdrop: {
+    flex: 1,
+  },
+  bottomSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '70%',
+  },
+  bottomSheetHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  bottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  bottomSheetContent: {
+    maxHeight: 400,
+    marginBottom: 16
+  },
+  bottomSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  bottomSheetItemActive: {
+    backgroundColor: '#E6F0EF',
+  },
+  bottomSheetItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bottomSheetIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E6F0EF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bottomSheetIconActive: {
+    backgroundColor: '#004643',
+  },
+  bottomSheetItemText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+    flex: 1,
+  },
+  bottomSheetItemTextActive: {
+    color: '#004643',
+    fontWeight: '600',
+  },
+  jamPickerPlaceholder: {
+    color: '#999'
   },
   jamRow: {
     flexDirection: 'row',

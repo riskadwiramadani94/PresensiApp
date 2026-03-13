@@ -39,6 +39,15 @@ export default function DetailKegiatanScreen() {
   const getStatusInfo = () => {
     if (!kegiatan) return { label: '', color: '', icon: '' };
     
+    // Cek status dari database terlebih dahulu
+    if (kegiatan.status === 'dibatalkan') {
+      return { label: 'Dibatalkan', color: '#F44336', icon: 'close-circle' };
+    }
+    if (kegiatan.status === 'selesai') {
+      return { label: 'Selesai', color: '#2196F3', icon: 'checkmark-circle' };
+    }
+    
+    // Jika status aktif, hitung berdasarkan tanggal
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const mulai = new Date(kegiatan.tanggal_mulai);

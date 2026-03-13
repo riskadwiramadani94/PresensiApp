@@ -185,13 +185,22 @@ router.get('/notifications', async (req, res) => {
         tomorrow.setDate(tomorrow.getDate() + 1);
         const pengajuanDate = new Date(p.tanggal_mulai);
         
-        const isUrgent = pengajuanDate <= tomorrow;
+        const isToday = pengajuanDate.toDateString() === today.toDateString();
+        const isTomorrow = pengajuanDate.toDateString() === tomorrow.toDateString();
+        const isUrgent = isToday || isTomorrow;
+        
+        let urgentText = '';
+        if (isToday) {
+          urgentText = ' (hari ini)';
+        } else if (isTomorrow) {
+          urgentText = ' (besok)';
+        }
         
         notifications.push({
           id: `pengajuan-${p.id_pengajuan}`,
           type: 'pengajuan_baru',
           title: isUrgent ? '🚨 Pengajuan Urgent' : 'Pengajuan Baru',
-          message: `${p.nama_lengkap} mengajukan ${p.jenis_pengajuan}${isUrgent ? ' (Hari ini/Besok)' : ''}`,
+          message: `${p.nama_lengkap} mengajukan ${p.jenis_pengajuan}${urgentText}`,
           time: p.tanggal_pengajuan,
           reference_type: 'pengajuan',
           reference_id: p.id_pengajuan,

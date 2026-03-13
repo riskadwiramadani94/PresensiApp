@@ -141,7 +141,7 @@ export default function ProfileScreen() {
     try {
       await AuthStorage.removeUser();
       setLogoutModal(false);
-      router.replace('/');
+      router.replace('/login'); // Langsung ke login, bukan splash screen
     } catch (error) {
       console.error('Error during logout:', error);
       alert.showAlert({ type: 'error', message: 'Gagal keluar dari akun' });

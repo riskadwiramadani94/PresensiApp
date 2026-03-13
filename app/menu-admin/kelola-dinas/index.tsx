@@ -17,6 +17,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AppHeader, CustomAlert } from "../../../components";
 import { KelolaDinasAPI } from "../../../constants/config";
 import { useCustomAlert } from "../../../hooks/useCustomAlert";
@@ -269,6 +270,7 @@ export default function KelolaDinasScreen() {
         const dinasStatusInfo = getDinasStatus(
           item.tanggal_mulai,
           item.tanggal_selesai,
+          item.status
         );
         const status = dinasStatusInfo.status;
 
@@ -371,7 +373,9 @@ export default function KelolaDinasScreen() {
                   ? "Berlangsung"
                   : dinasStatusInfo.status === "Belum Dimulai"
                     ? "Belum Mulai"
-                    : "Selesai"}
+                    : dinasStatusInfo.status === "Dibatalkan"
+                      ? "Dibatalkan"
+                      : "Selesai"}
               </Text>
             </View>
             {showActionButton && (

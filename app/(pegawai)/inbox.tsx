@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AppHeader from '@/components/AppHeader';
-import { InboxAPI } from '@/constants/config';
+import { InboxAPI, fetchWithRetry, getApiUrl, API_CONFIG } from '@/constants/config';
 import { AuthStorage } from '@/utils/AuthStorage';
 
 interface Notification {
@@ -50,8 +50,9 @@ export default function InboxScreen() {
       
       if (!user) return;
 
-      // Menggunakan InboxAPI yang baru
-      const data = await InboxAPI.getNotifications(user.id_user || user.id, 'pegawai');
+      // Menggunakan endpoint pegawai inbox yang benar
+      const response = await fetchWithRetry(`${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_INBOX)}?user_id=${user.id_user || user.id}`);
+      const data = await response.json();
 
       if (data.success && data.data) {
         setNotifications(data.data);
@@ -154,24 +155,33 @@ export default function InboxScreen() {
     return `${Math.floor(diff / 604800)} minggu yang lalu`;
   };
 
-  const renderNotifItem = ({ item }: { item: Notification }) => {
-    const priorityColor = getPriorityColor(item.priority);
+  const renderNotifItem = ({ item }: { item: any }) => {
+    const priorityColor = getPriorityColor(item.priority || 'medium');
     const iconName = getPriorityIcon(item.type, item.icon);
     const relativeTime = getRelativeTime(item.time);
     const isUrgent = item.priority === 'urgent';
+    const message = item.desc || item.message || '';
+    const isRead = item.isRead || item.is_read || item.isCompleted || false;
 
     return (
       <TouchableOpacity
-        style={[styles.notifCard, item.is_read && styles.readCard]}
-        onPress={() => handleNotifPress(item)}
+        style={[styles.notifCard, isRead && styles.readCard]}
+        onPress={() => {
+          // Navigate berdasarkan type
+          if (item.type?.includes('dinas')) {
+            router.push('/(pegawai)/kegiatan');
+          } else if (item.type?.includes('absen')) {
+            router.push('/(pegawai)/presensi');
+          }
+        }}
         activeOpacity={0.7}
       >
         <View style={[
           styles.iconWrapper,
-          { backgroundColor: priorityColor + '20' },
-          item.is_read && styles.iconRead
+          { backgroundColor: (item.color || priorityColor) + '20' },
+          isRead && styles.iconRead
         ]}>
-          <Ionicons name={iconName as any} size={24} color={priorityColor} />
+          <Ionicons name={iconName as any} size={24} color={item.color || priorityColor} />
         </View>
 
         <View style={styles.notifContent}>
@@ -186,18 +196,18 @@ export default function InboxScreen() {
             )}
           </View>
           <Text style={styles.notifDesc} numberOfLines={2}>
-            {item.message}
+            {message}
           </Text>
           <View style={styles.timeRow}>
             <Ionicons name="time-outline" size={14} color="#9CA3AF" />
             <Text style={styles.timeText}>{relativeTime}</Text>
-            <Text style={[styles.priorityText, { color: priorityColor }]}>
-              • {item.priority.toUpperCase()}
+            <Text style={[styles.priorityText, { color: item.color || priorityColor }]}>
+              • {(item.priority || 'medium').toUpperCase()}
             </Text>
           </View>
         </View>
 
-        {!item.is_read && <View style={[styles.dotIndicator, { backgroundColor: priorityColor }]} />}
+        {!isRead && <View style={[styles.dotIndicator, { backgroundColor: item.color || priorityColor }]} />}
         <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
       </TouchableOpacity>
     );

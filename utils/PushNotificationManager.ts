@@ -10,6 +10,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -20,7 +22,7 @@ export class PushNotificationManager {
   static async registerForPushNotifications() {
     try {
       if (!Device.isDevice) {
-        console.log('[DEBUG] Push notifications only work on physical devices');
+        console.log('[PUSH] Push notifications only work on physical devices');
         return null;
       }
 
@@ -34,17 +36,26 @@ export class PushNotificationManager {
       }
       
       if (finalStatus !== 'granted') {
-        console.log('[DEBUG] Notification permission denied');
+        console.log('[PUSH] Notification permission denied');
         return null;
       }
 
-      console.log('[LOGIN] Notification permission granted');
-      console.log('[DEBUG] Using bell notification system + local notifications');
+      console.log('[PUSH] Notification permission granted');
       
-      // Return success untuk bell notification
-      return 'bell-notifications-enabled';
+      // Dapatkan push token dari Expo
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: 'e5b90c9b-a9fa-4114-a4cd-05e34b97d2e8', // Project ID dari app.config.js
+      });
+      
+      const pushToken = tokenData.data;
+      console.log('[PUSH] Got push token:', pushToken);
+      
+      // Save token ke backend
+      await this.savePushToken(pushToken);
+      
+      return pushToken;
     } catch (error: any) {
-      console.log('[PUSH ERROR]', error.message);
+      console.error('[PUSH] Error registering for push notifications:', error);
       return null;
     }
   }
@@ -147,6 +158,10 @@ export class PushNotificationManager {
         router.push('/(pegawai)/presensi');
         break;
       
+      case 'presensi_validation':
+        router.push('/(admin)/tracking');
+        break;
+      
       case 'pengajuan_approved':
       case 'pengajuan_rejected':
         router.push('/menu-pegawai/pengajuan');
@@ -157,7 +172,11 @@ export class PushNotificationManager {
         break;
       
       case 'absen_dinas_validation':
-        router.push('/menu-admin/pengajuan');
+        if (reference_id) {
+          router.push(`/pengajuan/absen-dinas/${reference_id}`);
+        } else {
+          router.push('/pengajuan/absen-dinas');
+        }
         break;
       
       case 'system_announcement':

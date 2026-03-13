@@ -21,9 +21,14 @@ export default function PegawaiTabLayout() {
       const user = await AuthStorage.getUser();
       if (!user) return;
       
-      const data = await InboxAPI.getUnreadCount(user.id_user || user.id, 'pegawai');
-      if (data.success) {
-        setUnreadCount(data.unread_count || 0);
+      // Gunakan endpoint pegawai inbox yang benar
+      const response = await fetch(`http://10.251.102.188:3000/pegawai/inbox/api/notifications?user_id=${user.id_user || user.id}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        // Hitung unread count dari notifikasi yang belum completed
+        const unread = data.data.filter((notif: any) => !notif.isCompleted && !notif.isRead).length;
+        setUnreadCount(unread);
       }
     } catch (error) {
       console.error('Error fetching unread count:', error);
