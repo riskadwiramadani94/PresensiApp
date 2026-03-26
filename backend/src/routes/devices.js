@@ -278,6 +278,18 @@ router.get('/test-jam-kerja', async (req, res) => {
        WHERE tanggal = CURDATE() AND jam_masuk IS NOT NULL AND jam_pulang IS NULL`
     );
     
+    // Hitung reminder time
+    let reminderPulang = null;
+    if (jamKerjaHistory.length > 0 && jamKerjaHistory[0].jam_pulang) {
+      const [h, m] = jamKerjaHistory[0].jam_pulang.split(':').map(Number);
+      const totalMin = h * 60 + m - 30;
+      reminderPulang = `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
+    } else if (jamKerjaHari.length > 0 && jamKerjaHari[0].jam_pulang) {
+      const [h, m] = jamKerjaHari[0].jam_pulang.split(':').map(Number);
+      const totalMin = h * 60 + m - 30;
+      reminderPulang = `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
+    }
+    
     res.json({
       success: true,
       data: {
@@ -286,6 +298,8 @@ router.get('/test-jam-kerja', async (req, res) => {
         today: today,
         jam_kerja_history: jamKerjaHistory.length > 0 ? jamKerjaHistory[0] : null,
         jam_kerja_hari: jamKerjaHari.length > 0 ? jamKerjaHari[0] : null,
+        reminder_pulang_time: reminderPulang,
+        will_send_reminder: currentTime === reminderPulang,
         pegawai_belum_pulang: pegawaiAbsen.length,
         pegawai_list: pegawaiAbsen
       }
@@ -296,6 +310,85 @@ router.get('/test-jam-kerja', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Gagal cek jam kerja',
+      error: error.message
+    });
+  }
+});
+
+// TEST ENDPOINT - Trigger reminder pulang manual
+router.get('/test-reminder-pulang', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const now = new Date();
+    const currentDay = dayNames[now.getDay()];
+    const today = now.toISOString().split('T')[0];
+    
+    // Ambil jam kerja
+    const [jamKerjaHistory] = await db.execute(`
+      SELECT jam_pulang FROM jam_kerja_history 
+      WHERE hari = ? 
+      AND ? BETWEEN tanggal_mulai_berlaku AND IFNULL(tanggal_selesai_berlaku, '9999-12-31')
+      ORDER BY tanggal_mulai_berlaku DESC
+      LIMIT 1
+    `, [currentDay, today]);
+    
+    let jamPulang;
+    if (jamKerjaHistory.length > 0) {
+      jamPulang = jamKerjaHistory[0].jam_pulang;
+    } else {
+      const [jamKerjaHari] = await db.execute(
+        'SELECT jam_pulang FROM jam_kerja_hari WHERE hari = ?',
+        [currentDay]
+      );
+      if (jamKerjaHari.length === 0) {
+        return res.json({
+          success: false,
+          message: 'Tidak ada jam kerja untuk hari ini'
+        });
+      }
+      jamPulang = jamKerjaHari[0].jam_pulang;
+    }
+    
+    // Ambil pegawai yang sudah absen masuk tapi belum pulang
+    const [pegawai] = await db.execute(
+      `SELECT DISTINCT id_user FROM presensi 
+       WHERE tanggal = CURDATE() AND jam_masuk IS NOT NULL AND jam_pulang IS NULL`
+    );
+    
+    if (pegawai.length === 0) {
+      return res.json({
+        success: false,
+        message: 'Tidak ada pegawai yang perlu diingatkan'
+      });
+    }
+    
+    const pegawaiIds = pegawai.map(p => p.id_user);
+    
+    // Kirim notifikasi
+    await PushNotificationService.sendToMultipleUsers(
+      pegawaiIds,
+      '🏠 Reminder Absen Pulang',
+      `Jangan lupa absen pulang hari ini jam ${jamPulang.substring(0, 5)}. Selamat beristirahat!`,
+      'reminder_pulang',
+      { jam_pulang: jamPulang, test: true }
+    );
+    
+    res.json({
+      success: true,
+      message: `Reminder pulang berhasil dikirim ke ${pegawaiIds.length} pegawai`,
+      data: {
+        jam_pulang: jamPulang,
+        pegawai_count: pegawaiIds.length,
+        pegawai_ids: pegawaiIds
+      }
+    });
+    
+  } catch (error) {
+    console.error('[TEST] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Gagal mengirim reminder pulang',
       error: error.message
     });
   }

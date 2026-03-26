@@ -83,7 +83,7 @@ export default function InboxAdmin() {
     switch (priority) {
       case 'urgent': return '#FF4444';
       case 'high': return '#FF8800';
-      case 'medium': return '#2196F3';
+      case 'medium': return '#00897B'; // Hijau tema
       case 'low': return '#4CAF50';
       default: return '#6B7280';
     }

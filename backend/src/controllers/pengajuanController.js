@@ -224,6 +224,13 @@ const submitPengajuan = async (req, res) => {
          - Icon: 📋
          - Routing: Approval List
       ======================================== */
+      
+      // Ambil data user yang mengajukan
+      const [userData] = await db.execute(
+        'SELECT nama_lengkap FROM users WHERE id_user = ?',
+        [user_id]
+      );
+      
       const namaUser = userData[0]?.nama_lengkap || 'Pegawai';
       const jenisLabel = getJenisPengajuanLabel(jenis_pengajuan);
       

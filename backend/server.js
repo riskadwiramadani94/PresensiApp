@@ -34,6 +34,7 @@ const realtimeRoutes = require('./src/routes/realtime');
 const pushTokenRoutes = require('./src/routes/push-token');
 const inboxRoutes = require('./src/routes/inbox');
 const devicesRoutes = require('./src/routes/devices');
+const testNotificationRoutes = require('./src/routes/test-notification');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -75,6 +76,7 @@ app.use('/api/realtime', realtimeRoutes);
 app.use('/api/push-token', pushTokenRoutes);
 app.use('/api/inbox', inboxRoutes);
 app.use('/api/devices', devicesRoutes);
+app.use('/api/test', testNotificationRoutes);
 
 // Health check
 app.get('/', (req, res) => {
