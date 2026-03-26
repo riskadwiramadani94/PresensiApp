@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, View, Text, TextInput, TouchableOpacity, 
-  ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, Modal, Animated, PanResponder, Dimensions, Keyboard 
+  ActivityIndicator, ScrollView, Platform, Modal, Animated, PanResponder, Dimensions 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,6 +10,8 @@ import { getApiUrl, API_CONFIG } from '../../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader, CustomCalendar, CustomAlert } from '../../../components';
 import { useCustomAlert } from '../../../hooks/useCustomAlert';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import FaceEnrollModal from '../../../components/FaceEnrollModal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -31,6 +33,11 @@ export default function AddDataPegawaiForm() {
   const [loading, setLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [existingEmails, setExistingEmails] = useState<string[]>([]);
+  const [newUserId, setNewUserId] = useState<number | null>(null);
+  const [showFaceModal, setShowFaceModal] = useState(false);
+  const [facePhotoUri, setFacePhotoUri] = useState<string | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
 
   
   // New states for improvements
@@ -443,6 +450,17 @@ export default function AddDataPegawaiForm() {
       
       if (result.success) {
         await clearDraftData();
+        const userId = result.data?.id_user || result.id_user || null;
+        setNewUserId(userId);
+
+        // Kalau ada foto wajah, langsung enroll
+        if (facePhotoUri && userId) {
+          const faceForm = new FormData();
+          faceForm.append('user_id', userId.toString());
+          faceForm.append('foto', { uri: facePhotoUri, name: `enroll_${userId}.jpg`, type: 'image/jpeg' } as any);
+          await fetch(`${API_CONFIG.BASE_URL}/api/face/enroll`, { method: 'POST', body: faceForm });
+        }
+
         setShowSuccessModal(true);
         Animated.spring(successModalScale, {
           toValue: 1,
@@ -482,6 +500,8 @@ export default function AddDataPegawaiForm() {
       router.back();
     });
   };
+
+  const handleEnrollFace = async () => {};
 
   return (
     <View style={styles.container}>
@@ -697,6 +717,44 @@ export default function AddDataPegawaiForm() {
               </View>
             </View>
 
+            {/* Data Wajah */}
+            <View style={styles.sectionHeader}>
+              <Ionicons name="scan-outline" size={20} color="#004643" />
+              <Text style={styles.sectionTitle}>Data Wajah (Opsional)</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.formContent}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Foto Wajah</Text>
+                <TouchableOpacity
+                  style={styles.uploadBtn}
+                  onPress={() => { setFacePhotoUri(null); setShowFaceModal(true); }}
+                >
+                  <Ionicons
+                    name={facePhotoUri ? 'checkmark-circle' : 'camera-outline'}
+                    size={20}
+                    color={facePhotoUri ? '#4CAF50' : '#004643'}
+                  />
+                  <View style={styles.uploadContent}>
+                    <Text style={styles.uploadText}>
+                      {facePhotoUri ? 'Foto wajah siap didaftarkan' : 'Buka Kamera'}
+                    </Text>
+                    <Text style={styles.uploadSubtext}>
+                      {facePhotoUri ? 'Wajah akan didaftarkan saat simpan' : 'Wajah otomatis terdeteksi saat kamera aktif'}
+                    </Text>
+                  </View>
+                  {facePhotoUri && (
+                    <TouchableOpacity
+                      onPress={() => setFacePhotoUri(null)}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#F44336" />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
         </ScrollView>
 
         {/* Button Footer - Fixed di bawah */}
@@ -892,20 +950,23 @@ export default function AddDataPegawaiForm() {
               <View style={styles.successIconContainer}>
                 <Ionicons name="checkmark-circle" size={48} color="#fff" />
               </View>
-              
               <Text style={styles.successModalMessage}>
-                Data pegawai berhasil ditambahkan!
+                Data pegawai berhasil ditambahkan!{facePhotoUri ? '\nWajah pegawai berhasil didaftarkan.' : ''}
               </Text>
-              
-              <TouchableOpacity
-                style={styles.successButton}
-                onPress={closeSuccessModal}
-              >
+              <TouchableOpacity style={styles.successButton} onPress={closeSuccessModal}>
                 <Text style={styles.successButtonText}>OK</Text>
               </TouchableOpacity>
             </Animated.View>
           </View>
         </Modal>
+
+      <FaceEnrollModal
+        visible={showFaceModal}
+        userId={null}
+        title="Daftarkan Wajah Pegawai"
+        onSuccess={(uri) => { setFacePhotoUri(uri || null); setShowFaceModal(false); }}
+        onClose={() => setShowFaceModal(false)}
+      />
 
       <CustomAlert
         visible={alert.visible}
@@ -1509,5 +1570,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     backgroundColor: 'transparent'
+  },
+  faceCaptureBtn: {},
+  faceCaptureText: {},
+  facePreviewContainer: {},
+  facePreviewText: {},
+  facePreviewSub: {},
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: '#FAFAFA'
+  },
+  uploadContent: {
+    flex: 1,
+    marginLeft: 12
+  },
+  uploadText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 2
+  },
+  uploadSubtext: {
+    fontSize: 12,
+    color: '#666'
   },
 });

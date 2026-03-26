@@ -29,6 +29,7 @@ const faqRoutes = require('./src/routes/faq');
 const calendarRoutes = require('./src/routes/calendar');
 const lupaPasswordRoutes = require('./src/routes/lupa-password');
 const realtimeRoutes = require('./src/routes/realtime');
+const faceRoutes = require('./src/routes/face');
 
 // Push notification routes
 const pushTokenRoutes = require('./src/routes/push-token');
@@ -71,6 +72,7 @@ app.use('/api/faq', faqRoutes);
 app.use('/api', calendarRoutes);
 app.use('/api/lupa-password', lupaPasswordRoutes);
 app.use('/api/realtime', realtimeRoutes);
+app.use('/api/face', faceRoutes);
 
 // Push notification routes
 app.use('/api/push-token', pushTokenRoutes);

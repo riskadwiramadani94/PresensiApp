@@ -7,7 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AuthAPI } from '../constants/config';
+import { AuthAPI, API_CONFIG } from '../constants/config';
 import { AuthStorage } from '../utils/AuthStorage';
 import { CustomAlert } from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
@@ -89,6 +89,17 @@ export default function LoginScreen() {
           console.log('[LOGIN] Error registering push token:', tokenError);
         }
         
+        // Cek apakah wajah sudah terdaftar
+        const userId = result.data.id || result.data.id_user;
+        try {
+          const faceRes = await fetch(`${API_CONFIG.BASE_URL}/api/face/status?user_id=${userId}`);
+          const faceData = await faceRes.json();
+          if (faceData.success && !faceData.face_registered && result.data.role === 'pegawai') {
+            router.replace('/enroll-wajah' as any);
+            return;
+          }
+        } catch (_) {}
+
         result.data.role === 'admin' 
           ? router.replace('/admin/dashboard-admin' as any) 
           : router.replace('/(pegawai)/dashboard-pegawai');

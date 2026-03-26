@@ -76,7 +76,21 @@ export default function InboxScreen() {
     setRefreshing(false);
   };
 
-  const handleNotifPress = (notif: Notification) => {
+  const markAsRead = async (id: string) => {
+    try {
+      const user = await AuthStorage.getUser();
+      if (!user) return;
+      await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.PEGAWAI_INBOX)}/mark-read`.replace('/notifications', '/mark-read'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_id: id, user_id: user.id_user || user.id }),
+      });
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch {}
+  };
+
+  const handleNotifPress = (notif: any) => {
     // Navigate berdasarkan reference_type
     if (notif.reference_type === 'pengajuan') {
       router.push('/(pegawai)/pengajuan');
@@ -167,7 +181,8 @@ export default function InboxScreen() {
       <TouchableOpacity
         style={[styles.notifCard, isRead && styles.readCard]}
         onPress={() => {
-          // Navigate berdasarkan type
+          const isRead = item.isRead || item.is_read || item.isCompleted || false;
+          if (!isRead) markAsRead(item.id);
           if (item.type?.includes('dinas')) {
             router.push('/(pegawai)/kegiatan');
           } else if (item.type?.includes('absen')) {

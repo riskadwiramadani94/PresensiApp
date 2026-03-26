@@ -737,7 +737,6 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#FFFFFF',
-    paddingBottom: Platform.OS === 'android' ? 20 : 0, // Tambah padding untuk navigation bar
   },
   scrollContent: { flexGrow: 1 },
   dashboardHeader: {

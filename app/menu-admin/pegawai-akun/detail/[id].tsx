@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -11,7 +11,11 @@ import {
   View,
   Linking,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import FaceEnrollModal from '../../../../components/FaceEnrollModal';
 import { LinearGradient } from "expo-linear-gradient";
 import { AppHeader } from "../../../../components";
 import { API_CONFIG, getApiUrl } from "../../../../constants/config";
@@ -24,6 +28,8 @@ export default function DetailPegawai() {
   const [pegawai, setPegawai] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { visible, config, showAlert, hideAlert, handleConfirm } = useCustomAlert();
+  const [faceRegistered, setFaceRegistered] = useState(false);
+  const [showFaceModal, setShowFaceModal] = useState(false);
 
   const formatDateFromISO = (isoDate: string) => {
     if (!isoDate) return "-";
@@ -91,6 +97,15 @@ export default function DetailPegawai() {
     fetchPegawaiDetail();
   }, [id]);
 
+  const checkFaceStatus = async (userId: number) => {
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/face/status?user_id=${userId}`);
+      const data = await res.json();
+      setFaceRegistered(data.success && data.face_registered);
+    } catch {}
+  };
+
+
   const fetchPegawaiDetail = async () => {
     try {
       setLoading(true);
@@ -99,9 +114,8 @@ export default function DetailPegawai() {
       );
       const result = await response.json();
       if (result.success) {
-        console.log('Data pegawai:', result.data);
-        console.log('Tanggal lahir:', result.data.tanggal_lahir);
         setPegawai(result.data);
+        if (result.data.id_user) checkFaceStatus(result.data.id_user);
       } else {
         showAlert({ type: 'error', title: 'Error', message: result.message || 'Gagal memuat data' });
       }
@@ -386,6 +400,33 @@ export default function DetailPegawai() {
             </View>
           </View>
 
+          {/* Card: Data Wajah */}
+          <View style={styles.elegantCard}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="scan-outline" size={20} color="#004643" />
+              <Text style={styles.cardTitle}>Data Wajah (Absensi)</Text>
+            </View>
+            <View style={styles.separator} />
+            <View style={styles.infoRowModern}>
+              <View style={styles.infoIconBox}>
+                <Ionicons name={faceRegistered ? 'checkmark-circle' : 'close-circle'} size={16} color={faceRegistered ? '#4CAF50' : '#F44336'} />
+              </View>
+              <View style={styles.infoContentModern}>
+                <Text style={styles.labelModern}>STATUS WAJAH</Text>
+                <Text style={[styles.valueModern, { color: faceRegistered ? '#4CAF50' : '#F44336' }]}>
+                  {faceRegistered ? 'Sudah terdaftar' : 'Belum terdaftar'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.faceBtn, { backgroundColor: faceRegistered ? '#FF9800' : '#004643' }]}
+              onPress={() => setShowFaceModal(true)}
+            >
+              <Ionicons name={faceRegistered ? 'refresh-outline' : 'camera-outline'} size={18} color="#fff" />
+              <Text style={styles.faceBtnText}>{faceRegistered ? 'Update Wajah' : 'Daftarkan Wajah'}</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Card 3: Akses Akun */}
           <View style={styles.elegantCard}>
             <View style={styles.cardHeader}>
@@ -443,6 +484,14 @@ export default function DetailPegawai() {
         onConfirm={config.onConfirm ? handleConfirm : undefined}
         confirmText={config.confirmText}
         cancelText={config.cancelText}
+      />
+
+      <FaceEnrollModal
+        visible={showFaceModal}
+        userId={pegawai?.id_user}
+        title={`Daftarkan Wajah - ${pegawai?.nama_lengkap}`}
+        onSuccess={() => { setFaceRegistered(true); setShowFaceModal(false); }}
+        onClose={() => setShowFaceModal(false)}
       />
     </View>
   );
@@ -605,4 +654,6 @@ const styles = StyleSheet.create({
   whatsappIcon: {
     marginLeft: 4,
   },
+  faceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, marginTop: 8 },
+  faceBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Platform, Text } from 'react-native';
-import { InboxAPI } from '@/constants/config';
 import { AuthStorage } from '@/utils/AuthStorage';
+import { PresensiCardProvider } from '@/contexts/PresensiCardContext';
 
-export default function PegawaiTabLayout() {
+function TabLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -37,7 +37,10 @@ export default function PegawaiTabLayout() {
       
       if (data.success && data.data) {
         // Hitung unread count dari notifikasi yang belum completed
-        const unread = data.data.filter((notif: any) => !notif.isCompleted && !notif.isRead).length;
+        const unread = data.data.filter((notif: any) => {
+          const isRead = notif.isRead || notif.is_read || notif.isCompleted;
+          return !isRead;
+        }).length;
         setUnreadCount(unread);
       }
     } catch (error) {
@@ -45,6 +48,29 @@ export default function PegawaiTabLayout() {
       setUnreadCount(0);
     }
   };
+
+  const PresensiIcon = ({ color, focused }: { color: string; focused: boolean }) => (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{
+        backgroundColor: focused ? '#43A047' : '#2d7a47',
+        borderRadius: 30,
+        width: 60,
+        height: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: -30,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        borderWidth: 4,
+        borderColor: '#004643',
+      }}>
+        <Ionicons name="finger-print" size={32} color="#fff" />
+      </View>
+    </View>
+  );
 
   const InboxIcon = ({ color, focused }: { color: string; focused: boolean }) => (
     <View style={{ position: 'relative' }}>
@@ -131,28 +157,7 @@ export default function PegawaiTabLayout() {
         options={{ 
           title: 'Presensi',
           tabBarIcon: ({ color, focused }) => (
-            <View style={{
-              backgroundColor: '#43A047',
-              borderRadius: 30,
-              width: 60,
-              height: 60,
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginTop: -30,
-              elevation: 8,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 6,
-              borderWidth: 4,
-              borderColor: '#004643',
-            }}>
-              <Ionicons 
-                name="finger-print" 
-                size={32} 
-                color="#fff" 
-              />
-            </View>
+            <PresensiIcon color={color} focused={focused} />
           ),
           tabBarLabel: () => null,
         }} 
@@ -184,5 +189,13 @@ export default function PegawaiTabLayout() {
         }} 
       />
     </Tabs>
+  );
+}
+
+export default function PegawaiTabLayout() {
+  return (
+    <PresensiCardProvider>
+      <TabLayout />
+    </PresensiCardProvider>
   );
 }

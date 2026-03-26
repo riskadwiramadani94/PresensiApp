@@ -1314,4 +1314,23 @@ const getAllPresensi = async (req, res) => {
   }
 };
 
-module.exports = { getPresensi, submitPresensi, checkDinasStatus, checkWorkDay, getRiwayatGabungan, checkDinasAttendance, getAllPresensiToday, getAllPresensi };
+// Admin: Delete presensi by id
+const deletePresensi = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.json({ success: false, message: 'ID presensi diperlukan' });
+
+    const db = await getConnection();
+    const [rows] = await db.execute('SELECT id_presensi, foto_masuk, foto_pulang FROM presensi WHERE id_presensi = ?', [id]);
+    if (rows.length === 0) return res.json({ success: false, message: 'Data presensi tidak ditemukan' });
+
+    await db.execute('DELETE FROM presensi WHERE id_presensi = ?', [id]);
+
+    return res.json({ success: true, message: 'Data presensi berhasil dihapus' });
+  } catch (error) {
+    console.error('Delete presensi error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = { getPresensi, submitPresensi, checkDinasStatus, checkWorkDay, getRiwayatGabungan, checkDinasAttendance, getAllPresensiToday, getAllPresensi, deletePresensi };

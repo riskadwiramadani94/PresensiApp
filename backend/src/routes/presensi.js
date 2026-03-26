@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { getPresensi, submitPresensi, checkDinasStatus, checkWorkDay, getRiwayatGabungan, checkDinasAttendance, getAllPresensiToday, getAllPresensi } = require('../controllers/presensiController');
+const { getPresensi, submitPresensi, checkDinasStatus, checkWorkDay, getRiwayatGabungan, checkDinasAttendance, getAllPresensiToday, getAllPresensi, deletePresensi } = require('../controllers/presensiController');
 const { detectNearestOffice } = require('../controllers/locationDetectController');
 
 // Setup multer untuk upload foto
@@ -27,5 +27,6 @@ router.get('/check-dinas-attendance', checkDinasAttendance);
 router.get('/riwayat-gabungan', getRiwayatGabungan);
 router.get('/all-presensi-today', getAllPresensiToday);
 router.get('/all-presensi', getAllPresensi); // Admin endpoint - all history
+router.delete('/presensi/:id', deletePresensi); // Admin endpoint - delete presensi
 
 module.exports = router;
