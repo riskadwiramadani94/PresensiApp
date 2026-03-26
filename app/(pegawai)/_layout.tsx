@@ -22,7 +22,17 @@ export default function PegawaiTabLayout() {
       if (!user) return;
       
       // Gunakan endpoint pegawai inbox yang benar
-      const response = await fetch(`http://10.251.102.188:3000/pegawai/inbox/api/notifications?user_id=${user.id_user || user.id}`);
+      const response = await fetch(`http://10.251.102.188:3000/pegawai/inbox/api/notifications?user_id=${user.id_user || user.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -31,7 +41,8 @@ export default function PegawaiTabLayout() {
         setUnreadCount(unread);
       }
     } catch (error) {
-      console.error('Error fetching unread count:', error);
+      // Silent fail - jangan log error untuk menghindari spam console
+      setUnreadCount(0);
     }
   };
 

@@ -27,7 +27,8 @@ export default {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/images/presensi-logo.png",
-        backgroundColor: "#ffffff"
+        backgroundColor: "#ffffff",
+        monochromeImage: "./assets/images/presensi-logo.png"
       },
       permissions: [
         "NOTIFICATIONS",
@@ -39,7 +40,11 @@ export default {
       ],
       package: "com.c9586313.presensi",
       usesCleartextTraffic: true,
-      networkSecurityConfig: "./network_security_config.xml"
+      networkSecurityConfig: "./network_security_config.xml",
+      notification: {
+        icon: "./assets/images/presensi-logo.png",
+        color: "#004643"
+      }
     },
     web: {
       output: "static",
@@ -53,6 +58,7 @@ export default {
         {
           icon: "./assets/images/presensi-logo.png",
           color: "#2196F3",
+          sounds: ["./assets/images/notification_sound.mp3"],
           mode: "development"
         }
       ]
@@ -60,15 +66,9 @@ export default {
     experiments: {
       typedRoutes: true
     },
-    updates: {
-      url: "https://u.expo.dev/e5b90c9b-a9fa-4114-a4cd-05e34b97d2e8"
-    },
-    runtimeVersion: {
-      policy: "appVersion"
-    },
     extra: {
       eas: {
-        projectId: "e5b90c9b-a9fa-4114-a4cd-05e34b97d2e8"
+        projectId: "8af35b0e-437c-4473-847e-f55d8d97cb79"
       }
     }
   }

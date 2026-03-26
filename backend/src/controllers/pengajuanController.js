@@ -217,16 +217,16 @@ const submitPengajuan = async (req, res) => {
     ]);
 
     if (result.affectedRows > 0) {
-      // Ambil data user untuk notifikasi
-      const [userData] = await db.execute(
-        'SELECT nama_lengkap FROM users WHERE id_user = ?',
-        [user_id]
-      );
-      
+      /* ========================================
+         NOTIFIKASI: PENGAJUAN BARU DARI PEGAWAI
+         - Dikirim ke: Semua Admin
+         - Type: 'pengajuan_baru'
+         - Icon: 📋
+         - Routing: Approval List
+      ======================================== */
       const namaUser = userData[0]?.nama_lengkap || 'Pegawai';
       const jenisLabel = getJenisPengajuanLabel(jenis_pengajuan);
       
-      // Kirim push notification ke semua admin
       const [adminData] = await db.execute(
         'SELECT id_user FROM users WHERE role = "admin"'
       );
@@ -235,10 +235,11 @@ const submitPengajuan = async (req, res) => {
         const adminIds = adminData.map(admin => admin.id_user);
         
         // Kirim push notification (async, tidak perlu tunggu)
-        PushNotificationService.sendToMultiple(
+        PushNotificationService.sendToMultipleUsers(
           adminIds,
-          'Pengajuan Baru 📝',
+          '📋 Pengajuan Baru',
           `${namaUser} mengajukan ${jenisLabel}`,
+          'pengajuan',
           {
             type: 'pengajuan_baru',
             reference_type: 'pengajuan',

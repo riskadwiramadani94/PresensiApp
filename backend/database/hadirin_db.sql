@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 11, 2026 at 03:52 AM
+-- Generation Time: Mar 25, 2026 at 04:53 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -219,6 +219,23 @@ CREATE TABLE `lupa_password` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `notifikasi`
+--
+
+CREATE TABLE `notifikasi` (
+  `id_notifikasi` int(11) NOT NULL,
+  `id_user` int(11) NOT NULL,
+  `judul` varchar(255) NOT NULL,
+  `pesan` text NOT NULL,
+  `tipe` enum('reminder_masuk','reminder_pulang','pengajuan','approval','info') DEFAULT 'info',
+  `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`data`)),
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `pegawai`
 --
 
@@ -304,7 +321,6 @@ CREATE TABLE `presensi` (
   `id_lokasi_kantor` int(11) DEFAULT NULL COMMENT 'ID lokasi tempat absen',
   `jenis_presensi` enum('kantor','dinas') DEFAULT 'kantor' COMMENT 'Jenis presensi',
   `id_dinas` int(11) DEFAULT NULL COMMENT 'ID dinas jika absen dinas',
-  `face_confidence` decimal(5,2) DEFAULT NULL COMMENT 'Tingkat kemiripan wajah (0-100)',
   `status_validasi_masuk` enum('menunggu','disetujui','ditolak') DEFAULT 'menunggu',
   `status_validasi_pulang` enum('menunggu','disetujui','ditolak') DEFAULT NULL,
   `divalidasi_masuk_oleh` int(11) DEFAULT NULL,
@@ -312,7 +328,8 @@ CREATE TABLE `presensi` (
   `waktu_validasi_masuk` timestamp NULL DEFAULT NULL,
   `waktu_validasi_pulang` timestamp NULL DEFAULT NULL,
   `catatan_validasi_masuk` text DEFAULT NULL,
-  `catatan_validasi_pulang` text DEFAULT NULL
+  `catatan_validasi_pulang` text DEFAULT NULL,
+  `face_confidence` decimal(5,2) DEFAULT NULL COMMENT 'Tingkat kemiripan wajah (0-100)'
 ) ;
 
 -- --------------------------------------------------------
@@ -331,8 +348,25 @@ CREATE TABLE `users` (
   `no_telepon` varchar(15) DEFAULT NULL,
   `device_id` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `face_embedding` text DEFAULT NULL COMMENT 'Vector wajah 128 dimensi untuk face recognition',
+  `face_embedding` longtext DEFAULT NULL COMMENT 'Data wajah dalam format JSON array 128 dimensi',
   `face_setup_at` timestamp NULL DEFAULT NULL COMMENT 'Waktu setup wajah pertama kali'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_devices`
+--
+
+CREATE TABLE `user_devices` (
+  `id_device` int(11) NOT NULL,
+  `id_user` int(11) NOT NULL,
+  `push_token` varchar(255) NOT NULL,
+  `device_type` enum('android','ios') NOT NULL,
+  `device_name` varchar(100) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `last_active` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -425,6 +459,14 @@ ALTER TABLE `lupa_password`
   ADD KEY `idx_email_kode` (`email`,`kode_otp`);
 
 --
+-- Indexes for table `notifikasi`
+--
+ALTER TABLE `notifikasi`
+  ADD PRIMARY KEY (`id_notifikasi`),
+  ADD KEY `fk_notifikasi_user` (`id_user`),
+  ADD KEY `idx_user_read` (`id_user`, `is_read`);
+
+--
 -- Indexes for table `pegawai`
 --
 ALTER TABLE `pegawai`
@@ -462,6 +504,13 @@ ALTER TABLE `presensi`
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id_user`),
   ADD UNIQUE KEY `email` (`email`);
+
+--
+-- Indexes for table `user_devices`
+--
+ALTER TABLE `user_devices`
+  ADD PRIMARY KEY (`id_device`),
+  ADD KEY `idx_user_active` (`id_user`,`is_active`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -534,6 +583,12 @@ ALTER TABLE `lupa_password`
   MODIFY `id_lupa_password` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `notifikasi`
+--
+ALTER TABLE `notifikasi`
+  MODIFY `id_notifikasi` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `pegawai`
 --
 ALTER TABLE `pegawai`
@@ -562,6 +617,12 @@ ALTER TABLE `presensi`
 --
 ALTER TABLE `users`
   MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `user_devices`
+--
+ALTER TABLE `user_devices`
+  MODIFY `id_device` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -608,6 +669,12 @@ ALTER TABLE `lupa_password`
   ADD CONSTRAINT `fk_lupa_password_email` FOREIGN KEY (`email`) REFERENCES `users` (`email`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
+-- Constraints for table `notifikasi`
+--
+ALTER TABLE `notifikasi`
+  ADD CONSTRAINT `fk_notifikasi_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `pegawai`
 --
 ALTER TABLE `pegawai`
@@ -627,6 +694,12 @@ ALTER TABLE `presensi`
   ADD CONSTRAINT `fk_presensi_dinas` FOREIGN KEY (`id_dinas`) REFERENCES `dinas` (`id_dinas`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_presensi_lokasi_kantor` FOREIGN KEY (`id_lokasi_kantor`) REFERENCES `lokasi_kantor` (`id_lokasi_kantor`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_user_presensi` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `user_devices`
+--
+ALTER TABLE `user_devices`
+  ADD CONSTRAINT `user_devices_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

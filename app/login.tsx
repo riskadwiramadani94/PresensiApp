@@ -9,10 +9,11 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthAPI } from '../constants/config';
 import { AuthStorage } from '../utils/AuthStorage';
-import { PushNotificationManager } from '../utils/PushNotificationManager';
 import { CustomAlert } from '../components/CustomAlert';
 import { useCustomAlert } from '../hooks/useCustomAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { savePushTokenToBackend } from '../components/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -58,19 +59,35 @@ export default function LoginScreen() {
       if (result.success) {
         await AuthStorage.setUser({ ...result.data, id_user: result.data.id });
         
-        // Register push notification setelah login berhasil
-        try {
-          console.log('[LOGIN] Starting push notification registration...');
-          const pushToken = await PushNotificationManager.registerForPushNotifications();
-          console.log('[LOGIN] Push notification registration completed, token:', pushToken);
-        } catch (pushError) {
-          console.error('[LOGIN] Push notification registration failed:', pushError);
-          // Tidak perlu gagalkan login jika push notification gagal
-        }
-        
         // Debug: Cek apakah user data tersimpan
         const savedUser = await AuthStorage.getUser();
         console.log('[LOGIN DEBUG] Saved user data:', savedUser);
+        
+        // Register push token setelah login berhasil
+        try {
+          const pendingToken = await AsyncStorage.getItem('pendingPushToken');
+          if (pendingToken) {
+            console.log('[LOGIN] Registering pending push token...');
+            
+            const userId = result.data.id || result.data.id_user;
+            const baseUrl = 'http://192.168.1.4:3000';
+            
+            console.log('[LOGIN] User ID:', userId);
+            console.log('[LOGIN] Base URL:', baseUrl);
+            
+            if (userId) {
+              const saved = await savePushTokenToBackend(pendingToken, userId, baseUrl);
+              if (saved) {
+                console.log('[LOGIN] Push token registered successfully');
+                await AsyncStorage.removeItem('pendingPushToken');
+              }
+            } else {
+              console.log('[LOGIN] User ID not found');
+            }
+          }
+        } catch (tokenError) {
+          console.log('[LOGIN] Error registering push token:', tokenError);
+        }
         
         result.data.role === 'admin' 
           ? router.replace('/admin/dashboard-admin' as any) 

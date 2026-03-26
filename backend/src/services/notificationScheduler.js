@@ -1,151 +1,260 @@
 const cron = require('node-cron');
-const NotificationTriggers = require('./notificationTriggers');
-const db = require('../config/database');
+const { getConnection } = require('../config/database');
+const PushNotificationService = require('./pushNotificationService');
 
-class NotificationScheduler {
-  static init() {
-    console.log('[SCHEDULER] Initializing notification scheduler...');
-    
-    // Reminder presensi masuk - setiap hari jam 08:00
-    cron.schedule('0 8 * * 1-6', async () => {
-      console.log('[SCHEDULER] Running presensi masuk reminder...');
-      await NotificationTriggers.sendPresensiReminder();
-    }, {
-      timezone: "Asia/Jakarta"
-    });
-    
-    // Reminder presensi pulang - setiap hari jam 17:00
-    cron.schedule('0 17 * * 1-6', async () => {
-      console.log('[SCHEDULER] Running presensi pulang reminder...');
-      await NotificationTriggers.sendPresensiPulangReminder();
-    }, {
-      timezone: "Asia/Jakarta"
-    });
-    
-    // Reminder presensi masuk (warning) - setiap hari jam 08:15
-    cron.schedule('15 8 * * 1-6', async () => {
-      console.log('[SCHEDULER] Running late presensi warning...');
-      await this.sendLatePresensiWarning();
-    }, {
-      timezone: "Asia/Jakarta"
-    });
-    
-    // Check absen dinas yang perlu validasi - setiap jam
-    cron.schedule('0 * * * *', async () => {
-      console.log('[SCHEDULER] Checking pending dinas validation...');
-      await this.checkPendingDinasValidation();
-    }, {
-      timezone: "Asia/Jakarta"
-    });
-    
-    // Reminder dinas besok - setiap hari jam 18:00
-    cron.schedule('0 18 * * *', async () => {
-      console.log('[SCHEDULER] Running dinas reminder...');
-      await this.sendDinasReminder();
-    }, {
-      timezone: "Asia/Jakarta"
-    });
-    
-    console.log('[SCHEDULER] All notification schedules initialized');
+// Helper: Dapatkan waktu sekarang dalam format HH:mm
+function getCurrentTime() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+// Helper: Dapatkan hari ini dalam bahasa Indonesia
+function getCurrentDay() {
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const now = new Date();
+  return days[now.getDay()];
+}
+
+// Helper: Kurangi menit dari waktu (format HH:mm:ss)
+function subtractMinutes(timeString, minutes) {
+  const [hours, mins] = timeString.split(':').map(Number);
+  const totalMinutes = hours * 60 + mins - minutes;
+  
+  if (totalMinutes < 0) {
+    return null; // Waktu tidak valid
   }
   
-  // Warning untuk yang terlambat presensi
-  static async sendLatePresensiWarning() {
-    try {
-      const { getConnection } = require('../config/database');
-      const db = await getConnection();
-      const today = new Date().toLocaleDateString('en-CA');
-      
-      // Cari user yang belum presensi dan sudah lewat batas
-      const [users] = await db.execute(`
-        SELECT u.id_user, u.nama_lengkap 
-        FROM users u
-        LEFT JOIN presensi p ON u.id_user = p.id_user AND p.tanggal = ?
-        WHERE u.role = 'pegawai' AND p.id_presensi IS NULL
-      `, [today]);
-      
-      for (const user of users) {
-        await PushNotificationService.send(
-          user.id_user,
-          '⚠️ Terlambat Presensi',
-          'Anda sudah melewati batas waktu presensi masuk. Segera lakukan presensi!',
-          {
-            type: 'presensi_late_warning',
-            action: 'presensi_masuk'
-          }
-        );
-      }
-      
-      console.log(`[SCHEDULER] Late presensi warning sent to ${users.length} users`);
-    } catch (error) {
-      console.error('[SCHEDULER] Late presensi warning error:', error);
-    }
-  }
+  const newHours = Math.floor(totalMinutes / 60);
+  const newMinutes = totalMinutes % 60;
   
-  // Check absen dinas yang menunggu validasi
-  static async checkPendingDinasValidation() {
-    try {
-      const { getConnection } = require('../config/database');
-      const db = await getConnection();
-      
-      const [pendingCount] = await db.execute(`
-        SELECT COUNT(*) as count FROM presensi 
-        WHERE jenis_presensi = 'dinas' 
-        AND (status_validasi_masuk = 'menunggu' OR status_validasi_pulang = 'menunggu')
-      `);
-      
-      if (pendingCount[0].count > 0) {
-        // Kirim notifikasi ke admin
-        const [admins] = await db.execute(`SELECT id_user FROM users WHERE role = 'admin'`);
-        const adminIds = admins.map(admin => admin.id_user);
-        
-        await NotificationTriggers.sendToMultiple(
-          adminIds,
-          '📋 Validasi Menunggu',
-          `Ada ${pendingCount[0].count} absen dinas yang menunggu validasi`,
-          {
-            type: 'pending_validation',
-            count: pendingCount[0].count
-          }
-        );
-      }
-    } catch (error) {
-      console.error('[SCHEDULER] Pending dinas validation check error:', error);
+  return `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+}
+
+// Cek dan kirim reminder absen masuk (1 jam sebelum)
+async function checkAndSendReminderMasuk() {
+  try {
+    const currentTime = getCurrentTime();
+    const currentDay = getCurrentDay();
+    
+    const db = await getConnection();
+    
+    // Ambil jam kerja hari ini
+    const [jamKerja] = await db.execute(
+      'SELECT jam_masuk, is_kerja FROM jam_kerja_hari WHERE hari = ?',
+      [currentDay]
+    );
+    
+    if (jamKerja.length === 0 || jamKerja[0].is_kerja === 0) {
+      // Hari ini libur atau tidak ada data
+      return;
     }
-  }
-  
-  // Reminder dinas besok
-  static async sendDinasReminder() {
-    try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toLocaleDateString('en-CA');
-      
-      const [dinasUsers] = await db.query(`
-        SELECT dp.id_user, u.nama_lengkap, d.nama_kegiatan, d.lokasi_tujuan
-        FROM dinas_pegawai dp
-        JOIN users u ON dp.id_user = u.id_user
-        JOIN dinas d ON dp.id_dinas = d.id_dinas
-        WHERE d.tanggal_mulai = ? AND d.status = 'aktif'
-      `, [tomorrowStr]);
-      
-      for (const user of dinasUsers) {
-        await NotificationTriggers.send(
-          user.id_user,
-          '📅 Reminder Dinas Besok',
-          `Besok Anda memiliki dinas: ${user.nama_kegiatan} di ${user.lokasi_tujuan}`,
-          {
-            type: 'dinas_reminder',
-            kegiatan: user.nama_kegiatan
-          }
-        );
-      }
-      
-      console.log(`[SCHEDULER] Dinas reminder sent to ${dinasUsers.length} users`);
-    } catch (error) {
-      console.error('[SCHEDULER] Dinas reminder error:', error);
+    
+    const jamMasuk = jamKerja[0].jam_masuk;
+    const reminderTime = subtractMinutes(jamMasuk, 60); // 1 jam sebelum jam masuk
+    
+    if (!reminderTime || currentTime !== reminderTime) {
+      // Belum waktunya reminder
+      return;
     }
+    
+    console.log(`[SCHEDULER] Sending reminder absen masuk for ${currentDay} at ${currentTime}`);
+    
+    // Ambil semua pegawai
+    const [pegawai] = await db.execute(
+      "SELECT id_user FROM users WHERE role = 'pegawai'"
+    );
+    
+    if (pegawai.length === 0) {
+      return;
+    }
+    
+    const pegawaiIds = pegawai.map(p => p.id_user);
+    
+    // Kirim notifikasi
+    await PushNotificationService.sendToMultipleUsers(
+      pegawaiIds,
+      '⏰ Reminder Absen Masuk',
+      `Jangan lupa absen masuk hari ini jam ${jamMasuk.substring(0, 5)}. Semangat bekerja!`,
+      'reminder_masuk',
+      { jam_masuk: jamMasuk }
+    );
+    
+    console.log(`[SCHEDULER] Reminder absen masuk sent to ${pegawaiIds.length} pegawai`);
+    
+  } catch (error) {
+    console.error('[SCHEDULER] Error in checkAndSendReminderMasuk:', error);
   }
 }
 
-module.exports = NotificationScheduler;
+// Cek dan kirim reminder terlambat (sudah lewat jam masuk tapi belum absen)
+async function checkAndSendReminderTerlambat() {
+  try {
+    const currentTime = getCurrentTime();
+    const currentDay = getCurrentDay();
+    const today = new Date().toISOString().split('T')[0];
+    
+    const db = await getConnection();
+    
+    // Ambil jam kerja hari ini
+    const [jamKerja] = await db.execute(
+      'SELECT jam_masuk, is_kerja FROM jam_kerja_hari WHERE hari = ?',
+      [currentDay]
+    );
+    
+    if (jamKerja.length === 0 || jamKerja[0].is_kerja === 0) {
+      return;
+    }
+    
+    const jamMasuk = jamKerja[0].jam_masuk.substring(0, 5);
+    
+    // Cek apakah sudah lewat jam masuk
+    if (currentTime <= jamMasuk) {
+      return;
+    }
+    
+    console.log(`[SCHEDULER] Checking for late employees at ${currentTime}`);
+    
+    // Ambil pegawai yang belum absen masuk hari ini
+    const [pegawaiTerlambat] = await db.execute(`
+      SELECT u.id_user 
+      FROM users u
+      WHERE u.role = 'pegawai'
+      AND u.id_user NOT IN (
+        SELECT id_user FROM presensi 
+        WHERE DATE(tanggal) = ? AND jam_masuk IS NOT NULL
+      )
+    `, [today]);
+    
+    if (pegawaiTerlambat.length === 0) {
+      return;
+    }
+    
+    const pegawaiIds = pegawaiTerlambat.map(p => p.id_user);
+    
+    // Kirim notifikasi terlambat
+    await PushNotificationService.sendToMultipleUsers(
+      pegawaiIds,
+      '⚠️ Reminder Terlambat',
+      `Anda belum absen masuk! Jam masuk adalah ${jamMasuk}. Segera lakukan absen.`,
+      'reminder_terlambat',
+      { jam_masuk: jamMasuk }
+    );
+    
+    console.log(`[SCHEDULER] Reminder terlambat sent to ${pegawaiIds.length} pegawai`);
+    
+  } catch (error) {
+    console.error('[SCHEDULER] Error in checkAndSendReminderTerlambat:', error);
+  }
+}
+
+// Cek dan kirim reminder absen pulang
+async function checkAndSendReminderPulang() {
+  try {
+    const currentTime = getCurrentTime();
+    const currentDay = getCurrentDay();
+    
+    const db = await getConnection();
+    
+    // Ambil jam kerja hari ini dari jam_kerja_history (prioritas) atau jam_kerja_hari (fallback)
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Cek jam_kerja_history dulu
+    const [jamKerjaHistory] = await db.execute(`
+      SELECT jam_pulang, is_kerja 
+      FROM jam_kerja_history 
+      WHERE hari = ? 
+      AND ? BETWEEN tanggal_mulai_berlaku AND IFNULL(tanggal_selesai_berlaku, '9999-12-31')
+      ORDER BY tanggal_mulai_berlaku DESC
+      LIMIT 1
+    `, [currentDay, today]);
+    
+    let jamPulang, isKerja;
+    
+    if (jamKerjaHistory.length > 0) {
+      // Ada data di jam_kerja_history
+      jamPulang = jamKerjaHistory[0].jam_pulang;
+      isKerja = jamKerjaHistory[0].is_kerja;
+    } else {
+      // Fallback ke jam_kerja_hari
+      const [jamKerjaHari] = await db.execute(
+        'SELECT jam_pulang, is_kerja FROM jam_kerja_hari WHERE hari = ?',
+        [currentDay]
+      );
+      
+      if (jamKerjaHari.length === 0 || jamKerjaHari[0].is_kerja === 0) {
+        // Hari ini libur atau tidak ada data
+        return;
+      }
+      
+      jamPulang = jamKerjaHari[0].jam_pulang;
+      isKerja = jamKerjaHari[0].is_kerja;
+    }
+    
+    if (isKerja === 0) {
+      // Hari ini libur
+      return;
+    }
+    
+    const reminderTime = subtractMinutes(jamPulang, 30); // 30 menit sebelum jam pulang
+    
+    if (!reminderTime || currentTime !== reminderTime) {
+      // Belum waktunya reminder
+      return;
+    }
+    
+    console.log(`[SCHEDULER] Sending reminder absen pulang for ${currentDay} at ${currentTime}`);
+    
+    // Ambil pegawai yang sudah absen masuk hari ini tapi belum pulang
+    const [pegawai] = await db.execute(
+      `SELECT DISTINCT id_user FROM presensi 
+       WHERE tanggal = CURDATE() AND jam_masuk IS NOT NULL AND jam_pulang IS NULL`
+    );
+    
+    if (pegawai.length === 0) {
+      console.log('[SCHEDULER] No pegawai to remind for absen pulang');
+      return;
+    }
+    
+    const pegawaiIds = pegawai.map(p => p.id_user);
+    
+    // Kirim notifikasi
+    await PushNotificationService.sendToMultipleUsers(
+      pegawaiIds,
+      '🏠 Reminder Absen Pulang',
+      `Jangan lupa absen pulang hari ini jam ${jamPulang.substring(0, 5)}. Selamat beristirahat!`,
+      'reminder_pulang',
+      { jam_pulang: jamPulang }
+    );
+    
+    console.log(`[SCHEDULER] Reminder absen pulang sent to ${pegawaiIds.length} pegawai`);
+    
+  } catch (error) {
+    console.error('[SCHEDULER] Error in checkAndSendReminderPulang:', error);
+  }
+}
+
+// Start scheduler
+function startScheduler() {
+  console.log('[SCHEDULER] Starting notification scheduler...');
+  
+  // Cron job jalan setiap menit
+  cron.schedule('* * * * *', async () => {
+    const now = new Date();
+    console.log(`[SCHEDULER] Running at ${now.toLocaleTimeString('id-ID')}`);
+    
+    try {
+      await checkAndSendReminderMasuk();
+      await checkAndSendReminderTerlambat();
+      await checkAndSendReminderPulang();
+    } catch (error) {
+      console.error('[SCHEDULER] Error:', error);
+    }
+  });
+  
+  console.log('[SCHEDULER] ✅ Notification scheduler started successfully');
+  console.log('[SCHEDULER] Will check for reminders every minute');
+}
+
+module.exports = { startScheduler };

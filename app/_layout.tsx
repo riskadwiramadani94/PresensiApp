@@ -2,14 +2,14 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
-import { useEffect } from "react";
 import * as Notifications from "expo-notifications";
-import { PushNotificationManager } from "../utils/PushNotificationManager";
-import { AuthStorage } from "../utils/AuthStorage";
-import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { registerForPushNotificationsAsync, savePushTokenToBackend } from "../components/notificationService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function RootLayout() {
-  const router = useRouter();
+  const notificationListener = useRef<any>();
+  const responseListener = useRef<any>();
   
   useEffect(() => {
     if (Platform.OS === "android") {
@@ -17,39 +17,63 @@ export default function RootLayout() {
       NavigationBar.setButtonStyleAsync("light");
     }
     
-    // Initialize push notifications
-    initPushNotifications();
+    // Setup push notifications
+    setupPushNotifications();
     
-    // Setup notification handlers
-    PushNotificationManager.setupNotificationHandlers(router);
+    // Setup notification listeners
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('[NOTIF] Notification received:', notification);
+      // Notifikasi diterima saat app foreground
+    });
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('[NOTIF] Notification tapped:', response);
+      // User tap notifikasi - bisa navigate ke screen tertentu
+      const data = response.notification.request.content.data;
+      // TODO: Handle navigation based on notification type
+    });
+
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
   }, []);
   
-  const initPushNotifications = async () => {
+  const setupPushNotifications = async () => {
     try {
-      // Cek apakah user sudah login
-      const user = await AuthStorage.getUser();
+      console.log('[NOTIF] Setting up push notifications...');
       
-      if (user) {
-        console.log('[APP] User logged in, registering push notifications');
-        await PushNotificationManager.registerForPushNotifications();
-      } else {
-        console.log('[APP] User not logged in, skipping push notification registration');
-      }
+      // Request permission dan dapatkan token
+      const token = await registerForPushNotificationsAsync();
       
-      // Handle notification yang dibuka saat app mati (cold start)
-      const response = await Notifications.getLastNotificationResponseAsync();
-      
-      if (response) {
-        console.log('[APP] App opened from notification (cold start)');
-        const data = response.notification.request.content.data;
+      if (token) {
+        console.log('[NOTIF] Got push token:', token);
         
-        // Delay untuk memastikan navigation ready
-        setTimeout(() => {
-          PushNotificationManager.handleNotificationNavigation(data, router);
-        }, 1000);
+        // Simpan token ke state/storage untuk digunakan setelah login
+        await AsyncStorage.setItem('pendingPushToken', token);
+        
+        // Cek apakah user sudah login
+        const authToken = await AsyncStorage.getItem("token");
+        
+        if (authToken) {
+          // Kirim token ke backend
+          const saved = await savePushTokenToBackend(token);
+          if (saved) {
+            console.log('[NOTIF] Push token registered to backend');
+            await AsyncStorage.removeItem('pendingPushToken');
+          }
+        } else {
+          console.log('[NOTIF] User not logged in yet, token will be registered after login');
+        }
       }
+      
+      console.log('[NOTIF] Push notifications setup complete!');
     } catch (error) {
-      console.error('[APP] Push notification init error:', error);
+      console.error('[NOTIF] Setup error:', error);
     }
   };
 

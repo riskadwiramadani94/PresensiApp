@@ -1,7 +1,7 @@
 const { getConnection } = require('../config/database');
+const PushNotificationService = require('../services/pushNotificationService');
 const multer = require('multer');
 const path = require('path');
-const { sendDinasNotification, sendDinasUpdateNotification } = require('../utils/notificationHelper');
 
 // Setup multer untuk upload file
 const storage = multer.diskStorage({
@@ -357,8 +357,34 @@ const createDinasAdmin = async (req, res) => {
       await connection.commit();
 
       // Kirim notifikasi ke pegawai yang ditugaskan
-      const pegawaiIds = validUsers.map(user => user.id_user);
-      await sendDinasNotification(dinas_id, pegawaiIds, 'dinas_baru');
+      const [dinasInfo] = await connection.execute(
+        'SELECT nama_kegiatan, tanggal_mulai, tanggal_selesai FROM dinas WHERE id_dinas = ?',
+        [dinas_id]
+      );
+      
+      const dinas = dinasInfo[0];
+      const tanggalMulai = new Date(dinas.tanggal_mulai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      const tanggalSelesai = new Date(dinas.tanggal_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      
+      // Kirim notifikasi ke setiap pegawai
+      for (const user of validUsers) {
+        PushNotificationService.sendToUser(
+          user.id_user,
+          '✈️ Penugasan Dinas Baru',
+          `Anda ditugaskan ke "${dinas.nama_kegiatan}" dari ${tanggalMulai} - ${tanggalSelesai}`,
+          'dinas_assigned',
+          {
+            type: 'dinas_assigned',
+            reference_type: 'dinas',
+            reference_id: dinas_id,
+            nama_kegiatan: dinas.nama_kegiatan,
+            tanggal_mulai: dinas.tanggal_mulai,
+            tanggal_selesai: dinas.tanggal_selesai
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send notification:', error);
+        });
+      }
 
       res.status(201).json({
         success: true,
@@ -709,6 +735,9 @@ const cancelDinas = async (req, res) => {
       [id]
     );
 
+    // Ambil info dinas untuk notifikasi
+    const dinas = dinasRows[0];
+    
     // Ambil daftar pegawai yang ditugaskan untuk notifikasi
     const [pegawaiRows] = await db.execute(
       'SELECT id_user FROM dinas_pegawai WHERE id_dinas = ?',
@@ -717,11 +746,24 @@ const cancelDinas = async (req, res) => {
     
     const pegawaiIds = pegawaiRows.map(row => row.id_user);
     
-    // Kirim notifikasi pembatalan ke pegawai
+    // Kirim notifikasi ke semua pegawai yang ditugaskan
     if (pegawaiIds.length > 0) {
-      await sendDinasNotification(id, pegawaiIds, 'dinas_dibatalkan');
+      PushNotificationService.sendToMultipleUsers(
+        pegawaiIds,
+        '⚠️ Dinas Dibatalkan',
+        `Penugasan dinas "${dinas.nama_kegiatan}" telah dibatalkan`,
+        'dinas_cancelled',
+        {
+          type: 'dinas_cancelled',
+          reference_type: 'dinas',
+          reference_id: parseInt(id),
+          nama_kegiatan: dinas.nama_kegiatan
+        }
+      ).catch(error => {
+        console.error('[PUSH] Failed to send notification:', error);
+      });
     }
-
+    
     res.json({
       success: true,
       message: 'Dinas berhasil dibatalkan'
@@ -829,10 +871,6 @@ const updateDinas = async (req, res) => {
 
       await connection.commit();
 
-      // Kirim notifikasi update ke pegawai yang ditugaskan
-      const pegawaiIds = validUsers.map(user => user.id_user);
-      await sendDinasUpdateNotification(id, pegawaiIds);
-
       res.json({
         success: true,
         message: 'Data dinas berhasil diupdate'
@@ -885,6 +923,24 @@ const validateAbsenDinas = async (req, res) => {
     
     const db = await getConnection();
     
+    // Ambil data presensi dan pegawai untuk notifikasi
+    const [presensiData] = await db.execute(`
+      SELECT p.id_user, p.tanggal, d.nama_kegiatan, pg.nama_lengkap
+      FROM presensi p
+      JOIN dinas d ON p.id_dinas = d.id_dinas
+      JOIN pegawai pg ON p.id_user = pg.id_user
+      WHERE p.id_presensi = ? AND p.jenis_presensi = 'dinas'
+    `, [id]);
+    
+    if (presensiData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Data presensi tidak ditemukan'
+      });
+    }
+    
+    const presensi = presensiData[0];
+    
     // Get admin user ID (simplified - in production, get from auth token)
     const [adminRows] = await db.execute('SELECT id_user FROM users WHERE role = "admin" LIMIT 1');
     const adminId = adminRows[0]?.id_user;
@@ -913,6 +969,29 @@ const validateAbsenDinas = async (req, res) => {
         WHERE id_presensi = ? AND jenis_presensi = 'dinas'
       `, [status, status, adminId, catatan || null, id]);
     }
+    
+    // Kirim notifikasi ke pegawai
+    const isApproved = action === 'approve';
+    const icon = isApproved ? '✓' : '✗';
+    const statusText = isApproved ? 'disetujui' : 'ditolak';
+    const absenTypeText = absen_type === 'masuk' ? 'masuk' : 'pulang';
+    
+    PushNotificationService.sendToUser(
+      presensi.id_user,
+      `${icon} Validasi Absen Dinas ${isApproved ? 'Disetujui' : 'Ditolak'}`,
+      `Absen ${absenTypeText} dinas "${presensi.nama_kegiatan}" telah ${statusText}${catatan ? '. Catatan: ' + catatan : ''}`,
+      'validasi_absen_dinas',
+      {
+        type: isApproved ? 'validasi_absen_dinas_approved' : 'validasi_absen_dinas_rejected',
+        reference_type: 'presensi',
+        reference_id: parseInt(id),
+        absen_type: absen_type,
+        status: status,
+        nama_kegiatan: presensi.nama_kegiatan
+      }
+    ).catch(error => {
+      console.error('[PUSH] Failed to send notification:', error);
+    });
     
     res.json({
       success: true,

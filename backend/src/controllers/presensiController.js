@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/database');
+const PushNotificationService = require('../services/pushNotificationService');
 
 // Function to calculate distance between two coordinates
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -784,6 +785,13 @@ const submitPresensi = async (req, res) => {
 
     if (jenis_presensi === 'masuk') {
 
+      // Ambil nama pegawai untuk notifikasi
+      const [userData] = await db.execute(
+        'SELECT nama_lengkap FROM pegawai WHERE id_user = ?',
+        [user_id]
+      );
+      const namaPegawai = userData[0]?.nama_lengkap || 'Pegawai';
+
       // PISAHKAN: Simpan ke presensi dengan jenis_presensi
       if (dinasCheckRows.length > 0) {
         // SEDANG DINAS → Simpan ke presensi dengan jenis_presensi='dinas'
@@ -823,7 +831,27 @@ const submitPresensi = async (req, res) => {
           ]);
         }
         
-        console.log(`✓ Absen DINAS saved: id_dinas=${id_dinas}, lokasi_id=${lokasi_id_valid}`);
+        /* ========================================
+           NOTIFIKASI: ABSEN DINAS MASUK
+           - Dikirim ke: Semua Admin
+           - Type: 'absen_dinas_masuk'
+           - Icon: 📍
+           - Routing: Tracking Pegawai
+        ======================================== */
+        PushNotificationService.sendToAdmins(
+          '📍 Absen Dinas Masuk',
+          `${namaPegawai} absen masuk dinas jam ${jam_sekarang.substring(0, 5)} di ${nama_lokasi}`,
+          'absen_masuk',
+          {
+            type: 'absen_dinas_masuk',
+            user_id: user_id,
+            nama_pegawai: namaPegawai,
+            lokasi: nama_lokasi,
+            jam: jam_sekarang
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send notification:', error);
+        });
         
       } else {
         // TIDAK DINAS → Simpan ke presensi biasa
@@ -869,7 +897,28 @@ const submitPresensi = async (req, res) => {
           console.log('✓ UPDATE completed');
         }
         
-        console.log(`✓ Presensi BIASA saved: tanggal=${tanggal_only}, jam=${jam_sekarang}, lokasi_id=${lokasi_id_valid}`);
+        /* ========================================
+           NOTIFIKASI: ABSEN MASUK
+           - Dikirim ke: Semua Admin
+           - Type: 'absen_masuk'
+           - Icon: 📍
+           - Routing: Tracking Pegawai
+        ======================================== */
+        PushNotificationService.sendToAdmins(
+          '📍 Absen Masuk',
+          `${namaPegawai} absen masuk jam ${jam_sekarang.substring(0, 5)} di ${nama_lokasi}`,
+          'absen_masuk',
+          {
+            type: 'absen_masuk',
+            user_id: user_id,
+            nama_pegawai: namaPegawai,
+            lokasi: nama_lokasi,
+            jam: jam_sekarang,
+            status: status
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send notification:', error);
+        });
       }
 
     } else { // keluar
@@ -915,6 +964,13 @@ const submitPresensi = async (req, res) => {
         LIMIT 1
       `, [user_id, tanggal_only]);
       
+      // Ambil nama pegawai untuk notifikasi
+      const [userData] = await db.execute(
+        'SELECT nama_lengkap FROM pegawai WHERE id_user = ?',
+        [user_id]
+      );
+      const namaPegawai = userData[0]?.nama_lengkap || 'Pegawai';
+      
       // Ambil jam pulang normal
       const hari_ini = now.toLocaleDateString('en-US', { weekday: 'long' });
       const hari_indonesia = {
@@ -956,7 +1012,27 @@ const submitPresensi = async (req, res) => {
           user_id, tanggal_only
         ]);
         
-        console.log(`✓ Absen DINAS pulang updated`);
+        /* ========================================
+           NOTIFIKASI: ABSEN DINAS PULANG
+           - Dikirim ke: Semua Admin
+           - Type: 'absen_dinas_pulang'
+           - Icon: 🏠
+           - Routing: Tracking Pegawai
+        ======================================== */
+        PushNotificationService.sendToAdmins(
+          '🏠 Absen Dinas Pulang',
+          `${namaPegawai} absen pulang dinas jam ${jam_sekarang.substring(0, 5)} dari ${nama_lokasi}`,
+          'absen_pulang',
+          {
+            type: 'absen_dinas_pulang',
+            user_id: user_id,
+            nama_pegawai: namaPegawai,
+            lokasi: nama_lokasi,
+            jam: jam_sekarang
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send notification:', error);
+        });
         
         if (result.affectedRows === 0) {
           return res.json({ success: false, message: 'Tidak ada data absen dinas masuk untuk hari ini' });
@@ -972,7 +1048,27 @@ const submitPresensi = async (req, res) => {
           user_id, tanggal_only
         ]);
         
-        console.log(`✓ Presensi BIASA pulang updated`);
+        /* ========================================
+           NOTIFIKASI: ABSEN PULANG
+           - Dikirim ke: Semua Admin
+           - Type: 'absen_pulang'
+           - Icon: 🏠
+           - Routing: Tracking Pegawai
+        ======================================== */
+        PushNotificationService.sendToAdmins(
+          '🏠 Absen Pulang',
+          `${namaPegawai} absen pulang jam ${jam_sekarang.substring(0, 5)} dari ${nama_lokasi}`,
+          'absen_pulang',
+          {
+            type: 'absen_pulang',
+            user_id: user_id,
+            nama_pegawai: namaPegawai,
+            lokasi: nama_lokasi,
+            jam: jam_sekarang
+          }
+        ).catch(error => {
+          console.error('[PUSH] Failed to send notification:', error);
+        });
         
         if (result.affectedRows === 0) {
           return res.json({ success: false, message: 'Tidak ada data presensi masuk untuk hari ini' });

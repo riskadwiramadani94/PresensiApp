@@ -77,21 +77,30 @@ const updateApproval = async (req, res) => {
     `, [status, keterangan_admin || null, id]);
 
     if (result.affectedRows > 0) {
-      // Kirim push notification ke pegawai
+      /* ========================================
+         NOTIFIKASI: PENGAJUAN DISETUJUI/DITOLAK
+         - Dikirim ke: Pegawai yang mengajukan
+         - Type: 'pengajuan_approved' | 'pengajuan_rejected'
+         - Icon: ✓ (approved) | ✗ (rejected)
+         - Routing: Detail Pengajuan
+      ======================================== */
       const isApproved = status === 'approved';
-      const title = isApproved ? 'Pengajuan Disetujui ✅' : 'Pengajuan Ditolak ❌';
-      const message = `Pengajuan ${pengajuan.jenis_pengajuan} Anda ${isApproved ? 'disetujui' : 'ditolak'}${keterangan_admin ? '. ' + keterangan_admin : ''}`;
+      const statusText = isApproved ? 'disetujui' : 'ditolak';
+      const icon = isApproved ? '✓' : '✗';
+      const title = `${icon} Pengajuan ${isApproved ? 'Disetujui' : 'Ditolak'}`;
+      const message = `Pengajuan ${pengajuan.jenis_pengajuan} Anda telah ${statusText}${keterangan_admin ? '. Catatan: ' + keterangan_admin : ''}`;
       
-      // Kirim push notification (async, tidak perlu tunggu)
-      PushNotificationService.send(
+      PushNotificationService.sendToUser(
         pengajuan.id_user,
         title,
         message,
+        'approval',
         {
           type: isApproved ? 'pengajuan_approved' : 'pengajuan_rejected',
           reference_type: 'pengajuan',
           reference_id: parseInt(id),
-          jenis_pengajuan: pengajuan.jenis_pengajuan
+          jenis_pengajuan: pengajuan.jenis_pengajuan,
+          status: status
         }
       ).catch(error => {
         console.error('[PUSH] Failed to send notification:', error);

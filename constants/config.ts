@@ -4,12 +4,12 @@ const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
 
 // Untuk APK production, gunakan IP yang bisa diakses dari luar
 // Atau deploy backend ke cloud service
-const PRODUCTION_URL = "http://10.251.102.188:3000"; // IP yang benar
-const DEVELOPMENT_URL = "http://10.251.102.188:3000"; // IP yang benar
+const PRODUCTION_URL = "http://192.168.1.4:3000"; // IP yang benar
+const DEVELOPMENT_URL = "http://192.168.1.4:3000"; // IP yang benar
 
 // Multiple server options untuk APK
 const SERVER_OPTIONS = [
-  'http://10.251.102.188:3000',   // WiFi IP - IP yang benar
+  'http://192.168.1.4:3000',   // WiFi IP - IP yang benar
   'http://10.251.102.191:3000',   // IP lama sebagai backup
   'http://192.168.1.100:3000',    // IP alternatif
   'http://10.0.2.2:3000',         // Android Emulator
@@ -769,6 +769,22 @@ export const InboxAPI = {
         success: false,
         message: error.message || 'Tidak dapat terhubung ke server',
         unread_count: 0
+      };
+    }
+  },
+  
+  markAsRead: async (notification_id: string, user_id: string) => {
+    try {
+      const response = await fetchWithRetry(`${getApiUrl('/api/inbox/mark-read')}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_id, user_id }),
+      });
+      return response.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Tidak dapat terhubung ke server'
       };
     }
   },

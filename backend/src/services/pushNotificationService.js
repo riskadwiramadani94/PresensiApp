@@ -1,133 +1,173 @@
 const { Expo } = require('expo-server-sdk');
-const db = require('../config/database');
+const { getConnection } = require('../config/database');
 
-// Initialize Expo SDK
 const expo = new Expo();
 
-const PushNotificationService = {
-  /**
-   * Kirim push notification ke user
-   * @param {number} userId - ID user penerima
-   * @param {string} title - Judul notifikasi
-   * @param {string} body - Isi notifikasi
-   * @param {object} data - Data untuk navigation (type, reference_id, dll)
-   */
-  async send(userId, title, body, data = {}) {
+class PushNotificationService {
+  // Kirim notifikasi ke 1 user
+  static async sendToUser(userId, title, message, tipe = 'info', data = {}) {
     try {
       console.log(`[PUSH] Sending to user ${userId}: ${title}`);
       
-      // 1. Ambil push token dari database
-      const [devices] = await db.query(`
-        SELECT push_token, device_type FROM user_devices 
-        WHERE id_user = ? AND is_active = TRUE
-      `, [userId]);
+      const db = await getConnection();
+      
+      // Ambil push token dari user_devices
+      const [devices] = await db.execute(
+        'SELECT push_token FROM user_devices WHERE id_user = ? AND is_active = 1',
+        [userId]
+      );
       
       if (devices.length === 0) {
         console.log(`[PUSH] No active devices for user ${userId}`);
-        return { success: false, message: 'No active devices' };
+        // Tetap simpan ke database meski tidak ada device
+        await this.saveToDatabase(userId, title, message, tipe, data);
+        return;
       }
       
-      // 2. Prepare messages
+      // Kirim push notification
       const messages = [];
-      
       for (const device of devices) {
-        const pushToken = device.push_token;
-        
-        // Validasi token
-        if (!Expo.isExpoPushToken(pushToken)) {
-          console.log(`[PUSH] Invalid token: ${pushToken}`);
+        if (!Expo.isExpoPushToken(device.push_token)) {
+          console.warn(`[PUSH] Invalid token: ${device.push_token}`);
           continue;
         }
         
         messages.push({
-          to: pushToken,
+          to: device.push_token,
           sound: 'default',
           title: title,
-          body: body,
-          data: data, // Data untuk navigation
-          badge: 1,
+          body: message,
+          data: { ...data, tipe },
           priority: 'high',
           channelId: 'default'
         });
       }
       
-      if (messages.length === 0) {
-        console.log(`[PUSH] No valid tokens for user ${userId}`);
-        return { success: false, message: 'No valid tokens' };
-      }
-      
-      // 3. Kirim dalam batch
-      const chunks = expo.chunkPushNotifications(messages);
-      const tickets = [];
-      
-      for (const chunk of chunks) {
-        try {
-          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-          tickets.push(...ticketChunk);
-          
-          // Log hasil
-          ticketChunk.forEach((ticket, index) => {
-            if (ticket.status === 'error') {
-              console.error(`[PUSH] Error sending to ${chunk[index].to}:`, ticket.message);
-              
-              // Jika token invalid, nonaktifkan device
-              if (ticket.details?.error === 'DeviceNotRegistered') {
-                this.deactivateDevice(chunk[index].to);
-              }
-            } else {
-              console.log(`[PUSH] Success: ${ticket.id}`);
-            }
-          });
-        } catch (error) {
-          console.error('[PUSH] Error sending chunk:', error);
+      if (messages.length > 0) {
+        const chunks = expo.chunkPushNotifications(messages);
+        for (const chunk of chunks) {
+          try {
+            const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+            console.log(`[PUSH] Sent ${ticketChunk.length} notifications`);
+          } catch (error) {
+            console.error('[PUSH] Error sending chunk:', error);
+          }
         }
       }
       
-      return { success: true, tickets };
-    } catch (error) {
-      console.error('[PUSH] Send error:', error);
-      return { success: false, error: error.message };
-    }
-  },
-  
-  /**
-   * Kirim push notification ke multiple users
-   * @param {array} userIds - Array of user IDs
-   * @param {string} title - Judul notifikasi
-   * @param {string} body - Isi notifikasi
-   * @param {object} data - Data untuk navigation
-   */
-  async sendToMultiple(userIds, title, body, data = {}) {
-    console.log(`[PUSH] Sending to ${userIds.length} users`);
-    
-    const promises = userIds.map(userId => 
-      this.send(userId, title, body, data)
-    );
-    
-    const results = await Promise.all(promises);
-    
-    const successCount = results.filter(r => r.success).length;
-    console.log(`[PUSH] Sent to ${successCount}/${userIds.length} users`);
-    
-    return results;
-  },
-  
-  /**
-   * Nonaktifkan device dengan token tertentu
-   */
-  async deactivateDevice(pushToken) {
-    try {
-      await db.query(`
-        UPDATE user_devices 
-        SET is_active = FALSE 
-        WHERE push_token = ?
-      `, [pushToken]);
+      // Simpan ke database
+      await this.saveToDatabase(userId, title, message, tipe, data);
       
-      console.log(`[PUSH] Device deactivated: ${pushToken}`);
     } catch (error) {
-      console.error('[PUSH] Deactivate device error:', error);
+      console.error('[PUSH] Error:', error);
+      throw error;
     }
   }
-};
+  
+  // Kirim notifikasi ke banyak user
+  static async sendToMultipleUsers(userIds, title, message, tipe = 'info', data = {}) {
+    try {
+      console.log(`[PUSH] Sending to ${userIds.length} users: ${title}`);
+      
+      const db = await getConnection();
+      
+      // Ambil semua push token
+      const placeholders = userIds.map(() => '?').join(',');
+      const [devices] = await db.execute(
+        `SELECT id_user, push_token FROM user_devices 
+         WHERE id_user IN (${placeholders}) AND is_active = 1`,
+        userIds
+      );
+      
+      if (devices.length === 0) {
+        console.log('[PUSH] No active devices found');
+        return;
+      }
+      
+      // Kirim push notification
+      const messages = [];
+      for (const device of devices) {
+        if (!Expo.isExpoPushToken(device.push_token)) {
+          continue;
+        }
+        
+        messages.push({
+          to: device.push_token,
+          sound: 'default',
+          title: title,
+          body: message,
+          data: { ...data, tipe },
+          priority: 'high',
+          channelId: 'default'
+        });
+      }
+      
+      if (messages.length > 0) {
+        const chunks = expo.chunkPushNotifications(messages);
+        for (const chunk of chunks) {
+          try {
+            await expo.sendPushNotificationsAsync(chunk);
+          } catch (error) {
+            console.error('[PUSH] Error sending chunk:', error);
+          }
+        }
+      }
+      
+      // Simpan ke database untuk setiap user
+      for (const userId of userIds) {
+        await this.saveToDatabase(userId, title, message, tipe, data);
+      }
+      
+      console.log(`[PUSH] Successfully sent to ${messages.length} devices`);
+      
+    } catch (error) {
+      console.error('[PUSH] Error:', error);
+      throw error;
+    }
+  }
+  
+  // Kirim notifikasi ke semua admin
+  static async sendToAdmins(title, message, tipe = 'info', data = {}) {
+    try {
+      const db = await getConnection();
+      
+      // Ambil semua admin
+      const [admins] = await db.execute(
+        "SELECT id_user FROM users WHERE role = 'admin'"
+      );
+      
+      const adminIds = admins.map(admin => admin.id_user);
+      
+      if (adminIds.length > 0) {
+        await this.sendToMultipleUsers(adminIds, title, message, tipe, data);
+      }
+      
+    } catch (error) {
+      console.error('[PUSH] Error sending to admins:', error);
+      throw error;
+    }
+  }
+  
+  // Simpan notifikasi ke database
+  static async saveToDatabase(userId, title, message, tipe, data) {
+    try {
+      const db = await getConnection();
+      
+      await db.execute(
+        `INSERT INTO notifikasi (id_user, judul, pesan, tipe, data, created_at)
+         VALUES (?, ?, ?, ?, ?, NOW())`,
+        [userId, title, message, tipe, JSON.stringify(data)]
+      );
+      
+    } catch (error) {
+      console.error('[PUSH] Error saving to database:', error);
+    }
+  }
+  
+  // Backward compatibility
+  static async send(userId, title, message, data = {}) {
+    return this.sendToUser(userId, title, message, 'info', data);
+  }
+}
 
 module.exports = PushNotificationService;

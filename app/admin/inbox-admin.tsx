@@ -112,14 +112,58 @@ export default function InboxAdmin() {
     setRefreshing(false);
   };
 
-  const handleItemPress = (item: InboxItem) => {
-    // Navigate berdasarkan reference_type
+  const handleItemPress = async (item: InboxItem) => {
+    console.log('[INBOX] Item clicked:', item.type, item.title);
+    
+    // Mark as read (async, tidak perlu tunggu)
+    const user = await AuthStorage.getUser();
+    if (user) {
+      const notifId = item.id.replace('notif-', '');
+      InboxAPI.markAsRead(notifId, user.id_user || user.id).catch(error => {
+        console.error('Failed to mark as read:', error);
+      });
+    }
+
+    // Navigate berdasarkan type notifikasi
+    const type = item.type;
+    console.log('[INBOX] Routing for type:', type);
+    
+    // NOTIFIKASI ABSEN - Ke Tracking Pegawai
+    if (type === 'absen_masuk' || type === 'absen_pulang' || 
+        type === 'absen_dinas_masuk' || type === 'absen_dinas_pulang') {
+      console.log('[INBOX] Navigating to tracking-pegawai');
+      router.push('/admin/tracking-pegawai');
+      return;
+    }
+    // NOTIFIKASI PENGAJUAN
+    if (type === 'pengajuan_baru' || type === 'pengajuan_approved' || type === 'pengajuan_rejected') {
+      console.log('[INBOX] Navigating to pengajuan');
+      router.push('/menu-admin/pengajuan?initialTab=pengajuan');
+      return;
+    }
+    // NOTIFIKASI DINAS
+    if (type === 'dinas_assigned' || type === 'dinas_cancelled') {
+      console.log('[INBOX] Navigating to kelola-dinas');
+      router.push('/menu-admin/kelola-dinas');
+      return;
+    }
+    // NOTIFIKASI VALIDASI
+    if (type === 'validasi_absen_dinas_approved' || type === 'validasi_absen_dinas_rejected') {
+      console.log('[INBOX] Navigating to tracking-pegawai (validasi)');
+      router.push('/admin/tracking-pegawai');
+      return;
+    }
+    
+    // Fallback berdasarkan reference_type
+    console.log('[INBOX] Using fallback routing, reference_type:', item.reference_type);
     if (item.reference_type === 'pengajuan') {
-      router.push('/menu-admin/pengajuan?initialTab=pengajuan' as any);
+      router.push('/menu-admin/pengajuan?initialTab=pengajuan');
     } else if (item.reference_type === 'presensi') {
-      router.push('/admin/tracking-pegawai' as any);
+      router.push('/admin/tracking-pegawai');
     } else if (item.reference_type === 'dinas') {
-      router.push('/menu-admin/kelola-dinas' as any);
+      router.push('/menu-admin/kelola-dinas');
+    } else {
+      console.log('[INBOX] No routing match found');
     }
   };
 

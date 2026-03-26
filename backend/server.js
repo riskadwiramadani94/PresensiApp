@@ -1,6 +1,7 @@
 const express = require('express');
 const { connectDB } = require('./src/config/database');
 const corsMiddleware = require('./src/middleware/cors');
+const { startScheduler } = require('./src/services/notificationScheduler');
 require('dotenv').config();
 
 // Import routes
@@ -32,10 +33,7 @@ const realtimeRoutes = require('./src/routes/realtime');
 // Push notification routes
 const pushTokenRoutes = require('./src/routes/push-token');
 const inboxRoutes = require('./src/routes/inbox');
-const testPushRoutes = require('./src/routes/test-push');
-
-// Initialize notification scheduler
-const NotificationScheduler = require('./src/services/notificationScheduler');
+const devicesRoutes = require('./src/routes/devices');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -76,7 +74,7 @@ app.use('/api/realtime', realtimeRoutes);
 // Push notification routes
 app.use('/api/push-token', pushTokenRoutes);
 app.use('/api/inbox', inboxRoutes);
-app.use('/api/test-push', testPushRoutes);
+app.use('/api/devices', devicesRoutes);
 
 // Health check
 app.get('/', (req, res) => {
@@ -123,53 +121,83 @@ const startServer = async () => {
     app.listen(PORT, '0.0.0.0', () => {
       const HOST_IP = process.env.HOST || 'localhost';
       
-      // Initialize notification scheduler
-      NotificationScheduler.init();
-      
       console.log(`\n✅ Server running successfully!`);
       console.log(`🌐 Local: http://localhost:${PORT}`);
       console.log(`📱 Mobile: http://${HOST_IP}:${PORT}`);
-      console.log(`🔔 Push notifications: Enabled`);
-      console.log(`⏰ Notification scheduler: Active`);
-      console.log(`\n📄 Available endpoints:`);
+      console.log(`\n/* ========================================`);
+      console.log(`   API ENDPOINTS CONFIGURATION`);
+      console.log(`======================================== */`);
+      
+      console.log(`\n/* === AUTHENTICATION === */`);
       console.log(`   POST /auth/api/login`);
       console.log(`   GET  /auth/api/profile`);
+      console.log(`   POST /api/lupa-password/kirim-otp`);
+      console.log(`   POST /api/lupa-password/verifikasi-otp`);
+      console.log(`   POST /api/lupa-password/reset-password`);
+      
+      console.log(`\n/* === ADMIN - Dashboard & Management === */`);
       console.log(`   GET  /admin/api/admin`);
       console.log(`   POST /admin/api/admin`);
+      
+      console.log(`\n/* === ADMIN - Pegawai Management === */`);
       console.log(`   GET  /admin/pegawai-akun/api/data-pegawai`);
       console.log(`   POST /admin/pegawai-akun/api/data-pegawai`);
       console.log(`   PUT  /admin/pegawai-akun/api/update-pegawai/:id`);
       console.log(`   DEL  /admin/pegawai-akun/api/delete-pegawai/:id`);
-      console.log(`   GET  /pegawai/api/dashboard`);
-      console.log(`   GET  /pegawai/presensi/api/presensi`);
-      console.log(`   POST /pegawai/presensi/api/presensi`);
+      
+      console.log(`\n/* === ADMIN - Laporan & Tracking === */`);
       console.log(`   GET  /admin/laporan/api/laporan`);
+      console.log(`   GET  /admin/presensi/api/tracking`);
+      
+      console.log(`\n/* === ADMIN - Pengaturan Lokasi === */`);
       console.log(`   GET  /admin/pengaturan/api/lokasi-kantor`);
       console.log(`   POST /admin/pengaturan/api/lokasi-kantor`);
       console.log(`   PUT  /admin/pengaturan/api/lokasi-kantor/:id`);
       console.log(`   DEL  /admin/pengaturan/api/lokasi-kantor/:id`);
-      console.log(`   GET  /admin/presensi/api/tracking`);
+      
+      console.log(`\n/* === ADMIN - Kelola Dinas === */`);
       console.log(`   GET  /admin/kelola-dinas/api/dinas-aktif`);
       console.log(`   POST /admin/kelola-dinas/api/create-dinas`);
       console.log(`   GET  /admin/kelola-dinas/api/riwayat-dinas`);
       console.log(`   GET  /admin/kelola-dinas/api/validasi-absen`);
       console.log(`   GET  /admin/kelola-dinas/api/stats`);
+      
+      console.log(`\n/* === ADMIN - Pusat Validasi === */`);
       console.log(`   GET  /admin/pusat-validasi/api/absen-dinas`);
       console.log(`   GET  /admin/pusat-validasi/api/pengajuan`);
       console.log(`   GET  /admin/pusat-validasi/api/statistik`);
       console.log(`   POST /admin/pusat-validasi/api/setujui`);
       console.log(`   POST /admin/pusat-validasi/api/tolak`);
+      
+      console.log(`\n/* === PEGAWAI - Dashboard & Profile === */`);
+      console.log(`   GET  /pegawai/api/dashboard`);
+      
+      console.log(`\n/* === PEGAWAI - Presensi === */`);
+      console.log(`   GET  /pegawai/presensi/api/presensi`);
+      console.log(`   POST /pegawai/presensi/api/presensi`);
+      
+      console.log(`\n/* === PEGAWAI - Kegiatan === */`);
       console.log(`   GET  /pegawai/kegiatan/api/kegiatan`);
       console.log(`   GET  /pegawai/kegiatan/api/kegiatan/:id`);
+      
+      console.log(`\n/* === PEGAWAI - Pengajuan === */`);
       console.log(`   GET  /pegawai/pengajuan/api/pengajuan`);
       console.log(`   POST /pegawai/pengajuan/api/pengajuan`);
       console.log(`   GET  /pegawai/pengajuan/api/pengajuan/izin-hari-ini`);
-      console.log(`   POST /api/lupa-password/kirim-otp`);
-      console.log(`   POST /api/lupa-password/verifikasi-otp`);
-      console.log(`   POST /api/lupa-password/reset-password`);
+      
+      console.log(`\n/* === GENERAL - FAQ & Calendar === */`);
       console.log(`   GET  /api/faq`);
       console.log(`   GET  /api/faq/search`);
-      console.log(`\n🔄 Ready to serve HadirinApp mobile app\n`);
+      
+      console.log(`\n/* === PUSH NOTIFICATIONS === */`);
+      console.log(`   POST /api/push-token`);
+      console.log(`   GET  /api/inbox`);
+      
+      console.log(`\n/* ======================================== */\n`);
+      console.log(`🔄 Ready to serve HadirinApp mobile app\n`);
+      
+      // Start notification scheduler
+      startScheduler();
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
