@@ -818,10 +818,10 @@ export default function PengajuanScreen() {
     /* ========================================
          ACTUAL DATA LIST
     ======================================== */
-    if (data.length === 0) {
+    if (data.length === 0 && !loading) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="checkmark-circle-outline" size={80} color="#ccc" />
+          <Ionicons name="checkmark-circle-outline" size={60} color="#ccc" />
           <Text style={styles.emptyText}>Tidak ada item yang perlu divalidasi</Text>
         </View>
       );
@@ -842,6 +842,12 @@ export default function PengajuanScreen() {
         showsVerticalScrollIndicator={false}
         refreshing={refreshing}
         onRefresh={onRefresh}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="checkmark-circle-outline" size={60} color="#ccc" />
+            <Text style={styles.emptyText}>Tidak ada item yang perlu divalidasi</Text>
+          </View>
+        )}
       />
     );
   };
@@ -855,7 +861,7 @@ export default function PengajuanScreen() {
         title="Pengajuan"
         showBack={true}
         showHistoryButton={true}
-        onHistoryPress={() => showAlert({ type: 'info', title: 'History', message: 'Fitur history akan segera hadir' })}
+        onHistoryPress={() => router.push('/menu-admin/pengajuan/history' as any)}
       />
 
       <View style={styles.contentWrapper}>
@@ -1164,9 +1170,7 @@ const styles = StyleSheet.create({
   fixedControls: {
     paddingTop: 0,
     paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    backgroundColor: '#FAFBFC',
+    backgroundColor: '#fff',
   },
   
   // Search and Filter Section
@@ -1174,7 +1178,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 12,
-    backgroundColor: '#FAFBFC',
+    backgroundColor: '#ffffff',
   },
   searchInputWrapper: {
     flexDirection: 'row',
@@ -1201,10 +1205,17 @@ const styles = StyleSheet.create({
 
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    backgroundColor: '#F0F4F3',
+    borderRadius: 12,
     padding: 4,
     marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#E0ECEA',
+    shadowColor: '#004643',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   tab: {
     flex: 1,
@@ -1358,11 +1369,8 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 50,
+    paddingTop: 80,
   },
   emptyText: {
     marginTop: 16,

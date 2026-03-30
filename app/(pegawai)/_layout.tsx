@@ -1,19 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Platform, Text } from 'react-native';
+import { View, Platform, Text, AppState } from 'react-native';
 import { AuthStorage } from '@/utils/AuthStorage';
 import { PresensiCardProvider } from '@/contexts/PresensiCardContext';
+import { API_CONFIG } from '@/constants/config';
 
 function TabLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     fetchUnreadCount();
-    
-    // Update unread count setiap 30 detik
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Heartbeat: kirim ping ke backend setiap 30 detik selama app aktif
+  useEffect(() => {
+    const sendHeartbeat = async () => {
+      try {
+        const user = await AuthStorage.getUser();
+        if (!user) return;
+        const id_user = user.id_user || user.id;
+        await fetch(`${API_CONFIG.BASE_URL}/admin/presensi/api/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_user }),
+        });
+      } catch {}
+    };
+
+    sendHeartbeat();
+    const heartbeatInterval = setInterval(sendHeartbeat, 30000);
+
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sendHeartbeat();
+    });
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      appStateSub.remove();
+    };
   }, []);
 
   const fetchUnreadCount = async () => {

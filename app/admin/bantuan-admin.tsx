@@ -109,7 +109,7 @@ export default function BantuanAdminScreen() {
         Linking.openURL('https://wa.me/62895326830287');
         break;
       case 'email':
-        Linking.openURL('mailto:riskadwiramadani94@gmail.com');
+        Linking.openURL('mailto:presensidigital109@gmail.com');
         break;
       case 'phone':
         Linking.openURL('tel:+62896326830287');
@@ -201,7 +201,7 @@ export default function BantuanAdminScreen() {
               </View>
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>Email</Text>
-                <Text style={styles.cardSubtitle}>riskadwiramadani94@gmail.com</Text>
+                <Text style={styles.cardSubtitle}>presensidigital109@gmail.com</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
@@ -225,7 +225,7 @@ export default function BantuanAdminScreen() {
               <Ionicons name="search-outline" size={20} color="#666" />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Cari Pegawai..."
+                placeholder="Cari FAQ..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholderTextColor="#999"

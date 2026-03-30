@@ -63,6 +63,7 @@ export const API_CONFIG = {
     /* ================= PRESENSI (Admin) ================= */
     TRACKING: '/admin/presensi/api/tracking',
     UPDATE_LOCATION: '/admin/presensi/api/update-location',
+    HEARTBEAT: '/admin/presensi/api/heartbeat',
     
     /* ================= PERSETUJUAN (Admin) ================= */
     APPROVAL: '/admin/persetujuan/api/approval',
@@ -94,10 +95,14 @@ export const API_CONFIG = {
     PEGAWAI_PROFILE: '/pegawai/profil/api/profile',
     PEGAWAI_KEGIATAN: '/pegawai/kegiatan/api/kegiatan',
     PEGAWAI_INBOX: '/pegawai/inbox/api/notifications',
+    PEGAWAI_INBOX_MARK_ALL: '/pegawai/inbox/api/mark-all-read',
+    PEGAWAI_INBOX_MARK_READ: '/pegawai/inbox/api/mark-read',
     
     /* ================= INBOX ================= */
     INBOX_NOTIFICATIONS: '/api/inbox/notifications',
     INBOX_UNREAD_COUNT: '/api/inbox/unread-count',
+    INBOX_MARK_READ: '/api/inbox/mark-read',
+    INBOX_MARK_ALL_READ: '/api/inbox/mark-all-read',
   }
 };
 
@@ -775,17 +780,25 @@ export const InboxAPI = {
   
   markAsRead: async (notification_id: string, user_id: string) => {
     try {
-      const response = await fetchWithRetry(`${getApiUrl('/api/inbox/mark-read')}`, {
+      const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.INBOX_MARK_READ), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notification_id, user_id }),
       });
       return response.json();
     } catch (error: any) {
-      return {
-        success: false,
-        message: error.message || 'Tidak dapat terhubung ke server'
-      };
+      return { success: false, message: error.message || 'Tidak dapat terhubung ke server' };
+    }
+  },
+
+  markAllAsRead: async (user_id: string) => {
+    try {
+      const response = await fetchWithRetry(getApiUrl(API_CONFIG.ENDPOINTS.INBOX_MARK_ALL_READ), {
+        method: 'POST',
+        body: JSON.stringify({ user_id }),
+      });
+      return response.json();
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Tidak dapat terhubung ke server' };
     }
   },
 };

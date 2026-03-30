@@ -158,8 +158,12 @@ export default function BerandaScreen() {
         let keteranganAbsen = 'Anda belum melakukan absensi hari ini';
         let jamMasukDisplay = '-';
         let jamPulangDisplay = '-';
-        
-        if (data.presensi_hari_ini) {
+
+        // Cek hari libur dulu
+        if (data.is_hari_libur) {
+          statusAbsen = 'Hari Libur';
+          keteranganAbsen = `Hari ini: ${data.nama_libur}`;
+        } else if (data.presensi_hari_ini) {
           const jamMasuk = data.presensi_hari_ini.jam_masuk;
           const jamPulang = data.presensi_hari_ini.jam_pulang;
           const status = data.presensi_hari_ini.status;
@@ -471,13 +475,6 @@ export default function BerandaScreen() {
             <Text style={styles.legendText}>Weekend</Text>
           </View>
         </View>
-        
-        <View style={styles.workScheduleInfo}>
-          <Text style={styles.workScheduleTitle}>Jam Kerja {todayWorkSchedule.hari}</Text>
-          <Text style={styles.workScheduleText}>
-            {todayWorkSchedule.jam_masuk} - {todayWorkSchedule.jam_pulang} WIB
-          </Text>
-        </View>
       </View>
     );
   };
@@ -524,26 +521,19 @@ export default function BerandaScreen() {
 
                 <View style={styles.summarySection}>
                   <View style={styles.infoCard}>
-                    <View style={styles.statusRow}>
-                      <View style={styles.skeletonStatusDot} />
-                      <View style={styles.statusContent}>
-                        <View style={styles.skeletonStatusTitle} />
-                        <View style={styles.skeletonStatusText} />
-                      </View>
+                    <View style={styles.infoCardTop}>
+                      <View style={styles.skeletonStatusBadgeRow} />
                     </View>
-
-                    <View style={styles.dividerLine} />
-
-                    <View style={styles.jamKerjaRow}>
-                      <View style={styles.jamItem}>
+                    <View style={styles.skeletonKeterangan} />
+                    <View style={styles.infoCardDivider} />
+                    <View style={styles.jamCardsRow}>
+                      <View style={styles.jamCard}>
                         <View style={styles.skeletonJamIcon} />
                         <View style={styles.skeletonJamLabel} />
                         <View style={styles.skeletonJamValue} />
                       </View>
-                      
-                      <View style={styles.verticalDivider} />
-                      
-                      <View style={styles.jamItem}>
+                      <View style={styles.jamCardDivider} />
+                      <View style={styles.jamCard}>
                         <View style={styles.skeletonJamIcon} />
                         <View style={styles.skeletonJamLabel} />
                         <View style={styles.skeletonJamValue} />
@@ -592,11 +582,6 @@ export default function BerandaScreen() {
                         </View>
                       ))}
                     </View>
-                    
-                    <View style={styles.workScheduleInfo}>
-                      <View style={styles.skeletonWorkTitle} />
-                      <View style={styles.skeletonWorkText} />
-                    </View>
                   </View>
                 </View>
               </View>
@@ -639,36 +624,72 @@ export default function BerandaScreen() {
 
                 <View style={styles.summarySection}>
                   <View style={styles.infoCard}>
-                    <View style={styles.statusRow}>
-                      <View style={[styles.statusDot, 
-                        userData.statusAbsen === 'Belum Absen' ? styles.dotOrange : 
-                        userData.statusAbsen === 'Terlambat' ? styles.dotRed : styles.dotGreen
-                      ]} />
-                      <View style={styles.statusContent}>
-                        <Text style={styles.statusTitle}>Status Absensi</Text>
-                        <Text style={styles.statusText}>{userData.keteranganAbsen}</Text>
+                    {/* Baris atas: status badge + jam kerja */}
+                    <View style={styles.infoCardTop}>
+                      <View style={[
+                        styles.statusBadgeRow,
+                        userData.statusAbsen === 'Sudah Absen' ? styles.statusBadgeGreen :
+                        userData.statusAbsen === 'Terlambat' ? styles.statusBadgeRed :
+                        userData.statusAbsen === 'Hari Libur' ? styles.statusBadgeOrange :
+                        styles.statusBadgeGray
+                      ]}>
+                        <Ionicons
+                          name={
+                            userData.statusAbsen === 'Sudah Absen' ? 'checkmark-circle' :
+                            userData.statusAbsen === 'Terlambat' ? 'alert-circle' :
+                            userData.statusAbsen === 'Hari Libur' ? 'sunny' : 'time'
+                          }
+                          size={13}
+                          color={
+                            userData.statusAbsen === 'Sudah Absen' ? '#4CAF50' :
+                            userData.statusAbsen === 'Terlambat' ? '#EF5350' :
+                            userData.statusAbsen === 'Hari Libur' ? '#FFA726' :
+                            'rgba(255,255,255,0.7)'
+                          }
+                        />
+                        <Text style={[
+                          styles.statusBadgeText,
+                          userData.statusAbsen === 'Sudah Absen' ? { color: '#4CAF50' } :
+                          userData.statusAbsen === 'Terlambat' ? { color: '#EF5350' } :
+                          userData.statusAbsen === 'Hari Libur' ? { color: '#FFA726' } :
+                          { color: 'rgba(255,255,255,0.85)' }
+                        ]}>{userData.statusAbsen}</Text>
+                      </View>
+                      <View style={styles.jamKerjaInfo}>
+                        <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.55)" />
+                        <Text style={styles.jamKerjaInfoText}>
+                          {todayWorkSchedule.jam_masuk} - {todayWorkSchedule.jam_pulang}
+                        </Text>
                       </View>
                     </View>
 
-                    <View style={styles.dividerLine} />
+                    {/* Keterangan */}
+                    <Text style={styles.keteranganText}>{userData.keteranganAbsen}</Text>
 
-                    <View style={styles.jamKerjaRow}>
-                      <View style={styles.jamItem}>
-                        <View style={styles.jamIconBox}>
-                          <Ionicons name="log-in-outline" size={18} color="#fff" />
+                    <View style={styles.infoCardDivider} />
+
+                    {/* Jam Masuk & Pulang */}
+                    <View style={styles.jamCardsRow}>
+                      <View style={styles.jamCard}>
+                        <View style={styles.jamCardIconWrap}>
+                          <Ionicons name="log-in-outline" size={18} color="#4CAF50" />
                         </View>
-                        <Text style={styles.jamLabel}>Jam Masuk</Text>
-                        <Text style={styles.jamValue}>{userData.jamMasuk}</Text>
+                        <Text style={styles.jamCardLabel}>Jam Masuk</Text>
+                        <Text style={[styles.jamCardValue, userData.jamMasuk === '-' && styles.jamCardValueEmpty]}>
+                          {userData.jamMasuk}
+                        </Text>
                       </View>
-                      
-                      <View style={styles.verticalDivider} />
-                      
-                      <View style={styles.jamItem}>
-                        <View style={styles.jamIconBox}>
-                          <Ionicons name="log-out-outline" size={18} color="#fff" />
+
+                      <View style={styles.jamCardDivider} />
+
+                      <View style={styles.jamCard}>
+                        <View style={[styles.jamCardIconWrap, { backgroundColor: 'rgba(239,83,80,0.15)' }]}>
+                          <Ionicons name="log-out-outline" size={18} color="#EF5350" />
                         </View>
-                        <Text style={styles.jamLabel}>Jam Pulang</Text>
-                        <Text style={styles.jamValue}>{userData.jamKeluar}</Text>
+                        <Text style={styles.jamCardLabel}>Jam Pulang</Text>
+                        <Text style={[styles.jamCardValue, userData.jamKeluar === '-' && styles.jamCardValueEmpty]}>
+                          {userData.jamKeluar}
+                        </Text>
                       </View>
                     </View>
                   </View>
@@ -807,93 +828,123 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   summarySection: {
-    marginBottom: 60,
+    marginBottom: 50,
     paddingHorizontal: 8,
   },
   infoCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  statusRow: {
+  infoCardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 4,
-    marginRight: 10,
+  jamKerjaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  dotOrange: {
-    backgroundColor: '#FFA726',
-  },
-  dotRed: {
-    backgroundColor: '#EF5350',
-  },
-  dotGreen: {
-    backgroundColor: '#66BB6A',
-  },
-  statusContent: {
-    flex: 1,
-  },
-  statusTitle: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.7)',
+  jamKerjaInfoText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 3,
+    letterSpacing: 0.3,
   },
-  statusText: {
+  infoCardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginBottom: 12,
+  },
+  statusBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  statusBadgeGreen: { borderColor: 'rgba(76,175,80,0.5)', backgroundColor: 'rgba(76,175,80,0.15)' },
+  statusBadgeRed: { borderColor: 'rgba(239,83,80,0.5)', backgroundColor: 'rgba(239,83,80,0.15)' },
+  statusBadgeOrange: { borderColor: 'rgba(255,167,38,0.5)', backgroundColor: 'rgba(255,167,38,0.15)' },
+  statusBadgeGray: { borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.08)' },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  keteranganText: {
     fontSize: 13,
-    color: '#fff',
-    fontWeight: '600',
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+    marginBottom: 14,
     lineHeight: 18,
   },
-  dividerLine: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginBottom: 14,
-  },
-  jamKerjaRow: {
+  jamCardsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
   },
-  jamItem: {
+  jamCard: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 10,
   },
-  jamIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  jamCardIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(76,175,80,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
   },
-  jamLabel: {
+  jamCardLabel: {
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
     marginBottom: 3,
   },
-  jamValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  jamCardValue: {
+    fontSize: 19,
+    fontWeight: '800',
     color: '#fff',
     letterSpacing: 0.5,
   },
-  verticalDivider: {
+  jamCardValueEmpty: {
+    color: 'rgba(255,255,255,0.3)',
+  },
+  jamCardDivider: {
     width: 1,
-    height: 45,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginVertical: 8,
+  },
+  skeletonStatusBadgeRow: {
+    width: 120,
+    height: 26,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+  },
+  skeletonKeterangan: {
+    width: '70%',
+    height: 13,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 4,
+    marginTop: 8,
+    marginBottom: 14,
   },
   menuSection: { 
     marginTop: -60, 

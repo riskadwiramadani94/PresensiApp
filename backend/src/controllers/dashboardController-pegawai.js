@@ -24,8 +24,20 @@ const getDashboard = async (req, res) => {
     
     const user = userRows[0];
     
-    // Get jam kerja berdasarkan hari ini
+    // Cek hari libur
     const hariIni = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date().getDay()];
+    const [hariLiburRows] = await db.execute(`
+      SELECT nama_libur FROM hari_libur WHERE tanggal = CURDATE() AND is_active = 1 LIMIT 1
+    `);
+    const [jamKerjaHariIni] = await db.execute(`
+      SELECT is_kerja FROM jam_kerja_hari WHERE hari = ? LIMIT 1
+    `, [hariIni]);
+    const isKalenderLibur = hariLiburRows.length > 0;
+    const isWeekend = jamKerjaHariIni.length > 0 && !jamKerjaHariIni[0].is_kerja;
+    const isHariLibur = isKalenderLibur || isWeekend;
+    const namaLibur = isKalenderLibur ? hariLiburRows[0].nama_libur : 'Libur Weekend';
+
+    // Get jam kerja berdasarkan hari ini
     const [jamKerjaRows] = await db.execute(`
       SELECT jam_masuk, jam_pulang as jam_keluar 
       FROM jam_kerja_hari 
@@ -79,6 +91,8 @@ const getDashboard = async (req, res) => {
           jam_keluar: jamKerjaRows[0]?.jam_keluar || '17:00'
         },
         presensi_hari_ini: presensi_hari_ini,
+        is_hari_libur: isHariLibur,
+        nama_libur: isHariLibur ? namaLibur : null,
         summary_bulan_ini: {
           total_hadir: summaryRows[0]?.total_hadir || 0,
           total_terlambat: summaryRows[0]?.total_terlambat || 0,

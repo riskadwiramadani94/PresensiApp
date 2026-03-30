@@ -162,6 +162,26 @@ const getAdminData = async (req, res) => {
 
     const db = await getConnection();
 
+    // Cek apakah hari ini hari libur (kalender libur)
+    const [hariLiburRows] = await db.execute(`
+      SELECT nama_libur FROM hari_libur 
+      WHERE tanggal = CURDATE() AND is_active = 1 
+      LIMIT 1
+    `);
+
+    // Cek apakah hari ini hari tidak kerja (weekend dari jam_kerja_hari)
+    const hariIni = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][new Date().getDay()];
+    const [jamKerjaRows] = await db.execute(`
+      SELECT is_kerja FROM jam_kerja_hari WHERE hari = ? LIMIT 1
+    `, [hariIni]);
+
+    const isKalenderLibur = hariLiburRows.length > 0;
+    const isWeekend = jamKerjaRows.length > 0 && !jamKerjaRows[0].is_kerja;
+    const isHariLibur = isKalenderLibur || isWeekend;
+    const namaLibur = isKalenderLibur
+      ? hariLiburRows[0].nama_libur
+      : 'Libur Weekend';
+
     // Get total pegawai count
     const [totalRows] = await db.execute(`
       SELECT COUNT(*) as total_pegawai
@@ -185,10 +205,10 @@ const getAdminData = async (req, res) => {
     
     const hadir_kantor = parseInt(statsRows[0].hadir_kantor || 0);
     const dinas = parseInt(statsRows[0].dinas || 0);
-    const hadir = hadir_kantor + dinas; // Total yang hadir (kantor + dinas)
-    const tidak_hadir = totalPegawai - hadir; // Yang benar-benar tidak hadir
+    const hadir = hadir_kantor + dinas;
+    const tidak_hadir = isHariLibur ? 0 : totalPegawai - hadir;
 
-    console.log('Dashboard Stats:', { totalPegawai, hadir_kantor, dinas, hadir, tidak_hadir });
+    console.log('Dashboard Stats:', { totalPegawai, hadir_kantor, dinas, hadir, tidak_hadir, isHariLibur, namaLibur });
 
     // Get recent activities - GABUNGAN presensi kantor + dinas
     const [recentRows] = await db.execute(`
@@ -222,7 +242,9 @@ const getAdminData = async (req, res) => {
       stats: {
         hadir: hadir,
         tidak_hadir: tidak_hadir,
-        total_pegawai: parseInt(totalPegawai)
+        total_pegawai: parseInt(totalPegawai),
+        is_hari_libur: isHariLibur,
+        nama_libur: isHariLibur ? namaLibur : null,
       },
       recent: recentRows || []
     });

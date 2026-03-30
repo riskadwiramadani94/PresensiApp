@@ -32,6 +32,8 @@ interface DashboardData {
     hadir: number;
     tidak_hadir: number;
     total_pegawai: number;
+    is_hari_libur?: boolean;
+    nama_libur?: string;
   };
   recent: RecentActivity[];
   user?: {
@@ -44,7 +46,7 @@ interface DashboardData {
 export default function AdminDashboard() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData>({
-    stats: { hadir: 0, tidak_hadir: 0, total_pegawai: 0 },
+    stats: { hadir: 0, tidak_hadir: 0, total_pegawai: 0, is_hari_libur: false, nama_libur: undefined },
     recent: [],
     user: undefined,
   });
@@ -228,6 +230,8 @@ export default function AdminDashboard() {
             hadir: result.stats?.hadir || 0,
             tidak_hadir: result.stats?.tidak_hadir || 0,
             total_pegawai: totalPegawai,
+            is_hari_libur: result.stats?.is_hari_libur || false,
+            nama_libur: result.stats?.nama_libur || undefined,
           },
           recent: recentActivities.slice(0, 10), // Ambil 10 aktivitas terbaru
           user: prev.user,
@@ -417,9 +421,17 @@ export default function AdminDashboard() {
                       <View style={styles.divider} />
                       
                       <View style={styles.statItem}>
-                        <Ionicons name="close-circle" size={20} color="#EF5350" />
-                        <Text style={styles.quickStatNumber}>{data.stats.tidak_hadir}</Text>
-                        <Text style={styles.quickStatLabel}>Tidak Hadir</Text>
+                        {data.stats.is_hari_libur ? (
+                          <Ionicons name="sunny" size={20} color="#FFA726" />
+                        ) : (
+                          <Ionicons name="close-circle" size={20} color="#EF5350" />
+                        )}
+                        <Text style={styles.quickStatNumber}>
+                          {data.stats.is_hari_libur ? '-' : data.stats.tidak_hadir}
+                        </Text>
+                        <Text style={styles.quickStatLabel} numberOfLines={1}>
+                          {data.stats.is_hari_libur ? (data.stats.nama_libur || 'Libur') : 'Tidak Hadir'}
+                        </Text>
                       </View>
                       
                       <View style={styles.divider} />

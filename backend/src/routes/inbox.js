@@ -199,4 +199,26 @@ router.post('/mark-read', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/inbox/mark-all-read
+ * Mark semua notifikasi sebagai sudah dibaca
+ */
+router.post('/mark-all-read', async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    if (!user_id) {
+      return res.status(400).json({ success: false, message: 'user_id wajib diisi' });
+    }
+    const db = await getConnection();
+    await db.execute(
+      'UPDATE notifikasi SET is_read = 1 WHERE id_user = ? AND is_read = 0',
+      [user_id]
+    );
+    res.json({ success: true, message: 'Semua notifikasi ditandai sudah dibaca' });
+  } catch (error) {
+    console.error('[INBOX] Mark all read error:', error);
+    res.status(500).json({ success: false, message: 'Failed to mark all as read', error: error.message });
+  }
+});
+
 module.exports = router;

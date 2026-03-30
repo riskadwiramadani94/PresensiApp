@@ -73,7 +73,8 @@ interface DateItem {
 
 export default function AbsenDinasValidasiScreen() {
   const router = useRouter();
-  const { dinasId } = useLocalSearchParams();
+  const { dinasId, isHistory } = useLocalSearchParams();
+  const isHistoryMode = isHistory === 'true';
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dinasData, setDinasData] = useState<DinasItem[]>([]);
@@ -468,20 +469,29 @@ export default function AbsenDinasValidasiScreen() {
                     >
                       <Ionicons name="image" size={16} color={fotoMasukFinal ? '#004643' : '#CBD5E1'} />
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleValidation(absenMasukIdFinal, 'approve', p.nama, 'masuk')}
-                      disabled={!canValidateMasuk}
-                      style={[styles.btnValid, styles.btnCheck, statusValidasiMasukFinal === 'disetujui' && styles.activeApprove, !canValidateMasuk && styles.btnDisabled]}
-                    >
-                      <Ionicons name="checkmark-done" size={16} color={statusValidasiMasukFinal === 'disetujui' ? '#FFF' : !canValidateMasuk ? '#CBD5E1' : '#10B981'} />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleValidation(absenMasukIdFinal, 'reject', p.nama, 'masuk')}
-                      disabled={!canValidateMasuk}
-                      style={[styles.btnValid, styles.btnCross, statusValidasiMasukFinal === 'ditolak' && styles.activeReject, !canValidateMasuk && styles.btnDisabled]}
-                    >
-                      <Ionicons name="close" size={16} color={statusValidasiMasukFinal === 'ditolak' ? '#FFF' : !canValidateMasuk ? '#CBD5E1' : '#EF4444'} />
-                    </TouchableOpacity>
+                    {!isHistoryMode && (
+                      <>
+                        <TouchableOpacity 
+                          onPress={() => handleValidation(absenMasukIdFinal, 'approve', p.nama, 'masuk')}
+                          disabled={!canValidateMasuk}
+                          style={[styles.btnValid, styles.btnCheck, statusValidasiMasukFinal === 'disetujui' && styles.activeApprove, !canValidateMasuk && styles.btnDisabled]}
+                        >
+                          <Ionicons name="checkmark-done" size={16} color={statusValidasiMasukFinal === 'disetujui' ? '#FFF' : !canValidateMasuk ? '#CBD5E1' : '#10B981'} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          onPress={() => handleValidation(absenMasukIdFinal, 'reject', p.nama, 'masuk')}
+                          disabled={!canValidateMasuk}
+                          style={[styles.btnValid, styles.btnCross, statusValidasiMasukFinal === 'ditolak' && styles.activeReject, !canValidateMasuk && styles.btnDisabled]}
+                        >
+                          <Ionicons name="close" size={16} color={statusValidasiMasukFinal === 'ditolak' ? '#FFF' : !canValidateMasuk ? '#CBD5E1' : '#EF4444'} />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {isHistoryMode && statusValidasiMasukFinal !== 'menunggu' && (
+                      <View style={[styles.btnValid, statusValidasiMasukFinal === 'disetujui' ? styles.activeApprove : styles.activeReject]}>
+                        <Ionicons name={statusValidasiMasukFinal === 'disetujui' ? 'checkmark-done' : 'close'} size={16} color="#FFF" />
+                      </View>
+                    )}
                   </View>
                 </View>
                 {!jamMasukFinal ? (
@@ -522,20 +532,29 @@ export default function AbsenDinasValidasiScreen() {
                     >
                       <Ionicons name="image" size={16} color={fotoPulangFinal ? '#004643' : '#CBD5E1'} />
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleValidation(absenPulangIdFinal, 'approve', p.nama, 'pulang')}
-                      disabled={!canValidatePulang}
-                      style={[styles.btnValid, styles.btnCheck, statusValidasiPulangFinal === 'disetujui' && styles.activeApprove, !canValidatePulang && styles.btnDisabled]}
-                    >
-                      <Ionicons name="checkmark-done" size={16} color={statusValidasiPulangFinal === 'disetujui' ? '#FFF' : !canValidatePulang ? '#CBD5E1' : '#10B981'} />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleValidation(absenPulangIdFinal, 'reject', p.nama, 'pulang')}
-                      disabled={!canValidatePulang}
-                      style={[styles.btnValid, styles.btnCross, statusValidasiPulangFinal === 'ditolak' && styles.activeReject, !canValidatePulang && styles.btnDisabled]}
-                    >
-                      <Ionicons name="close" size={16} color={statusValidasiPulangFinal === 'ditolak' ? '#FFF' : !canValidatePulang ? '#CBD5E1' : '#EF4444'} />
-                    </TouchableOpacity>
+                    {!isHistoryMode && (
+                      <>
+                        <TouchableOpacity 
+                          onPress={() => handleValidation(absenPulangIdFinal, 'approve', p.nama, 'pulang')}
+                          disabled={!canValidatePulang}
+                          style={[styles.btnValid, styles.btnCheck, statusValidasiPulangFinal === 'disetujui' && styles.activeApprove, !canValidatePulang && styles.btnDisabled]}
+                        >
+                          <Ionicons name="checkmark-done" size={16} color={statusValidasiPulangFinal === 'disetujui' ? '#FFF' : !canValidatePulang ? '#CBD5E1' : '#10B981'} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          onPress={() => handleValidation(absenPulangIdFinal, 'reject', p.nama, 'pulang')}
+                          disabled={!canValidatePulang}
+                          style={[styles.btnValid, styles.btnCross, statusValidasiPulangFinal === 'ditolak' && styles.activeReject, !canValidatePulang && styles.btnDisabled]}
+                        >
+                          <Ionicons name="close" size={16} color={statusValidasiPulangFinal === 'ditolak' ? '#FFF' : !canValidatePulang ? '#CBD5E1' : '#EF4444'} />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {isHistoryMode && statusValidasiPulangFinal && statusValidasiPulangFinal !== 'menunggu' && (
+                      <View style={[styles.btnValid, statusValidasiPulangFinal === 'disetujui' ? styles.activeApprove : styles.activeReject]}>
+                        <Ionicons name={statusValidasiPulangFinal === 'disetujui' ? 'checkmark-done' : 'close'} size={16} color="#FFF" />
+                      </View>
+                    )}
                   </View>
                 </View>
                 {!jamPulangFinal ? (
@@ -574,9 +593,9 @@ export default function AbsenDinasValidasiScreen() {
       <StatusBar style="light" translucent backgroundColor="transparent" />
       
       <AppHeader 
-        title="Validasi Kehadiran" 
+        title={isHistoryMode ? 'Riwayat Absen Dinas' : 'Validasi Kehadiran'}
         showBack={true}
-        fallbackRoute="/menu-admin/pengajuan"
+        fallbackRoute={isHistoryMode ? '/menu-admin/pengajuan/history' : '/menu-admin/pengajuan'}
       />
       
       {loading ? (

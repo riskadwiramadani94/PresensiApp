@@ -79,6 +79,17 @@ export default function LokasiKantorScreen() {
       const response = await PengaturanAPI.getLokasiKantor();
       if (response.success && response.data) {
         setLocations(response.data);
+        const kantor = response.data.find((l: LokasiData) => l.jenis_lokasi === 'tetap') || response.data[0];
+        if (kantor) {
+          setTimeout(() => {
+            mapRef.current?.animateToRegion({
+              latitude: kantor.lintang,
+              longitude: kantor.bujur,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }, 1000);
+          }, 300);
+        }
       }
     } catch (error) {
       console.error("Error fetching locations:", error);
@@ -352,10 +363,10 @@ export default function LokasiKantorScreen() {
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={{
-          latitude: locations[0]?.lintang || -6.2088,
-          longitude: locations[0]?.bujur || 106.8456,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitude: locations.find(l => l.jenis_lokasi === 'tetap')?.lintang || locations[0]?.lintang || -6.2088,
+          longitude: locations.find(l => l.jenis_lokasi === 'tetap')?.bujur || locations[0]?.bujur || 106.8456,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
         }}
         onLongPress={handleMapLongPress} // Long press untuk tambah lokasi
         showsUserLocation

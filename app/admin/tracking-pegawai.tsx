@@ -8,7 +8,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -23,11 +23,15 @@ import {
   Linking,
   Image,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE, Callout } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { AppHeader } from "../../components";
 import { getApiUrl, API_CONFIG } from "../../constants/config";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+const BUBBLE_SIZE = 56;
+const CARD_WIDTH = SCREEN_WIDTH - 32;
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 90 : 80;
+const BUBBLE_MAX_Y = SCREEN_HEIGHT - BUBBLE_SIZE - TAB_BAR_HEIGHT - 16;
 
 interface PegawaiData {
   id_user: number;
@@ -47,6 +51,7 @@ interface PegawaiData {
   radius_kantor?: number;
   jenis_presensi?: 'kantor' | 'dinas';
   dinas_id?: number;
+  is_online?: boolean;
   // Data untuk dinas
   jarak_dari_lokasi_dinas?: number;
   lokasi_dinas_terdekat?: string;
@@ -57,26 +62,97 @@ interface PegawaiData {
 export default function TrackingPegawaiScreen() {
   const mapRef = useRef<MapView>(null);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const collapseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const bubblePos = useRef(new Animated.ValueXY({ x: SCREEN_WIDTH - BUBBLE_SIZE - 28, y: BUBBLE_MAX_Y })).current;
+  const bubblePosRef = useRef({ x: SCREEN_WIDTH - BUBBLE_SIZE - 28, y: BUBBLE_MAX_Y });
+  const isDragging = useRef(false);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [pegawaiList, setPegawaiList] = useState<PegawaiData[]>([]);
+  const [summary, setSummary] = useState({ total: 0, online: 0, kantor: 0, dinas: 0, sudah_absen: 0, belum_absen: 0 });
+  const [isHariLibur, setIsHariLibur] = useState(false);
+  const [namaLibur, setNamaLibur] = useState<string | null>(null);
   const [selectedPegawai, setSelectedPegawai] = useState<PegawaiData | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isCardCollapsed, setIsCardCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (isCardCollapsed) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 0.3, duration: 900, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      glowAnim.stopAnimation();
+      glowAnim.setValue(0);
+    }
+  }, [isCardCollapsed]);
+
+  const collapseCard = () => {
+    Animated.spring(collapseAnim, {
+      toValue: 0,
+      useNativeDriver: false,
+      tension: 70,
+      friction: 10,
+    }).start(() => setIsCardCollapsed(true));
+  };
+
+  const openCard = () => {
+    setIsCardCollapsed(false);
+    collapseAnim.setValue(0);
+    Animated.spring(collapseAnim, {
+      toValue: 1,
+      useNativeDriver: false,
+      tension: 55,
+      friction: 9,
+    }).start();
+  };
+
+  // PanResponder untuk drag bubble
+  const bubblePanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
+    onPanResponderGrant: () => {
+      isDragging.current = false;
+    },
+    onPanResponderMove: (_, g) => {
+      isDragging.current = true;
+      const newX = Math.max(0, Math.min(bubblePosRef.current.x + g.dx, SCREEN_WIDTH - BUBBLE_SIZE));
+      const newY = Math.max(80, Math.min(bubblePosRef.current.y + g.dy, BUBBLE_MAX_Y));
+      bubblePos.setValue({ x: newX, y: newY });
+    },
+    onPanResponderRelease: (_, g) => {
+      const newX = Math.max(0, Math.min(bubblePosRef.current.x + g.dx, SCREEN_WIDTH - BUBBLE_SIZE));
+      const newY = Math.max(80, Math.min(bubblePosRef.current.y + g.dy, BUBBLE_MAX_Y));
+      const snapX = newX + BUBBLE_SIZE / 2 < SCREEN_WIDTH / 2 ? 20 : SCREEN_WIDTH - BUBBLE_SIZE - 20;
+      bubblePosRef.current = { x: snapX, y: newY };
+      Animated.spring(bubblePos, {
+        toValue: { x: snapX, y: newY },
+        useNativeDriver: false,
+        tension: 60,
+        friction: 10,
+      }).start();
+      if (!isDragging.current) openCard();
+    },
+  })).current;
 
   useFocusEffect(
     React.useCallback(() => {
       fetchTracking();
       const interval = setInterval(() => {
-        fetchTracking();
+        fetchTracking(true);
       }, 30000); // Update setiap 30 detik
       return () => clearInterval(interval);
     }, []),
   );
 
-  const fetchTracking = async () => {
+  const fetchTracking = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.TRACKING));
       const result = await response.json();
 
@@ -97,8 +173,7 @@ export default function TrackingPegawaiScreen() {
           kantor_terdekat: item.kantor_terdekat,
           radius_kantor: item.radius_kantor,
           jenis_presensi: item.jenis_presensi || 'kantor',
-          dinas_id: item.dinas_id,
-          // Data untuk dinas
+          is_online: item.is_online || false,
           jarak_dari_lokasi_dinas: item.jarak_dari_lokasi_dinas,
           lokasi_dinas_terdekat: item.lokasi_dinas_terdekat,
           total_lokasi_dinas: item.total_lokasi_dinas,
@@ -111,31 +186,41 @@ export default function TrackingPegawaiScreen() {
           jarak: p.jarak_dari_kantor 
         })));
         setPegawaiList(formattedData);
+        if (result.summary) setSummary(result.summary);
+        setIsHariLibur(result.is_hari_libur || false);
+        setNamaLibur(result.nama_libur || null);
         
-        // Auto zoom ke lokasi pegawai setelah data dimuat HANYA jika detail tidak sedang dibuka
-        if (formattedData.length > 0 && !isDetailOpen) {
+        if (!isDetailOpen) {
           const pegawaiDenganGPS = formattedData.filter((p: PegawaiData) => p.latitude && p.longitude);
           if (pegawaiDenganGPS.length > 0) {
-            // Hitung center dari semua lokasi pegawai
-            const latitudes = pegawaiDenganGPS.map((p: PegawaiData) => p.latitude);
-            const longitudes = pegawaiDenganGPS.map((p: PegawaiData) => p.longitude);
+            // Prioritas: pegawai kantor dulu, kalau tidak ada baru semua
+            const target = pegawaiDenganGPS.find((p: PegawaiData) => p.jenis_presensi === 'kantor') || pegawaiDenganGPS[0];
             
-            const minLat = Math.min(...latitudes);
-            const maxLat = Math.max(...latitudes);
-            const minLng = Math.min(...longitudes);
-            const maxLng = Math.max(...longitudes);
-            
-            const centerLat = (minLat + maxLat) / 2;
-            const centerLng = (minLng + maxLng) / 2;
-            const deltaLat = (maxLat - minLat) * 1.5; // Tambah padding 50%
-            const deltaLng = (maxLng - minLng) * 1.5;
-            
-            mapRef.current?.animateToRegion({
-              latitude: centerLat,
-              longitude: centerLng,
-              latitudeDelta: Math.max(deltaLat, 0.01),
-              longitudeDelta: Math.max(deltaLng, 0.01),
-            }, 1000);
+            if (!isRefresh) {
+              // Saat pertama buka: zoom ke lokasi kantor
+              setTimeout(() => {
+                mapRef.current?.animateToRegion({
+                  latitude: target.latitude,
+                  longitude: target.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }, 1000);
+              }, 300);
+            } else {
+              // Saat refresh: zoom ke semua pegawai
+              const latitudes = pegawaiDenganGPS.map((p: PegawaiData) => p.latitude);
+              const longitudes = pegawaiDenganGPS.map((p: PegawaiData) => p.longitude);
+              const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
+              const centerLng = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
+              const deltaLat = (Math.max(...latitudes) - Math.min(...latitudes)) * 1.5;
+              const deltaLng = (Math.max(...longitudes) - Math.min(...longitudes)) * 1.5;
+              mapRef.current?.animateToRegion({
+                latitude: centerLat,
+                longitude: centerLng,
+                latitudeDelta: Math.max(deltaLat, 0.01),
+                longitudeDelta: Math.max(deltaLng, 0.01),
+              }, 1000);
+            }
           }
         }
       }
@@ -274,18 +359,12 @@ export default function TrackingPegawaiScreen() {
   const handleMarkerPress = (pegawai: PegawaiData) => {
     setSelectedPegawai(pegawai);
     openBottomSheet();
-    
     mapRef.current?.animateToRegion({
       latitude: pegawai.latitude,
       longitude: pegawai.longitude,
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     }, 1000);
-  };
-
-  const openRoute = (lat: number, lng: number) => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    Linking.openURL(url);
   };
 
   const handleCounterClick = (type: 'kantor' | 'dinas') => {
@@ -333,51 +412,50 @@ export default function TrackingPegawaiScreen() {
     }
   };
 
-  const kantorCount = pegawaiList.filter((p: PegawaiData) => p.jenis_presensi === 'kantor').length;
-  const dinasCount = pegawaiList.filter((p: PegawaiData) => p.jenis_presensi === 'dinas').length;
+  const kantorCount = summary.kantor;
+  const dinasCount = summary.dinas;
+  const totalCount = summary.total;
+  const onlineCount = summary.online;
+  const sudahAbsenCount = summary.sudah_absen;
+  const belumAbsenCount = summary.belum_absen;
+
+  const screenWidth = Dimensions.get('window').width;
+  const cardStyle = {
+    opacity: collapseAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.6, 1] }),
+    transform: [
+      { translateX: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [bubblePosRef.current.x - 16, 0] }) },
+      { translateY: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [bubblePosRef.current.y - (SCREEN_HEIGHT - 20 - 180), 0] }) },
+      { scale: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.05, 1] }) },
+    ],
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" translucent={true} backgroundColor="transparent" />
+        <AppHeader title="Tracking Pegawai" showBack={false} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#004643" />
+          <Text style={styles.loadingText}>Memuat data tracking...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        style="light"
-        translucent={true}
-        backgroundColor="transparent"
-      />
+      <StatusBar style="light" translucent={true} backgroundColor="transparent" />
       <AppHeader title="Tracking Pegawai" showBack={false} />
-
-      <View style={styles.counterContainer}>
-        <TouchableOpacity 
-          style={styles.counterItem}
-          onPress={() => handleCounterClick('kantor')}
-        >
-          <Ionicons name="business" size={16} color="#004643" />
-          <Text style={styles.counterText}>
-            Kantor:{" "}
-            <Text style={styles.counterValue}>{kantorCount}</Text>
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.counterDivider} />
-        <TouchableOpacity 
-          style={styles.counterItem}
-          onPress={() => handleCounterClick('dinas')}
-        >
-          <Ionicons name="briefcase" size={16} color="#FFC107" />
-          <Text style={styles.counterText}>
-            Dinas:{" "}
-            <Text style={styles.counterValue}>{dinasCount}</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
 
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={{
-          latitude: pegawaiList[0]?.latitude || -6.2088,
-          longitude: pegawaiList[0]?.longitude || 106.8456,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitude: pegawaiList.find(p => p.jenis_presensi === 'kantor')?.latitude || pegawaiList[0]?.latitude || -6.2088,
+          longitude: pegawaiList.find(p => p.jenis_presensi === 'kantor')?.longitude || pegawaiList[0]?.longitude || 106.8456,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
         }}
         showsUserLocation
         showsMyLocationButton
@@ -416,10 +494,94 @@ export default function TrackingPegawaiScreen() {
           ))}
       </MapView>
 
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#004643" />
+      {/* Floating Card */}
+      <Animated.View style={[styles.floatingCard, cardStyle]}>
+        <TouchableOpacity
+          onPress={collapseCard}
+          activeOpacity={0.7}
+          style={{ position: 'absolute', top: -10, left: -10, zIndex: 10 }}
+        >
+          <Ionicons name="remove-circle" size={26} color="#bbb" />
+        </TouchableOpacity>
+
+        <View style={styles.floatingCardHeader}>
+          <View style={styles.onlineDot} />
+          <Text style={styles.floatingCardTitle}>Pegawai Aktif</Text>
+          <Text style={styles.floatingCardTotal}>{onlineCount} Online</Text>
         </View>
+
+        <View style={styles.floatingCardDivider} />
+
+        <View style={styles.floatingCardRow}>
+          <TouchableOpacity style={styles.floatingCardItem} onPress={() => handleCounterClick('kantor')}>
+            <Ionicons name="business" size={14} color="#10B981" />
+            <Text style={styles.floatingCardLabel}>Kantor</Text>
+            <Text style={styles.floatingCardValue}>{kantorCount}</Text>
+          </TouchableOpacity>
+          <View style={styles.floatingCardSep} />
+          <TouchableOpacity style={styles.floatingCardItem} onPress={() => handleCounterClick('dinas')}>
+            <Ionicons name="briefcase" size={14} color="#FFC107" />
+            <Text style={styles.floatingCardLabel}>Dinas</Text>
+            <Text style={styles.floatingCardValue}>{dinasCount}</Text>
+          </TouchableOpacity>
+          <View style={styles.floatingCardSep} />
+          <View style={styles.floatingCardItem}>
+            <Ionicons name="people" size={14} color="#9E9E9E" />
+            <Text style={styles.floatingCardLabel}>Total</Text>
+            <Text style={styles.floatingCardValue}>{totalCount}</Text>
+          </View>
+        </View>
+
+        <View style={styles.floatingCardDivider} />
+
+        <View style={styles.floatingCardRow}>
+          <View style={styles.floatingCardItem}>
+            <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+            <Text style={styles.floatingCardLabel}>Sudah Absen</Text>
+            <Text style={styles.floatingCardValue}>{sudahAbsenCount}</Text>
+          </View>
+          <View style={styles.floatingCardSep} />
+          {isHariLibur ? (
+            <View style={styles.floatingCardItem}>
+              <Ionicons name="sunny" size={14} color="#FFA726" />
+              <Text style={[styles.floatingCardLabel, { color: '#FFA726' }]} numberOfLines={1}>{namaLibur || 'Libur'}</Text>
+              <Text style={[styles.floatingCardValue, { color: '#FFA726' }]}>-</Text>
+            </View>
+          ) : (
+            <View style={styles.floatingCardItem}>
+              <Ionicons name="close-circle" size={14} color="#F44336" />
+              <Text style={styles.floatingCardLabel}>Blm Absen</Text>
+              <Text style={[styles.floatingCardValue, belumAbsenCount > 0 ? { color: '#F44336' } : {}]}>{belumAbsenCount}</Text>
+            </View>
+          )}
+        </View>
+      </Animated.View>
+
+      {/* Bubble Glow - bisa di-drag */}
+      {isCardCollapsed && (
+        <Animated.View
+          style={[
+            styles.bubbleBtn,
+            { left: bubblePos.x, top: bubblePos.y, bottom: undefined, right: undefined }
+          ]}
+          {...bubblePanResponder.panHandlers}
+        >
+          <Animated.View style={[
+            styles.bubbleGlow1,
+            {
+              opacity: glowAnim,
+              transform: [{ scale: glowAnim.interpolate({ inputRange: [0.3, 1], outputRange: [1, 1.4] }) }],
+            }
+          ]} />
+          <Animated.View style={[
+            styles.bubbleGlow2,
+            {
+              opacity: glowAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.1, 0.4] }),
+              transform: [{ scale: glowAnim.interpolate({ inputRange: [0.3, 1], outputRange: [1.4, 1.8] }) }],
+            }
+          ]} />
+          <Ionicons name="people" size={26} color="#fff" />
+        </Animated.View>
       )}
 
       <Modal
@@ -485,12 +647,7 @@ export default function TrackingPegawaiScreen() {
                       styles.jarakRow,
                       { borderColor: getJarakColorDinas(selectedPegawai) }
                     ]}
-                    onPress={() =>
-                      openRoute(
-                        selectedPegawai.latitude,
-                        selectedPegawai.longitude,
-                      )
-                    }
+                    onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${selectedPegawai.latitude},${selectedPegawai.longitude}`)}
                   >
                     <View style={styles.jarakInfo}>
                       <Text style={styles.infoLabel}>{getJarakInfo(selectedPegawai).label}</Text>
@@ -528,38 +685,116 @@ export default function TrackingPegawaiScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8FAFB" },
-  counterContainer: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    gap: 16,
-  },
-  counterItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  counterText: {
-    fontSize: 13,
-    color: "#666",
-    fontWeight: "500",
-  },
-  counterValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1E293B",
-  },
-  counterDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: "#E5E7EB",
-  },
   map: { flex: 1 },
+  floatingCard: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  floatingCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4ade80',
+    shadowColor: '#4ade80',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  floatingCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    flex: 1,
+  },
+  floatingCardTotal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#004643',
+  },
+  floatingCardDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginVertical: 10,
+  },
+  floatingCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  floatingCardItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  floatingCardDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  floatingCardLabel: {
+    fontSize: 13,
+    color: '#666',
+    flex: 1,
+  },
+  floatingCardValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  floatingCardSep: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 12,
+  },
+  bubbleBtn: {
+    position: 'absolute',
+    width: BUBBLE_SIZE,
+    height: BUBBLE_SIZE,
+    borderRadius: BUBBLE_SIZE / 2,
+    backgroundColor: '#004643',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  bubbleGlow1: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2.5,
+    borderColor: '#4ade80',
+  },
+  bubbleGlow2: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: '#86efac',
+  },
   customMarker: {
     width: 35,
     height: 35,
@@ -594,15 +829,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  loadingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(255,255,255,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFB',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
   },
   modalOverlay: {
     flex: 1,

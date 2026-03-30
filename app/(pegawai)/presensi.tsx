@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform, Animated } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform, Animated, PanResponder } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -10,7 +10,10 @@ import { AppHeader, CustomAlert } from '../../components';
 import { useCustomAlert } from '../../hooks/useCustomAlert';
 import { usePresensiCard } from '../../contexts/PresensiCardContext';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const BUBBLE_SIZE = 56;
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 90 : 80;
+const BUBBLE_MAX_Y = screenHeight - BUBBLE_SIZE - TAB_BAR_HEIGHT - 16;
 
 export default function PresensiScreen() {
   const alert = useCustomAlert();
@@ -55,6 +58,34 @@ export default function PresensiScreen() {
   const collapseAnim = useRef(new Animated.Value(1)).current;
   // glowAnim: untuk opacity/scale glow (bisa native driver)
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const bubblePos = useRef(new Animated.ValueXY({ x: screenWidth - BUBBLE_SIZE - 20, y: BUBBLE_MAX_Y })).current;
+  const bubblePosRef = useRef({ x: screenWidth - BUBBLE_SIZE - 20, y: BUBBLE_MAX_Y });
+  const isDragging = useRef(false);
+
+  const bubblePanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
+    onPanResponderGrant: () => { isDragging.current = false; },
+    onPanResponderMove: (_, g) => {
+      isDragging.current = true;
+      const newX = Math.max(0, Math.min(bubblePosRef.current.x + g.dx, screenWidth - BUBBLE_SIZE));
+      const newY = Math.max(80, Math.min(bubblePosRef.current.y + g.dy, BUBBLE_MAX_Y));
+      bubblePos.setValue({ x: newX, y: newY });
+    },
+    onPanResponderRelease: (_, g) => {
+      const newX = Math.max(0, Math.min(bubblePosRef.current.x + g.dx, screenWidth - BUBBLE_SIZE));
+      const newY = Math.max(80, Math.min(bubblePosRef.current.y + g.dy, BUBBLE_MAX_Y));
+      const snapX = newX + BUBBLE_SIZE / 2 < screenWidth / 2 ? 20 : screenWidth - BUBBLE_SIZE - 20;
+      bubblePosRef.current = { x: snapX, y: newY };
+      Animated.spring(bubblePos, {
+        toValue: { x: snapX, y: newY },
+        useNativeDriver: false,
+        tension: 60,
+        friction: 10,
+      }).start();
+      if (!isDragging.current) openCard();
+    },
+  })).current;
 
   useEffect(() => {
     const todayDate = new Date().toISOString().split('T')[0];
@@ -252,7 +283,38 @@ export default function PresensiScreen() {
     return distance <= (nearestLocation?.radius || 0);
   };
 
-  const handleAbsenMasuk = () => router.push({ pathname: '/absen-face', params: { jenis: 'masuk' } } as any);
+  const handleAbsenMasuk = async () => {
+    try {
+      const now = new Date();
+      const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][now.getDay()];
+      const jamKerjaRes = await fetch(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/jam-kerja`);
+      const jamKerjaData = await jamKerjaRes.json();
+      let jamMasuk = '08:00:00';
+      if (jamKerjaData.success) { const h = jamKerjaData.data?.find((h: any) => h.hari === hari); if (h) jamMasuk = h.jam_masuk; }
+
+      // Hitung batas awal absen = jam masuk - 1 jam
+      const [hh, mm] = jamMasuk.split(':').map(Number);
+      const totalMenit = hh * 60 + mm - 60;
+      const batasAwal = `${String(Math.floor(totalMenit / 60)).padStart(2, '0')}:${String(totalMenit % 60).padStart(2, '0')}:00`;
+
+      const currentTimeStr = now.toTimeString().slice(0, 8);
+      if (currentTimeStr < batasAwal) {
+        const today = now.toISOString().split('T')[0];
+        const userData = await AsyncStorage.getItem('userData');
+        const user = userData ? JSON.parse(userData) : null;
+        const userId = user?.id_user || user?.id;
+        const izinRes = await fetch(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`);
+        const izinData = await izinRes.json();
+        if (izinData.success && izinData.data?.izin_datang_terlambat) {
+          // Ada izin terlambat → boleh absen
+        } else {
+          alert.showAlert({ type: 'warning', message: `Belum waktunya absen masuk. Absen dibuka jam ${batasAwal.slice(0, 5)}` });
+          return;
+        }
+      }
+    } catch {}
+    router.push({ pathname: '/absen-face', params: { jenis: 'masuk' } } as any);
+  };
 
   const handleAbsenPulang = async () => {
     try {
@@ -349,43 +411,54 @@ export default function PresensiScreen() {
           <Ionicons name="remove-circle" size={26} color="#bbb" />
         </TouchableOpacity>
 
-        {/* Header jam */}
+        {/* Header jam + status lokasi sejajar */}
         <View style={styles.cardHeader}>
           <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {isDinas && dinasInfo && (
-              <View style={styles.dinasBadge}>
-                <Ionicons name="airplane" size={12} color="#2196F3" />
-                <Text style={styles.dinasBadgeText}>Dinas</Text>
-              </View>
-            )}
+          <View style={styles.locationRow}>
+            <Ionicons name={validLoc ? 'checkmark-circle' : 'close-circle'} size={16} color={validLoc ? '#4CAF50' : '#F44336'} />
+            <Text style={[styles.locationText, { color: validLoc ? '#4CAF50' : '#F44336' }]} numberOfLines={1}>
+              {isDinas
+                ? `Dinas • ${Math.round(distance)}m`
+                : nearestLocation
+                  ? `${nearestLocation.nama_lokasi} • ${Math.round(distance)}m`
+                  : 'Mendeteksi...'}
+            </Text>
           </View>
         </View>
 
         <Text style={styles.dateText}>{formatDate(currentTime)}</Text>
-        <View style={styles.divider} />
 
-        {/* Status Lokasi */}
-        <View style={styles.locationRow}>
-          <Ionicons name={validLoc ? 'checkmark-circle' : 'close-circle'} size={18} color={validLoc ? '#4CAF50' : '#F44336'} />
-          <Text style={[styles.locationText, { color: validLoc ? '#4CAF50' : '#F44336' }]} numberOfLines={1}>
-            {nearestLocation
-              ? validLoc
-                ? `${nearestLocation.nama_lokasi} • ${Math.round(distance)}m`
-                : `Di luar radius • ${Math.round(distance)}m dari ${nearestLocation.nama_lokasi}`
-              : 'Mendeteksi lokasi...'}
-          </Text>
-        </View>
-
-        {/* Info izin */}
-        {!hasCheckedIn && izinHariIni && (
-          <View style={styles.izinBadge}>
-            <Ionicons name="information-circle" size={14} color="#004643" />
-            <Text style={styles.izinText}>
-              {izinHariIni.izin_datang_terlambat ? `Izin terlambat: ${izinHariIni.izin_datang_terlambat.jam}` : ''}
-              {izinHariIni.izin_pulang_cepat ? `Izin pulang cepat: ${izinHariIni.izin_pulang_cepat.jam}` : ''}
-            </Text>
-          </View>
+        {/* Keterangan dinas / izin - hanya tampil kalau ada */}
+        {(isDinas || izinHariIni) && (
+          <>
+            <View style={styles.divider} />
+            {isDinas && (
+              <View style={styles.keteranganRow}>
+                <Ionicons name="briefcase-outline" size={13} color="#2196F3" />
+                <Text style={styles.keteranganText}>
+                  {(() => {
+                    const total = dinasLokasi.length;
+                    const dalamRadius = dinasLokasi.filter(l =>
+                      location && getDistance(location.latitude, location.longitude, parseFloat(l.latitude), parseFloat(l.longitude)) <= l.radius
+                    ).length;
+                    return `${dalamRadius} dari ${total} lokasi dalam radius ✓`;
+                  })()}
+                </Text>
+              </View>
+            )}
+            {izinHariIni?.izin_datang_terlambat && (
+              <View style={styles.keteranganRow}>
+                <Ionicons name="time-outline" size={13} color="#FF9800" />
+                <Text style={styles.keteranganText}>Izin terlambat: {izinHariIni.izin_datang_terlambat.jam}</Text>
+              </View>
+            )}
+            {izinHariIni?.izin_pulang_cepat && (
+              <View style={styles.keteranganRow}>
+                <Ionicons name="exit-outline" size={13} color="#FF9800" />
+                <Text style={styles.keteranganText}>Izin pulang cepat: {izinHariIni.izin_pulang_cepat.jam}</Text>
+              </View>
+            )}
+          </>
         )}
 
         <View style={styles.divider} />
@@ -443,18 +516,16 @@ export default function PresensiScreen() {
         )}
       </Animated.View>
 
-      {/* Floating bubble pojok kanan bawah saat card collapsed */}
+      {/* Bubble draggable saat card collapsed */}
       {isCardCollapsed && (
-        <TouchableOpacity
-          onPress={openCard}
-          activeOpacity={0.8}
+        <Animated.View
           style={{
             position: 'absolute',
-            bottom: 28,
-            right: 28,
-            width: 56,
-            height: 56,
-            borderRadius: 28,
+            left: bubblePos.x,
+            top: bubblePos.y,
+            width: BUBBLE_SIZE,
+            height: BUBBLE_SIZE,
+            borderRadius: BUBBLE_SIZE / 2,
             backgroundColor: '#2d7a47',
             justifyContent: 'center',
             alignItems: 'center',
@@ -464,12 +535,13 @@ export default function PresensiScreen() {
             shadowOpacity: 0.3,
             shadowRadius: 6,
           }}
+          {...bubblePanResponder.panHandlers}
         >
           <Animated.View style={{
             position: 'absolute',
-            width: 56,
-            height: 56,
-            borderRadius: 28,
+            width: BUBBLE_SIZE,
+            height: BUBBLE_SIZE,
+            borderRadius: BUBBLE_SIZE / 2,
             borderWidth: 2.5,
             borderColor: '#4ade80',
             opacity: glowAnim,
@@ -477,16 +549,16 @@ export default function PresensiScreen() {
           }} />
           <Animated.View style={{
             position: 'absolute',
-            width: 56,
-            height: 56,
-            borderRadius: 28,
+            width: BUBBLE_SIZE,
+            height: BUBBLE_SIZE,
+            borderRadius: BUBBLE_SIZE / 2,
             borderWidth: 1.5,
             borderColor: '#86efac',
             opacity: glowAnim.interpolate({ inputRange: [0.3, 1], outputRange: [0.1, 0.4] }),
             transform: [{ scale: glowAnim.interpolate({ inputRange: [0.3, 1], outputRange: [1.4, 1.8] }) }],
           }} />
           <Ionicons name="chevron-up-circle" size={30} color="#fff" style={{ transform: [{ rotate: '-45deg' }] }} />
-        </TouchableOpacity>
+        </Animated.View>
       )}
 
       <CustomAlert
@@ -537,8 +609,10 @@ const styles = StyleSheet.create({
   dinasBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E3F2FD', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   dinasBadgeText: { fontSize: 12, fontWeight: '600', color: '#2196F3' },
   divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 10 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  locationText: { fontSize: 13, fontWeight: '600', flex: 1 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  locationText: { fontSize: 12, fontWeight: '600', textAlign: 'right' },
+  keteranganRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  keteranganText: { fontSize: 12, color: '#555', flex: 1 },
   izinBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E6F0EF', padding: 8, borderRadius: 8, marginTop: 6 },
   izinText: { fontSize: 12, color: '#004643', flex: 1 },
   absenBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 14 },

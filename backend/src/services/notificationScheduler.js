@@ -2,22 +2,29 @@ const cron = require('node-cron');
 const { getConnection } = require('../config/database');
 const PushNotificationService = require('./pushNotificationService');
 
-// Helper: Dapatkan waktu sekarang dalam format HH:mm
+// Helper: Dapatkan waktu sekarang dalam format HH:mm (WIB)
 function getCurrentTime() {
   const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const wib = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+  const hours = String(wib.getUTCHours()).padStart(2, '0');
+  const minutes = String(wib.getUTCMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 
-// Helper: Dapatkan hari ini dalam bahasa Indonesia
+// Helper: Dapatkan hari ini dalam bahasa Indonesia (WIB)
 function getCurrentDay() {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const now = new Date();
-  return days[now.getDay()];
+  const wib = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+  return days[wib.getUTCDay()];
 }
 
-// Helper: Kurangi menit dari waktu (format HH:mm:ss)
+// Helper: Dapatkan tanggal hari ini dalam WIB (YYYY-MM-DD)
+function getTodayWIB() {
+  const now = new Date();
+  const wib = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+  return wib.toISOString().split('T')[0];
+}
 function subtractMinutes(timeString, minutes) {
   const [hours, mins] = timeString.split(':').map(Number);
   const totalMinutes = hours * 60 + mins - minutes;
@@ -45,7 +52,7 @@ async function checkAndSendReminderLibur() {
     if (currentTime !== '07:00') return;
 
     const currentDay = getCurrentDay();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayWIB();
     const db = await getConnection();
 
     const [hariLibur] = await db.execute(
@@ -105,7 +112,7 @@ async function checkAndSendReminderMasuk() {
   try {
     const currentTime = getCurrentTime();
     const currentDay = getCurrentDay();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayWIB();
     
     const db = await getConnection();
 
@@ -163,7 +170,7 @@ async function checkAndSendReminderTerlambat() {
   try {
     const currentTime = getCurrentTime();
     const currentDay = getCurrentDay();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayWIB();
     
     const db = await getConnection();
 
@@ -183,6 +190,16 @@ async function checkAndSendReminderTerlambat() {
     const jamMasuk = jamKerja[0].jam_masuk.substring(0, 5);
     
     if (currentTime <= jamMasuk) return;
+
+    // Batasi hanya kirim sampai 2 jam setelah jam masuk
+    const [h, m] = jamMasuk.split(':').map(Number);
+    const batasWaktu = `${String(h + 2).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    if (currentTime > batasWaktu) return;
+
+    // Kirim hanya setiap 30 menit (tepat di jam masuk, +30 menit, +60 menit, +90 menit, +120 menit)
+    const [ch, cm] = currentTime.split(':').map(Number);
+    const selisihMenit = (ch * 60 + cm) - (h * 60 + m);
+    if (selisihMenit % 30 !== 0) return;
     
     console.log(`[SCHEDULER] Checking for late employees at ${currentTime}`);
     
@@ -226,7 +243,7 @@ async function checkAndSendReminderPulang() {
   try {
     const currentTime = getCurrentTime();
     const currentDay = getCurrentDay();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayWIB();
     
     const db = await getConnection();
 

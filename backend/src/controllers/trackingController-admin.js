@@ -4,6 +4,19 @@ const getTracking = async (req, res) => {
   try {
     const db = await getConnection();
 
+    // Cek hari libur
+    const [hariLiburRows] = await db.execute(`
+      SELECT nama_libur FROM hari_libur WHERE tanggal = CURDATE() AND is_active = 1 LIMIT 1
+    `);
+    const hariIni = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][new Date().getDay()];
+    const [jamKerjaRows] = await db.execute(`
+      SELECT is_kerja FROM jam_kerja_hari WHERE hari = ? LIMIT 1
+    `, [hariIni]);
+    const isKalenderLibur = hariLiburRows.length > 0;
+    const isWeekend = jamKerjaRows.length > 0 && !jamKerjaRows[0].is_kerja;
+    const isHariLibur = isKalenderLibur || isWeekend;
+    const namaLibur = isKalenderLibur ? hariLiburRows[0].nama_libur : 'Libur Weekend';
+
     // Get all active pegawai with real-time location and attendance status
     const [results] = await db.execute(`
       SELECT 
@@ -119,6 +132,9 @@ const getTracking = async (req, res) => {
       
       return {
         ...pegawai,
+        is_online: pegawai.last_update
+          ? (new Date() - new Date(pegawai.last_update)) <= 5 * 60 * 1000
+          : false,
         jarak_dari_kantor: jarakTerdekat,
         kantor_terdekat: kantorTerdekat?.nama_lokasi,
         radius_kantor: kantorTerdekat?.radius || 50,
@@ -134,7 +150,17 @@ const getTracking = async (req, res) => {
 
     res.json({
       success: true,
-      data: pegawaiWithDistance
+      is_hari_libur: isHariLibur,
+      nama_libur: isHariLibur ? namaLibur : null,
+      data: pegawaiWithDistance,
+      summary: {
+        total: pegawaiWithDistance.length,
+        online: pegawaiWithDistance.filter(p => p.is_online).length,
+        kantor: pegawaiWithDistance.filter(p => p.jenis_presensi === 'kantor').length,
+        dinas: pegawaiWithDistance.filter(p => p.jenis_presensi === 'dinas').length,
+        sudah_absen: pegawaiWithDistance.filter(p => p.jam_masuk).length,
+        belum_absen: isHariLibur ? 0 : pegawaiWithDistance.filter(p => !p.jam_masuk).length,
+      }
     });
 
   } catch (error) {
@@ -169,7 +195,6 @@ const updateLocation = async (req, res) => {
 
     const db = await getConnection();
 
-    // Insert or update location
     await db.execute(`
       INSERT INTO lokasi_realtime (id_user, lintang, bujur, last_update)
       VALUES (?, ?, ?, NOW())
@@ -187,4 +212,26 @@ const updateLocation = async (req, res) => {
   }
 };
 
-module.exports = { getTracking, updateLocation };
+const heartbeat = async (req, res) => {
+  try {
+    const { id_user } = req.body;
+    if (!id_user) return res.json({ success: false, message: 'id_user diperlukan' });
+
+    const db = await getConnection();
+
+    // Update last_update di lokasi_realtime sebagai penanda online
+    // Jika belum ada record, insert dengan koordinat 0 (akan diupdate saat update-location)
+    await db.execute(`
+      INSERT INTO lokasi_realtime (id_user, lintang, bujur, last_update)
+      VALUES (?, 0, 0, NOW())
+      ON DUPLICATE KEY UPDATE last_update = NOW()
+    `, [id_user]);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Heartbeat error:', error);
+    res.json({ success: false, message: 'Gagal update heartbeat' });
+  }
+};
+
+module.exports = { getTracking, updateLocation, heartbeat };
