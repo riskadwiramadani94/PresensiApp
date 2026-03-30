@@ -34,6 +34,7 @@ interface DashboardData {
     total_pegawai: number;
     is_hari_libur?: boolean;
     nama_libur?: string;
+    pengajuan_pending?: number;
   };
   recent: RecentActivity[];
   user?: {
@@ -46,7 +47,7 @@ interface DashboardData {
 export default function AdminDashboard() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData>({
-    stats: { hadir: 0, tidak_hadir: 0, total_pegawai: 0, is_hari_libur: false, nama_libur: undefined },
+    stats: { hadir: 0, tidak_hadir: 0, total_pegawai: 0, is_hari_libur: false, nama_libur: undefined, pengajuan_pending: 0 },
     recent: [],
     user: undefined,
   });
@@ -232,6 +233,7 @@ export default function AdminDashboard() {
             total_pegawai: totalPegawai,
             is_hari_libur: result.stats?.is_hari_libur || false,
             nama_libur: result.stats?.nama_libur || undefined,
+            pengajuan_pending: result.stats?.pengajuan_pending || 0,
           },
           recent: recentActivities.slice(0, 10), // Ambil 10 aktivitas terbaru
           user: prev.user,
@@ -297,25 +299,19 @@ export default function AdminDashboard() {
                         <View style={styles.skeletonStatNumber} />
                         <View style={styles.skeletonStatLabel} />
                       </View>
-                      
                       <View style={styles.divider} />
-                      
                       <View style={styles.statItem}>
                         <View style={styles.skeletonStatIcon} />
                         <View style={styles.skeletonStatNumber} />
                         <View style={styles.skeletonStatLabel} />
                       </View>
-                      
                       <View style={styles.divider} />
-                      
                       <View style={styles.statItem}>
                         <View style={styles.skeletonStatIcon} />
                         <View style={styles.skeletonStatNumber} />
                         <View style={styles.skeletonStatLabel} />
                       </View>
-                      
                       <View style={styles.divider} />
-                      
                       <View style={styles.statItem}>
                         <View style={styles.skeletonStatIcon} />
                         <View style={styles.skeletonStatNumber} />
@@ -413,47 +409,51 @@ export default function AdminDashboard() {
                   <View style={styles.statsCard}>
                     <View style={styles.quickStatsRow}>
                       <View style={styles.statItem}>
-                        <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                        <View style={[styles.statIconWrap, { backgroundColor: 'rgba(76,175,80,0.2)' }]}>
+                          <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                        </View>
                         <Text style={styles.quickStatNumber}>{data.stats.hadir}</Text>
                         <Text style={styles.quickStatLabel}>Hadir</Text>
                       </View>
-                      
                       <View style={styles.divider} />
-                      
                       <View style={styles.statItem}>
-                        {data.stats.is_hari_libur ? (
-                          <Ionicons name="sunny" size={20} color="#FFA726" />
-                        ) : (
-                          <Ionicons name="close-circle" size={20} color="#EF5350" />
-                        )}
-                        <Text style={styles.quickStatNumber}>
-                          {data.stats.is_hari_libur ? '-' : data.stats.tidak_hadir}
-                        </Text>
-                        <Text style={styles.quickStatLabel} numberOfLines={1}>
-                          {data.stats.is_hari_libur ? (data.stats.nama_libur || 'Libur') : 'Tidak Hadir'}
-                        </Text>
+                        <View style={[styles.statIconWrap, { backgroundColor: data.stats.is_hari_libur ? 'rgba(255,167,38,0.2)' : 'rgba(239,83,80,0.2)' }]}>
+                          <Ionicons name={data.stats.is_hari_libur ? 'sunny' : 'close-circle'} size={16} color={data.stats.is_hari_libur ? '#FFA726' : '#EF5350'} />
+                        </View>
+                        <Text style={styles.quickStatNumber}>{data.stats.is_hari_libur ? '-' : data.stats.tidak_hadir}</Text>
+                        <Text style={styles.quickStatLabel} numberOfLines={1}>{data.stats.is_hari_libur ? (data.stats.nama_libur || 'Libur') : 'Tidak Hadir'}</Text>
                       </View>
-                      
                       <View style={styles.divider} />
-                      
                       <View style={styles.statItem}>
-                        <Ionicons name="people" size={20} color="#42A5F5" />
+                        <View style={[styles.statIconWrap, { backgroundColor: 'rgba(66,165,245,0.2)' }]}>
+                          <Ionicons name="people" size={16} color="#42A5F5" />
+                        </View>
                         <Text style={styles.quickStatNumber}>{data.stats.total_pegawai}</Text>
                         <Text style={styles.quickStatLabel}>Total</Text>
                       </View>
-                      
                       <View style={styles.divider} />
-                      
                       <View style={styles.statItem}>
-                        <Ionicons name="analytics" size={20} color="#FFA726" />
+                        <View style={[styles.statIconWrap, { backgroundColor: 'rgba(255,167,38,0.2)' }]}>
+                          <Ionicons name="analytics" size={16} color="#FFA726" />
+                        </View>
                         <Text style={styles.quickStatNumber}>
-                          {data.stats.total_pegawai > 0
-                            ? Math.round((data.stats.hadir / data.stats.total_pegawai) * 100)
-                            : 0}%
+                          {data.stats.total_pegawai > 0 ? Math.round((data.stats.hadir / data.stats.total_pegawai) * 100) : 0}%
                         </Text>
                         <Text style={styles.quickStatLabel}>Kehadiran</Text>
                       </View>
                     </View>
+
+                    {!data.stats.is_hari_libur && data.stats.total_pegawai > 0 && (
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressHeader}>
+                          <Text style={styles.progressLabel}>Tingkat Kehadiran</Text>
+                          <Text style={styles.progressValue}>{data.stats.hadir}/{data.stats.total_pegawai} pegawai</Text>
+                        </View>
+                        <View style={styles.progressBar}>
+                          <View style={[styles.progressFill, { width: `${Math.round((data.stats.hadir / data.stats.total_pegawai) * 100)}%` }]} />
+                        </View>
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
@@ -464,10 +464,10 @@ export default function AdminDashboard() {
             </View>
             <View style={styles.mainMenuRow}>
               {[
-                { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/menu-admin/pegawai-akun' },
-                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/admin/pengajuan.png'), route: '/menu-admin/pengajuan' },
-                { id: 3, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/menu-admin/kelola-dinas' },
-                { id: 4, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/menu-admin/laporan/laporan-admin' },
+                { id: 1, name: 'Pegawai', image: require('../../assets/images/icons/admin/pegawai.png'), route: '/menu-admin/pegawai-akun', badge: 0 },
+                { id: 2, name: 'Pengajuan', image: require('../../assets/images/icons/admin/pengajuan.png'), route: '/menu-admin/pengajuan', badge: data.stats.pengajuan_pending ?? 0 },
+                { id: 3, name: 'Dinas', image: require('../../assets/images/icons/admin/dinas.png'), route: '/menu-admin/kelola-dinas', badge: 0 },
+                { id: 4, name: 'Laporan', image: require('../../assets/images/icons/admin/laporan.png'), route: '/menu-admin/laporan/laporan-admin', badge: 0 },
               ].map((item) => (
                 <TouchableOpacity 
                   key={item.id} 
@@ -475,7 +475,14 @@ export default function AdminDashboard() {
                   activeOpacity={0.7}
                   onPress={() => router.push(item.route as any)}
                 >
-                  <Image source={item.image} style={styles.menuIcon} />
+                  <View>
+                    <Image source={item.image} style={styles.menuIcon} />
+                    {item.badge > 0 && (
+                      <View style={styles.menuBadge}>
+                        <Text style={styles.menuBadgeText}>{item.badge}</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.menuLabel}>{item.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -490,6 +497,8 @@ export default function AdminDashboard() {
                 <Text style={styles.menuLabel}>Pengaturan</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Ringkasan Pengajuan Pending - hapus card terpisah */}
 
             {/* Aktivitas Terbaru */}
             <View style={styles.activitySection}>
@@ -638,45 +647,84 @@ const styles = StyleSheet.create({
   },
   summarySection: {
     marginBottom: 40,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   statsCard: {
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   quickStatsRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   statItem: {
     flex: 1,
-    alignItems: "center",
+    alignItems: 'center',
     paddingHorizontal: 4,
+  },
+  statIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   divider: {
     width: 1,
-    height: 50,
-    backgroundColor: "rgba(255,255,255,0.3)",
+    height: 45,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   quickStatNumber: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
-    marginTop: 6,
-    marginBottom: 4,
-    textAlign: "center",
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 3,
+    textAlign: 'center',
   },
   quickStatLabel: {
-    fontSize: 8,
-    color: "rgba(255,255,255,0.95)",
-    textAlign: "center",
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.2,
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  progressContainer: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.15)',
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
+  },
+  progressValue: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  progressBar: {
+    height: 5,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 3,
   },
   menuSection: { 
     marginTop: -50, 
@@ -722,6 +770,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   menuLabel: { fontSize: 12, color: '#444', fontWeight: '600', textAlign: 'center' },
+
+  menuBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#F44336',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  menuBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   
   // Activity Section
   activitySection: {
@@ -858,23 +926,23 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   skeletonStatIcon: {
-    width: 20,
-    height: 20,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
     marginBottom: 6,
   },
   skeletonStatNumber: {
-    width: 24,
+    width: 28,
     height: 18,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 4,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   skeletonStatLabel: {
     width: 40,
     height: 8,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 4,
   },
   skeletonSectionTitle: {

@@ -231,6 +231,11 @@ const getAdminData = async (req, res) => {
       LIMIT 5
     `);
 
+    // Get pengajuan pending
+    const [pengajuanPending] = await db.execute(`
+      SELECT COUNT(*) as total FROM pengajuan WHERE status = 'menunggu'
+    `);
+
     res.json({
       success: true,
       user: {
@@ -245,6 +250,7 @@ const getAdminData = async (req, res) => {
         total_pegawai: parseInt(totalPegawai),
         is_hari_libur: isHariLibur,
         nama_libur: isHariLibur ? namaLibur : null,
+        pengajuan_pending: parseInt(pengajuanPending[0].total || 0),
       },
       recent: recentRows || []
     });

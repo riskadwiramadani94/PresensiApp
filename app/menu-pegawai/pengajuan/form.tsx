@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppHeader } from '../../../components';
-import { PegawaiAPI } from '../../../constants/config';
+import { PegawaiAPI, API_CONFIG, fetchWithRetry } from '../../../constants/config';
 import * as ImagePicker from 'expo-image-picker';
 import CustomCalendar from '../../../components/CustomCalendar';
 import AnalogTimePicker from '../../../components/AnalogTimePicker';
@@ -67,14 +67,8 @@ export default function PengajuanScreen() {
   const checkDinasStatus = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const url = `http://10.251.102.191:3000/pegawai/presensi/api/check-dinas-status?user_id=${userId}&date=${today}`;
-      
-      console.log('Checking dinas status:', url);
-      
-      const response = await fetch(url);
+      const response = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-status?user_id=${userId}&date=${today}`);
       const data = await response.json();
-      
-      console.log('Check dinas status response:', data);
       return data.is_dinas || false;
     } catch (error) {
       console.error('Error checking dinas status:', error);

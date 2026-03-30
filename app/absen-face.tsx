@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { API_CONFIG } from '../constants/config';
+import { API_CONFIG, fetchWithRetry } from '../constants/config';
 import { AppHeader } from '../components';
 import FaceScanner from '../components/FaceScanner';
 
@@ -27,6 +27,7 @@ export default function AbsenFaceScreen() {
   const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const matchCountRef = useRef(0);
   const isProcessingRef = useRef(false);
+  const [ready, setReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
@@ -35,15 +36,29 @@ export default function AbsenFaceScreen() {
   }, []);
 
   useEffect(() => {
-    if (permission?.granted && faceRegistered === true) startScanning();
-  }, [permission?.granted, faceRegistered]);
+    if (permission?.granted && faceRegistered === true && ready) startScanning();
+  }, [permission?.granted, faceRegistered, ready]);
+
+  const getUserId = async (): Promise<string | null> => {
+    for (let i = 0; i < 3; i++) {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        const userId = user.id_user || user.id;
+        if (userId) return userId.toString();
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    return null;
+  };
 
   const checkFaceRegistered = async () => {
     try {
-      const userData = await AsyncStorage.getItem('userData');
-      if (!userData) return;
-      const user = JSON.parse(userData);
-      const userId = user.id_user || user.id;
+      const userId = await getUserId();
+      if (!userId) {
+        setFaceRegistered(false);
+        return;
+      }
       const res = await fetch(`${API_CONFIG.BASE_URL}/api/face/status?user_id=${userId}`);
       const data = await res.json();
       setFaceRegistered(data.success && data.face_registered);
@@ -77,17 +92,14 @@ export default function AbsenFaceScreen() {
         base64: false,
         shutterSound: false,
         skipProcessing: true,
-        animateShutter: false,
       });
       setCapturing(false);
       if (!photo) return;
 
       lastPhotoRef.current = photo.uri;
 
-      const userData = await AsyncStorage.getItem('userData');
-      if (!userData) return;
-      const user = JSON.parse(userData);
-      const userId = user.id_user || user.id;
+      const userId = await getUserId();
+      if (!userId) return;
 
       const formData = new FormData();
       formData.append('user_id', userId.toString());
@@ -144,7 +156,7 @@ export default function AbsenFaceScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const today = new Date().toISOString().split('T')[0];
 
-      const dinasRes = await fetch(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-status?user_id=${userId}&date=${today}`);
+      const dinasRes = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-status?user_id=${userId}&date=${today}`);
       const dinasData = await dinasRes.json();
       const lokasiList = dinasData.lokasi_valid || [];
 
@@ -172,7 +184,7 @@ export default function AbsenFaceScreen() {
         formData.append('foto', { uri: lastPhotoRef.current, name: `presensi_${Date.now()}.jpg`, type: 'image/jpeg' } as any);
       }
 
-      const res = await fetch(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/presensi`, { method: 'POST', body: formData });
+      const res = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/presensi`, { method: 'POST', body: formData });
       const data = await res.json();
 
       if (data.success) {
@@ -217,12 +229,49 @@ export default function AbsenFaceScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
-          <Text style={styles.noFaceTitle}>Wajah Belum Terdaftar</Text>
+          <Text style={styles.noFaceSubtitle}>Wajah Belum Terdaftar</Text>
           <Text style={styles.noFaceSubtitle}>Anda harus mendaftarkan wajah terlebih dahulu sebelum bisa absen</Text>
           <TouchableOpacity style={styles.btnPrimary} onPress={() => { stopScanning(); router.replace('/enroll-wajah' as any); }}>
             <Text style={styles.btnText}>Daftarkan Wajah Sekarang</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.btnBack} onPress={() => { stopScanning(); router.back(); }}>
+            <Text style={styles.btnBackText}>Kembali</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Halaman instruksi sebelum kamera
+  if (!ready && faceRegistered === true) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader
+          title={`Absen ${jenis === 'pulang' ? 'Pulang' : 'Masuk'}`}
+          showBack
+          onBackPress={() => router.back()}
+        />
+        <View style={styles.center}>
+          <Ionicons name="scan-circle-outline" size={80} color="#fff" />
+          <Text style={styles.instruksiTitle}>Persiapan Scan Wajah</Text>
+          <Text style={styles.instruksiSubtitle}>Pastikan kondisi berikut sebelum melanjutkan:</Text>
+          <View style={styles.instruksiList}>
+            {[
+              { icon: 'glasses-outline', text: 'Lepas kacamata' },
+              { icon: 'medical-outline', text: 'Lepas masker' },
+              { icon: 'happy-outline', text: 'Wajah menghadap kamera' },
+              { icon: 'sunny-outline', text: 'Pastikan pencahayaan cukup' },
+            ].map((item, i) => (
+              <View key={i} style={styles.instruksiItem}>
+                <Ionicons name={item.icon as any} size={22} color="#4CAF50" />
+                <Text style={styles.instruksiText}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.btnPrimary} onPress={() => setReady(true)}>
+            <Text style={styles.btnText}>Saya Sudah Siap</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.btnBack} onPress={() => router.back()}>
             <Text style={styles.btnBackText}>Kembali</Text>
           </TouchableOpacity>
         </View>
@@ -307,7 +356,7 @@ export default function AbsenFaceScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#004643' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16, backgroundColor: '#000' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 16, backgroundColor: '#004643' },
   cameraContainer: { flex: 1, marginHorizontal: 16, marginTop: 8, borderRadius: 20, overflow: 'hidden' },
   camera: { flex: 1 },
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -317,7 +366,11 @@ const styles = StyleSheet.create({
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 30, borderWidth: 1 },
   statusText: { fontSize: 15, fontWeight: '600' },
   hintText: { fontSize: 13, color: '#aaa' },
-  noFaceTitle: { fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  instruksiTitle: { fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center', marginTop: 8 },
+  instruksiSubtitle: { fontSize: 14, color: '#aaa', textAlign: 'center' },
+  instruksiList: { width: '100%', gap: 12, marginVertical: 8 },
+  instruksiItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.08)', padding: 14, borderRadius: 12 },
+  instruksiText: { fontSize: 15, color: '#fff', fontWeight: '500' },
   noFaceSubtitle: { fontSize: 14, color: '#aaa', textAlign: 'center', lineHeight: 20 },
   btnPrimary: { backgroundColor: '#004643', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, width: '100%', alignItems: 'center' },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },

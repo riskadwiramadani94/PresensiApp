@@ -340,95 +340,70 @@ const pusatValidasiController = {
     try {
       const db = await getConnection();
       const { type, id, catatan } = req.body;
-      const adminId = req.user?.id_user || 10; // Default admin ID
+      const adminId = req.user?.id_user || 10;
       
       let query = '';
       let params = [];
       let userId = null;
       let itemType = '';
+      let namaUser = '';
 
       switch (type) {
         case 'absen_dinas':
-          // Get user data first
           const [presensiData] = await db.execute(
-            'SELECT id_user FROM presensi WHERE id_presensi = ?',
+            `SELECT pr.id_user, COALESCE(pg.nama_lengkap, u.email) as nama_lengkap
+             FROM presensi pr
+             JOIN users u ON pr.id_user = u.id_user
+             LEFT JOIN pegawai pg ON pr.id_user = pg.id_user
+             WHERE pr.id_presensi = ?`,
             [id]
           );
-          
           if (presensiData.length > 0) {
             userId = presensiData[0].id_user;
-            itemType = 'presensi dinas';
+            itemType = 'Presensi Dinas';
+            namaUser = presensiData[0].nama_lengkap;
           }
-          
-          query = `
-            UPDATE presensi 
-            SET status_validasi = 'disetujui',
-                divalidasi_oleh = ?,
-                catatan_validasi = ?,
-                waktu_validasi = NOW()
-            WHERE id_presensi = ? AND jenis_presensi = 'dinas'
-          `;
+          query = `UPDATE presensi SET status_validasi = 'disetujui', divalidasi_oleh = ?, catatan_validasi = ?, waktu_validasi = NOW() WHERE id_presensi = ? AND jenis_presensi = 'dinas'`;
           params = [adminId, catatan || null, id];
           break;
 
         case 'pengajuan':
-          // Get user data first
           const [pengajuanData] = await db.execute(
-            'SELECT id_user, jenis_pengajuan FROM pengajuan WHERE id_pengajuan = ?',
+            `SELECT p.id_user, p.jenis_pengajuan, COALESCE(pg.nama_lengkap, u.email) as nama_lengkap
+             FROM pengajuan p
+             JOIN users u ON p.id_user = u.id_user
+             LEFT JOIN pegawai pg ON p.id_user = pg.id_user
+             WHERE p.id_pengajuan = ?`,
             [id]
           );
-          
           if (pengajuanData.length > 0) {
             userId = pengajuanData[0].id_user;
             itemType = pusatValidasiController.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
+            namaUser = pengajuanData[0].nama_lengkap;
           }
-          
-          query = `
-            UPDATE pengajuan 
-            SET status = 'disetujui',
-                disetujui_oleh = ?,
-                catatan_persetujuan = ?,
-                waktu_persetujuan = NOW()
-            WHERE id_pengajuan = ?
-          `;
+          query = `UPDATE pengajuan SET status = 'disetujui', disetujui_oleh = ?, catatan_persetujuan = ?, waktu_persetujuan = NOW() WHERE id_pengajuan = ?`;
           params = [adminId, catatan || null, id];
           break;
 
         default:
-          return res.status(400).json({
-            success: false,
-            message: 'Tipe validasi tidak valid'
-          });
+          return res.status(400).json({ success: false, message: 'Tipe validasi tidak valid' });
       }
 
       const [result] = await db.execute(query, params);
       
       if (result.affectedRows > 0 && userId) {
-        // Kirim push notification ke user
         PushNotificationService.send(
           userId,
-          '✅ Disetujui',
-          `${itemType} Anda telah disetujui${catatan ? '. ' + catatan : ''}`,
-          {
-            type: type === 'absen_dinas' ? 'presensi_approved' : 'pengajuan_approved',
-            reference_type: type,
-            reference_id: parseInt(id)
-          }
-        ).catch(error => {
-          console.error('[PUSH] Failed to send approval notification:', error);
-        });
+          '✅ Pengajuan Disetujui',
+          `${namaUser}, pengajuan ${itemType} Anda telah disetujui${catatan ? '. ' + catatan : ''}`,
+          { type: type === 'absen_dinas' ? 'presensi_approved' : 'pengajuan_approved', reference_type: type, reference_id: parseInt(id) }
+        ).catch(err => console.error('[PUSH] Failed:', err));
       }
 
-      res.json({
-        success: true,
-        message: 'Berhasil menyetujui'
-      });
+      res.json({ success: true, message: 'Berhasil menyetujui' });
     } catch (error) {
       console.error('Error approving:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Gagal menyetujui'
-      });
+      res.status(500).json({ success: false, message: 'Gagal menyetujui' });
     }
   },
 
@@ -437,102 +412,74 @@ const pusatValidasiController = {
     try {
       const db = await getConnection();
       const { type, id, catatan } = req.body;
-      const adminId = req.user?.id_user || 10; // Default admin ID
+      const adminId = req.user?.id_user || 10;
       
       if (!catatan) {
-        return res.status(400).json({
-          success: false,
-          message: 'Catatan penolakan wajib diisi'
-        });
+        return res.status(400).json({ success: false, message: 'Catatan penolakan wajib diisi' });
       }
 
       let query = '';
       let params = [];
       let userId = null;
       let itemType = '';
+      let namaUser = '';
 
       switch (type) {
         case 'absen_dinas':
-          // Get user data first
           const [presensiData] = await db.execute(
-            'SELECT id_user FROM presensi WHERE id_presensi = ?',
+            `SELECT pr.id_user, COALESCE(pg.nama_lengkap, u.email) as nama_lengkap
+             FROM presensi pr
+             JOIN users u ON pr.id_user = u.id_user
+             LEFT JOIN pegawai pg ON pr.id_user = pg.id_user
+             WHERE pr.id_presensi = ?`,
             [id]
           );
-          
           if (presensiData.length > 0) {
             userId = presensiData[0].id_user;
-            itemType = 'presensi dinas';
+            itemType = 'Presensi Dinas';
+            namaUser = presensiData[0].nama_lengkap;
           }
-          
-          query = `
-            UPDATE presensi 
-            SET status_validasi = 'ditolak',
-                divalidasi_oleh = ?,
-                catatan_validasi = ?,
-                waktu_validasi = NOW()
-            WHERE id_presensi = ? AND jenis_presensi = 'dinas'
-          `;
+          query = `UPDATE presensi SET status_validasi = 'ditolak', divalidasi_oleh = ?, catatan_validasi = ?, waktu_validasi = NOW() WHERE id_presensi = ? AND jenis_presensi = 'dinas'`;
           params = [adminId, catatan, id];
           break;
 
         case 'pengajuan':
-          // Get user data first
           const [pengajuanData] = await db.execute(
-            'SELECT id_user, jenis_pengajuan FROM pengajuan WHERE id_pengajuan = ?',
+            `SELECT p.id_user, p.jenis_pengajuan, COALESCE(pg.nama_lengkap, u.email) as nama_lengkap
+             FROM pengajuan p
+             JOIN users u ON p.id_user = u.id_user
+             LEFT JOIN pegawai pg ON p.id_user = pg.id_user
+             WHERE p.id_pengajuan = ?`,
             [id]
           );
-          
           if (pengajuanData.length > 0) {
             userId = pengajuanData[0].id_user;
             itemType = pusatValidasiController.formatJenisPengajuan(pengajuanData[0].jenis_pengajuan);
+            namaUser = pengajuanData[0].nama_lengkap;
           }
-          
-          query = `
-            UPDATE pengajuan 
-            SET status = 'ditolak',
-                disetujui_oleh = ?,
-                catatan_persetujuan = ?,
-                waktu_persetujuan = NOW()
-            WHERE id_pengajuan = ?
-          `;
+          query = `UPDATE pengajuan SET status = 'ditolak', disetujui_oleh = ?, catatan_persetujuan = ?, waktu_persetujuan = NOW() WHERE id_pengajuan = ?`;
           params = [adminId, catatan, id];
           break;
 
         default:
-          return res.status(400).json({
-            success: false,
-            message: 'Tipe validasi tidak valid'
-          });
+          return res.status(400).json({ success: false, message: 'Tipe validasi tidak valid' });
       }
 
       const [result] = await db.execute(query, params);
       
       if (result.affectedRows > 0 && userId) {
-        // Kirim push notification ke user
         PushNotificationService.send(
           userId,
-          '❌ Ditolak',
-          `${itemType} Anda ditolak. Alasan: ${catatan}`,
-          {
-            type: type === 'absen_dinas' ? 'presensi_rejected' : 'pengajuan_rejected',
-            reference_type: type,
-            reference_id: parseInt(id)
-          }
-        ).catch(error => {
-          console.error('[PUSH] Failed to send rejection notification:', error);
-        });
+          '❌ Pengajuan Ditolak',
+          `${namaUser}, pengajuan ${itemType} Anda ditolak. Alasan: ${catatan}`,
+          { type: type === 'absen_dinas' ? 'presensi_rejected' : 'pengajuan_rejected', reference_type: type, reference_id: parseInt(id) }
+        ).catch(err => console.error('[PUSH] Failed:', err));
       }
 
-      res.json({
-        success: true,
-        message: 'Berhasil menolak'
-      });
+      res.json({ success: true, message: 'Berhasil menolak' });
     } catch (error) {
       console.error('Error rejecting:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Gagal menolak'
-      });
+      res.status(500).json({ success: false, message: 'Gagal menolak' });
     }
   },
   

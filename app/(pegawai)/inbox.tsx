@@ -187,17 +187,21 @@ export default function InboxScreen() {
     return iconMap[type] || icon || 'notifications';
   };
 
-  const handleItemPress = async (item: Notification) => {
+  const handleItemPress = (item: Notification) => {
     if (!item.is_read) markAsRead(item.id);
 
-    if (item.type?.includes('absen')) {
+    const type = item.type;
+
+    if (['absen_masuk','absen_pulang','absen_dinas_masuk','absen_dinas_pulang',
+         'reminder_masuk','reminder_pulang','reminder_terlambat'].includes(type)) {
       router.push('/(pegawai)/presensi');
-    } else if (item.type?.includes('pengajuan') || item.reference_type === 'pengajuan') {
-      router.push('/(pegawai)/pengajuan' as any);
-    } else if (item.type?.includes('dinas') || item.reference_type === 'dinas') {
+    } else if (['pengajuan_baru','pengajuan_approved','pengajuan_rejected',
+                'pengajuan','approval'].includes(type)) {
+      router.push('/menu-pegawai/pengajuan' as any);
+    } else if (['lembur_approved','lembur_rejected'].includes(type)) {
+      router.push('/menu-pegawai/pengajuan' as any);
+    } else if (['dinas_assigned','dinas_cancelled'].includes(type)) {
       router.push('/(pegawai)/kegiatan' as any);
-    } else if (item.reference_type === 'presensi') {
-      router.push('/(pegawai)/presensi');
     }
   };
 

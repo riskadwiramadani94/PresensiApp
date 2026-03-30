@@ -105,21 +105,24 @@ const getInboxNotifications = async (req, res) => {
       const sudahAbsenPulang = presensiToday.length > 0 && presensiToday[0].jam_pulang;
 
       // Reminder masuk
-      if (currentTime >= jamMasuk && currentTime <= jamPulang) {
-        if (sudahAbsenMasuk) {
-          await upsertNotifikasi(db, user_id,
-            'Sudah Absen Masuk',
-            `Anda sudah absen masuk pada pukul ${presensiToday[0].jam_masuk.substring(0, 5)} WIB`,
-            'absen_masuk', { tanggal: todayStr }
-          );
-        } else {
-          const tipe = currentTime > batasAbsen ? 'reminder_terlambat' : 'reminder_masuk';
-          const judul = currentTime > batasAbsen ? 'Anda Terlambat!' : 'Reminder Absen Masuk';
-          const pesan = currentTime > batasAbsen
-            ? `Sudah melewati batas absen pukul ${batasAbsen} WIB. Segera absen atau ajukan izin!`
-            : `Jangan lupa absen masuk sebelum pukul ${batasAbsen} WIB!`;
-          await upsertNotifikasi(db, user_id, judul, pesan, tipe, { tanggal: todayStr });
-        }
+      if (sudahAbsenMasuk) {
+        await upsertNotifikasi(db, user_id,
+          'Sudah Absen Masuk',
+          `Anda sudah absen masuk pada pukul ${presensiToday[0].jam_masuk.substring(0, 5)} WIB`,
+          'absen_masuk', { tanggal: todayStr }
+        );
+      } else if (currentTime > batasAbsen && currentTime <= jamPulang) {
+        await upsertNotifikasi(db, user_id,
+          'Anda Terlambat!',
+          `Sudah melewati batas absen pukul ${batasAbsen} WIB. Segera absen atau ajukan izin!`,
+          'reminder_terlambat', { tanggal: todayStr }
+        );
+      } else if (currentTime <= jamPulang) {
+        await upsertNotifikasi(db, user_id,
+          'Absen Masuk',
+          `Jangan lupa absen masuk sebelum pukul ${batasAbsen} WIB!`,
+          'reminder_masuk', { tanggal: todayStr }
+        );
       }
 
       // Reminder pulang
@@ -132,7 +135,7 @@ const getInboxNotifications = async (req, res) => {
           );
         } else if (currentTime >= jamPulang) {
           await upsertNotifikasi(db, user_id,
-            'Reminder Absen Pulang',
+            'Absen Pulang',
             'Jangan lupa absen pulang sebelum meninggalkan kantor!',
             'reminder_pulang', { tanggal: todayStr }
           );

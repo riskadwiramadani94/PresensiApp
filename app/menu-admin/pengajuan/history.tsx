@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppHeader } from '../../../components';
-import { PusatValidasiAPI, KelolaDinasAPI } from '../../../constants/config';
+import { PusatValidasiAPI, KelolaDinasAPI, API_CONFIG } from '../../../constants/config';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -86,17 +86,39 @@ export default function HistoryScreen() {
     setLoading(true);
     try {
       const [resDinas, resPengajuan] = await Promise.all([
-        fetch(`${KelolaDinasAPI}/history`),
-        fetch(`${PusatValidasiAPI}/history`),
+        PusatValidasiAPI.getAllAbsenDinas(),
+        PusatValidasiAPI.getAllPengajuan(),
       ]);
-      const [dataDinas, dataPengajuan] = await Promise.all([
-        resDinas.ok ? resDinas.json() : [],
-        resPengajuan.ok ? resPengajuan.json() : [],
-      ]);
-      const combined: HistoryItem[] = [
-        ...(Array.isArray(dataDinas) ? dataDinas : []),
-        ...(Array.isArray(dataPengajuan) ? dataPengajuan : []),
-      ].sort((a, b) => new Date(b.tanggal_sort).getTime() - new Date(a.tanggal_sort).getTime());
+
+      const dinasItems: HistoryItem[] = (resDinas.success && Array.isArray(resDinas.data) ? resDinas.data : []).map((d: any) => ({
+        id: `dinas_${d.id_dinas || d.id}`,
+        tipe: 'absen_dinas' as const,
+        judul: d.nama_kegiatan || d.namaKegiatan || 'Dinas',
+        subjudul: d.nomor_spt || d.nomorSpt || '',
+        nama: d.nama_kegiatan || d.namaKegiatan,
+        tanggal_mulai: d.tanggal_mulai,
+        tanggal_selesai: d.tanggal_selesai,
+        status: 'selesai',
+        keterangan: d.lokasi,
+        tanggal_sort: d.tanggal_mulai,
+      }));
+
+      const pengajuanItems: HistoryItem[] = (resPengajuan.success && Array.isArray(resPengajuan.data) ? resPengajuan.data : []).map((p: any) => ({
+        id: `pengajuan_${p.id_pengajuan}`,
+        tipe: 'pengajuan' as const,
+        judul: formatJenis(p.jenis_pengajuan),
+        subjudul: p.nip || '',
+        nama: p.nama_lengkap,
+        tanggal_mulai: p.tanggal_mulai,
+        tanggal_selesai: p.tanggal_selesai,
+        status: p.status,
+        keterangan: p.alasan_text,
+        tanggal_sort: p.tanggal_pengajuan || p.tanggal_mulai,
+      }));
+
+      const combined = [...dinasItems, ...pengajuanItems]
+        .sort((a, b) => new Date(b.tanggal_sort).getTime() - new Date(a.tanggal_sort).getTime());
+
       setAllData(combined);
     } catch (e) {
       setAllData([]);

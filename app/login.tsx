@@ -70,7 +70,7 @@ export default function LoginScreen() {
             console.log('[LOGIN] Registering pending push token...');
             
             const userId = result.data.id || result.data.id_user;
-            const baseUrl = 'http://192.168.1.4:3000';
+            const baseUrl = API_CONFIG.BASE_URL;
             
             console.log('[LOGIN] User ID:', userId);
             console.log('[LOGIN] Base URL:', baseUrl);
