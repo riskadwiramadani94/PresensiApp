@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 25, 2026 at 04:53 PM
+-- Generation Time: Apr 02, 2026 at 06:03 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -227,7 +227,7 @@ CREATE TABLE `notifikasi` (
   `id_user` int(11) NOT NULL,
   `judul` varchar(255) NOT NULL,
   `pesan` text NOT NULL,
-  `tipe` enum('reminder_masuk','reminder_pulang','pengajuan','approval','info') DEFAULT 'info',
+  `tipe` enum('reminder_masuk','reminder_pulang','reminder_terlambat','absen_masuk','absen_pulang','absen_dinas_masuk','absen_dinas_pulang','pengajuan_baru','pengajuan_approved','pengajuan_rejected','dinas_assigned','dinas_cancelled','validasi_absen_dinas_approved','validasi_absen_dinas_rejected','lembur_approved','lembur_rejected','hari_libur','pengajuan','approval','info') DEFAULT 'info',
   `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`data`)),
   `is_read` tinyint(1) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -321,7 +321,7 @@ CREATE TABLE `presensi` (
   `id_lokasi_kantor` int(11) DEFAULT NULL COMMENT 'ID lokasi tempat absen',
   `jenis_presensi` enum('kantor','dinas') DEFAULT 'kantor' COMMENT 'Jenis presensi',
   `id_dinas` int(11) DEFAULT NULL COMMENT 'ID dinas jika absen dinas',
-  `status_validasi_masuk` enum('menunggu','disetujui','ditolak') DEFAULT 'menunggu',
+  `status_validasi_masuk` enum('menunggu','disetujui','ditolak'),
   `status_validasi_pulang` enum('menunggu','disetujui','ditolak') DEFAULT NULL,
   `divalidasi_masuk_oleh` int(11) DEFAULT NULL,
   `divalidasi_pulang_oleh` int(11) DEFAULT NULL,
@@ -464,7 +464,7 @@ ALTER TABLE `lupa_password`
 ALTER TABLE `notifikasi`
   ADD PRIMARY KEY (`id_notifikasi`),
   ADD KEY `fk_notifikasi_user` (`id_user`),
-  ADD KEY `idx_user_read` (`id_user`, `is_read`);
+  ADD KEY `idx_user_read` (`id_user`,`is_read`);
 
 --
 -- Indexes for table `pegawai`
@@ -672,7 +672,8 @@ ALTER TABLE `lupa_password`
 -- Constraints for table `notifikasi`
 --
 ALTER TABLE `notifikasi`
-  ADD CONSTRAINT `fk_notifikasi_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_notifikasi_user` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE,
+  ADD CONSTRAINT `notifikasi_ibfk_1` FOREIGN KEY (`id_user`) REFERENCES `users` (`id_user`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `pegawai`
