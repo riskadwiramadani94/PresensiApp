@@ -48,6 +48,7 @@ export default function LokasiKantorScreen() {
 
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState<LokasiData[]>([]);
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<LokasiData | null>(
     null,
   );
@@ -69,9 +70,23 @@ export default function LokasiKantorScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      getUserLocation();
       fetchLocations();
     }, []),
   );
+
+  const getUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setUserCoords(coords);
+      mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800);
+    } catch (e) {
+      console.error('Error getting user location:', e);
+    }
+  };
 
   const fetchLocations = async () => {
     try {
@@ -79,17 +94,6 @@ export default function LokasiKantorScreen() {
       const response = await PengaturanAPI.getLokasiKantor();
       if (response.success && response.data) {
         setLocations(response.data);
-        const kantor = response.data.find((l: LokasiData) => l.jenis_lokasi === 'tetap') || response.data[0];
-        if (kantor) {
-          setTimeout(() => {
-            mapRef.current?.animateToRegion({
-              latitude: kantor.lintang,
-              longitude: kantor.bujur,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }, 1000);
-          }, 300);
-        }
       }
     } catch (error) {
       console.error("Error fetching locations:", error);
@@ -363,8 +367,8 @@ export default function LokasiKantorScreen() {
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={{
-          latitude: locations.find(l => l.jenis_lokasi === 'tetap')?.lintang || locations[0]?.lintang || -6.2088,
-          longitude: locations.find(l => l.jenis_lokasi === 'tetap')?.bujur || locations[0]?.bujur || 106.8456,
+          latitude: userCoords?.latitude ?? -6.2088,
+          longitude: userCoords?.longitude ?? 106.8456,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }}

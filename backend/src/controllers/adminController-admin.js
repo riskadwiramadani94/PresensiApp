@@ -210,7 +210,7 @@ const getAdminData = async (req, res) => {
 
     console.log('Dashboard Stats:', { totalPegawai, hadir_kantor, dinas, hadir, tidak_hadir, isHariLibur, namaLibur });
 
-    // Get recent activities - GABUNGAN presensi kantor + dinas
+    // Get recent activities - GABUNGAN presensi kantor + dinas (masuk & pulang)
     const [recentRows] = await db.execute(`
       SELECT 
         p.nama_lengkap,
@@ -219,16 +219,18 @@ const getAdminData = async (req, res) => {
           ELSE 'Hadir'
         END as status,
         TIME_FORMAT(pr.jam_masuk, '%H:%i:%s') as jam_masuk,
+        TIME_FORMAT(pr.jam_pulang, '%H:%i:%s') as jam_pulang,
         p.foto_profil,
-        pr.jenis_presensi as jenis
+        pr.jenis_presensi as jenis,
+        pr.tanggal as tanggal_absen
       FROM presensi pr
       LEFT JOIN users u ON pr.id_user = u.id_user
       LEFT JOIN pegawai p ON u.id_user = p.id_user
       WHERE u.role = 'pegawai' 
       AND DATE(pr.tanggal) = CURDATE()
       AND pr.jam_masuk IS NOT NULL
-      ORDER BY pr.jam_masuk DESC
-      LIMIT 5
+      ORDER BY GREATEST(pr.jam_masuk, COALESCE(pr.jam_pulang, '00:00:00')) DESC
+      LIMIT 10
     `);
 
     // Get pengajuan pending

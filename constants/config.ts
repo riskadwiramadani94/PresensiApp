@@ -4,12 +4,12 @@ const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
 
 // Untuk APK production, gunakan IP yang bisa diakses dari luar
 // Atau deploy backend ke cloud service
-const PRODUCTION_URL = "http://10.251.102.60:3000"; // IP yang benar
-const DEVELOPMENT_URL = "http://10.251.102.60:3000"; // IP yang benar
+const PRODUCTION_URL = "http://10.23.11.221:3000"; // IP yang benar
+const DEVELOPMENT_URL = "http://10.23.11.221:3000"; // IP yang benar
 
 // Multiple server options untuk APK
 const SERVER_OPTIONS = [
-  'http://10.251.102.60:3000',   // WiFi IP - IP yang benar
+  'http://10.23.11.221:3000',   // WiFi IP - IP yang benar
   'http://10.251.102.191:3000',   // IP lama sebagai backup
   'http://192.168.1.100:3000',    // IP alternatif
   'http://10.0.2.2:3000',         // Android Emulator
@@ -144,11 +144,12 @@ export const fetchWithRetry = async (url: string, options: any = {}): Promise<Re
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds per attempt
     
     try {
+      const isFormData = options.body instanceof FormData;
       const response = await fetch(serverUrl, {
         ...options,
         signal: controller.signal,
         headers: {
-          'Content-Type': 'application/json',
+          ...(!isFormData && options.method && options.method !== 'GET' ? { 'Content-Type': 'application/json' } : {}),
           'Accept': 'application/json',
           ...options.headers
         }

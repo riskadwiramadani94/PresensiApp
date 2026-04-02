@@ -887,10 +887,10 @@ const submitPresensi = async (req, res) => {
             INSERT INTO presensi (
               id_user, tanggal, jam_masuk, lintang_masuk, bujur_masuk, foto_masuk, 
               alasan_luar_lokasi, status, status_validasi, id_lokasi_kantor
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disetujui', ?)
           `, [
             user_id, tanggal_only, jam_sekarang, latitude, longitude, fotoFile || null, 
-            keterangan || null, status, 'disetujui', lokasi_id_valid
+            keterangan || null, status, lokasi_id_valid
           ]);
           console.log('✓ INSERT completed');
         } else {

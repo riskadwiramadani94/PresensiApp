@@ -27,7 +27,7 @@ export default function AbsenFaceScreen() {
   const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const matchCountRef = useRef(0);
   const isProcessingRef = useRef(false);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(true);
   const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function AbsenFaceScreen() {
 
   const startScanning = () => {
     if (scanIntervalRef.current) return;
-    scanIntervalRef.current = setInterval(scanFace, 2500);
+    scanIntervalRef.current = setInterval(scanFace, 1500);
   };
 
   const stopScanning = () => {
@@ -116,16 +116,10 @@ export default function AbsenFaceScreen() {
 
       if (result.success && result.match && result.confidence >= 60) {
         setConfidence(result.confidence);
-        matchCountRef.current += 1;
-        setMatchStatus('match');
-        setMessage(`Wajah cocok (${result.confidence}%)`);
-
-        if (matchCountRef.current >= 2) {
-          stopScanning();
-          setMatchStatus('success');
-          setMessage('Memproses absensi...');
-          await submitAbsen(userId, result.confidence);
-        }
+        setMatchStatus('success');
+        setMessage('Memproses absensi...');
+        stopScanning();
+        await submitAbsen(userId, result.confidence);
       } else {
         matchCountRef.current = 0;
         setMatchStatus('nomatch');
@@ -242,43 +236,6 @@ export default function AbsenFaceScreen() {
     );
   }
 
-  // Halaman instruksi sebelum kamera
-  if (!ready && faceRegistered === true) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <AppHeader
-          title={`Absen ${jenis === 'pulang' ? 'Pulang' : 'Masuk'}`}
-          showBack
-          onBackPress={() => router.back()}
-        />
-        <View style={styles.center}>
-          <Ionicons name="scan-circle-outline" size={80} color="#fff" />
-          <Text style={styles.instruksiTitle}>Persiapan Scan Wajah</Text>
-          <Text style={styles.instruksiSubtitle}>Pastikan kondisi berikut sebelum melanjutkan:</Text>
-          <View style={styles.instruksiList}>
-            {[
-              { icon: 'glasses-outline', text: 'Lepas kacamata' },
-              { icon: 'medical-outline', text: 'Lepas masker' },
-              { icon: 'happy-outline', text: 'Wajah menghadap kamera' },
-              { icon: 'sunny-outline', text: 'Pastikan pencahayaan cukup' },
-            ].map((item, i) => (
-              <View key={i} style={styles.instruksiItem}>
-                <Ionicons name={item.icon as any} size={22} color="#4CAF50" />
-                <Text style={styles.instruksiText}>{item.text}</Text>
-              </View>
-            ))}
-          </View>
-          <TouchableOpacity style={styles.btnPrimary} onPress={() => setReady(true)}>
-            <Text style={styles.btnText}>Saya Sudah Siap</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnBack} onPress={() => router.back()}>
-            <Text style={styles.btnBackText}>Kembali</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   if (!permission) return <View style={styles.container} />;
 
   if (!permission.granted) {
@@ -327,9 +284,6 @@ export default function AbsenFaceScreen() {
                 <Ionicons name="checkmark-circle" size={72} color="#4CAF50" />
               </View>
             )}
-            {matchStatus === 'match' && (
-              <Text style={styles.confidenceText}>{confidence}%</Text>
-            )}
           </View>
         </CameraView>
       </View>
@@ -346,8 +300,8 @@ export default function AbsenFaceScreen() {
             {message}
           </Text>
         </View>
-        {matchStatus === 'match' && (
-          <Text style={styles.hintText}>Tahan sebentar...</Text>
+        {matchStatus === 'success' && (
+          <Text style={styles.hintText}>Wajah sesuai ✓</Text>
         )}
       </View>
     </SafeAreaView>

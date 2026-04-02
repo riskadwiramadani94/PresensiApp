@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform, Animate
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { PegawaiAPI, API_CONFIG } from '../../constants/config';
+import { PegawaiAPI, API_CONFIG, fetchWithRetry } from '../../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PresensiMap from '../../components/PresensiMap';
 import { AppHeader, CustomAlert } from '../../components';
@@ -155,7 +155,7 @@ export default function PresensiScreen() {
 
       const [response1, response2raw] = await Promise.all([
         PegawaiAPI.getPresensi(userId.toString(), today),
-        fetch(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-attendance?user_id=${userId}&date=${today}`)
+        fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-attendance?user_id=${userId}&date=${today}`)
       ]);
       const data2 = await response2raw.json();
 
@@ -185,7 +185,7 @@ export default function PresensiScreen() {
       const user = JSON.parse(userData);
       const userId = user.id_user || user.id;
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`);
+      const response = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`);
       const data = await response.json();
       setIzinHariIni(data.success && Object.keys(data.data).length > 0 ? data.data : null);
     } catch {}
@@ -198,7 +198,7 @@ export default function PresensiScreen() {
       const user = JSON.parse(userData);
       const userId = user.id_user || user.id;
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-work-day?user_id=${userId}&date=${today}`);
+      const response = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-work-day?user_id=${userId}&date=${today}`);
       const data = await response.json();
       if (data.success) { setIsWorkDay(data.is_work_day); setIsHoliday(data.is_holiday || !data.is_work_day); setHolidayReason(data.reason || ''); }
     } catch {}
@@ -211,7 +211,7 @@ export default function PresensiScreen() {
       const user = JSON.parse(userData);
       const userId = user.id_user || user.id;
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-status?user_id=${userId}&date=${today}`);
+      const response = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/presensi/api/check-dinas-status?user_id=${userId}&date=${today}`);
       const data = await response.json();
       if (data.success) {
         setIsDinas(data.is_dinas || false);
@@ -242,7 +242,7 @@ export default function PresensiScreen() {
       const result = await PegawaiAPI.detectNearestLocation(userLocation.latitude, userLocation.longitude);
       if (result.success && result.data) {
         const { nearest_office, all_offices } = result.data;
-        const officeCoords = await fetch(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/lokasi-kantor`);
+        const officeCoords = await fetchWithRetry(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/lokasi-kantor`);
         const officeData = await officeCoords.json();
         if (officeData.success && officeData.data) {
           const nearestOfficeData = officeData.data.find((loc: any) => loc.id === nearest_office.id);
@@ -287,7 +287,7 @@ export default function PresensiScreen() {
     try {
       const now = new Date();
       const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][now.getDay()];
-      const jamKerjaRes = await fetch(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/jam-kerja`);
+      const jamKerjaRes = await fetchWithRetry(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/jam-kerja`);
       const jamKerjaData = await jamKerjaRes.json();
       let jamMasuk = '08:00:00';
       if (jamKerjaData.success) { const h = jamKerjaData.data?.find((h: any) => h.hari === hari); if (h) jamMasuk = h.jam_masuk; }
@@ -303,7 +303,7 @@ export default function PresensiScreen() {
         const userData = await AsyncStorage.getItem('userData');
         const user = userData ? JSON.parse(userData) : null;
         const userId = user?.id_user || user?.id;
-        const izinRes = await fetch(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`);
+        const izinRes = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`);
         const izinData = await izinRes.json();
         if (izinData.success && izinData.data?.izin_datang_terlambat) {
           // Ada izin terlambat → boleh absen
@@ -324,19 +324,26 @@ export default function PresensiScreen() {
       const userId = user.id_user || user.id;
       const now = new Date();
       const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'][now.getDay()];
-      const jamKerjaRes = await fetch(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/jam-kerja`);
+      const jamKerjaRes = await fetchWithRetry(`${API_CONFIG.BASE_URL}/admin/pengaturan/api/jam-kerja`);
       const jamKerjaData = await jamKerjaRes.json();
       let jamPulang = '17:00:00';
       if (jamKerjaData.success) { const h = jamKerjaData.data?.find((h: any) => h.hari === hari); if (h) jamPulang = h.jam_pulang; }
       const currentTimeStr = now.toTimeString().slice(0, 8);
       if (currentTimeStr < jamPulang) {
         const today = now.toISOString().split('T')[0];
-        const izinRes = await fetch(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`);
+        const izinRes = await fetchWithRetry(`${API_CONFIG.BASE_URL}/pegawai/pengajuan/api/pengajuan/izin-hari-ini?user_id=${userId}&tanggal=${today}`);
         const izinData = await izinRes.json();
         if (izinData.success && izinData.data?.izin_pulang_cepat) {
-          const jamIzin = izinData.data.izin_pulang_cepat.jam + ':00';
-          if (currentTimeStr < jamIzin) { alert.showAlert({ type: 'warning', message: `Belum waktunya absen pulang. Jam pulang: ${jamPulang.slice(0, 5)}` }); return; }
-        } else { alert.showAlert({ type: 'warning', message: `Belum waktunya absen pulang. Jam pulang: ${jamPulang.slice(0, 5)}` }); return; }
+          const jamIzin = izinData.data.izin_pulang_cepat.jam;
+          const jamIzinStr = jamIzin.length === 5 ? jamIzin + ':00' : jamIzin;
+          if (currentTimeStr >= jamIzinStr) {
+            // Sudah >= jam izin pulang cepat → boleh absen
+          } else {
+            alert.showAlert({ type: 'warning', message: `Izin pulang cepat berlaku jam ${jamIzin}. Belum waktunya.` }); return;
+          }
+        } else {
+          alert.showAlert({ type: 'warning', message: `Belum waktunya absen pulang. Jam pulang: ${jamPulang.slice(0, 5)}` }); return;
+        }
       }
     } catch {}
     router.push({ pathname: '/absen-face', params: { jenis: 'pulang' } } as any);
@@ -577,7 +584,7 @@ export default function PresensiScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#004643' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   mapContainer: {
     position: 'absolute',

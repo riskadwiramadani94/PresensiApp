@@ -158,41 +158,55 @@ export default function AdminDashboard() {
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
-        // Tambahkan data presensi (hanya yang ada aktivitas)
+        // Tambahkan data presensi (masuk & pulang)
         if (result.recent) {
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
           result.recent.forEach((item: any) => {
-            // Filter: hanya tampilkan jika ada aktivitas nyata (bukan "Tidak Hadir")
             if (item.status !== 'Tidak Hadir' && item.jam_masuk) {
-              // Cek apakah aktivitas ini masih hari ini
-              const activityDate = new Date(item.tanggal_absen || new Date());
-              const activityDay = new Date(activityDate.getFullYear(), activityDate.getMonth(), activityDate.getDate());
-              
-              // Hanya tampilkan aktivitas hari ini
-              if (activityDay.getTime() === today.getTime()) {
+              // Ambil string tanggal langsung dari backend (YYYY-MM-DD)
+              const tanggalStr = item.tanggal_absen
+                ? String(item.tanggal_absen).substring(0, 10)
+                : todayStr;
+
+              if (tanggalStr === todayStr) {
+                // Presensi Masuk
                 recentActivities.push({
-                  id: `presensi-${item.nama_lengkap}-${item.jam_masuk}`,
+                  id: `presensi-masuk-${item.nama_lengkap}-${item.jam_masuk}`,
                   type: 'presensi',
                   nama_lengkap: item.nama_lengkap,
-                  jam: item.jam_masuk, // Backend sudah mengirim format HH:MM:SS
+                  jam: item.jam_masuk,
                   jenis: 'Presensi Masuk',
                   status: item.status,
-                  tanggal: item.tanggal_absen || new Date().toISOString(),
+                  tanggal: `${tanggalStr}T${item.jam_masuk}`,
                   foto_profil: item.foto_profil
                 });
+
+                // Presensi Pulang (jika sudah ada)
+                if (item.jam_pulang) {
+                  recentActivities.push({
+                    id: `presensi-pulang-${item.nama_lengkap}-${item.jam_pulang}`,
+                    type: 'presensi',
+                    nama_lengkap: item.nama_lengkap,
+                    jam: item.jam_pulang,
+                    jenis: 'Presensi Pulang',
+                    status: item.status,
+                    tanggal: `${tanggalStr}T${item.jam_pulang}`,
+                    foto_profil: item.foto_profil
+                  });
+                }
               }
             }
           });
         }
         
-        // Tambahkan data pengajuan (semua pengajuan adalah aktivitas nyata)
+        // Tambahkan data pengajuan
         if (result.pengajuan) {
           result.pengajuan.forEach((item: any) => {
-            // Cek apakah pengajuan ini masih hari ini
-            const pengajuanDate = new Date(item.tanggal_pengajuan || new Date());
-            const pengajuanDay = new Date(pengajuanDate.getFullYear(), pengajuanDate.getMonth(), pengajuanDate.getDate());
-            
-            // Hanya tampilkan pengajuan hari ini
-            if (pengajuanDay.getTime() === today.getTime()) {
+            const tanggalStr = item.tanggal_pengajuan
+              ? String(item.tanggal_pengajuan).substring(0, 10)
+              : todayStr;
+
+            if (tanggalStr === todayStr) {
               // Format jam dengan detik untuk pengajuan
               let jamFormatted = item.jam_pengajuan;
               if (jamFormatted && jamFormatted.length >= 5) {
